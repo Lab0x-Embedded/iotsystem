@@ -1,0 +1,55 @@
+#include "api/handlers.h"
+#include "api/http_server.h"
+#include "business/shadow_manager.h"
+#include "common/log.h"
+#include <cJSON.h>
+#include <event2/buffer.h>
+
+void handler_shadow(struct evhttp_request *req, void *ctx) {
+    (void)ctx;
+    struct evbuffer *in = evhttp_request_get_input_buffer(req);
+    size_t len = evbuffer_get_length(in);
+    char *body = malloc(len + 1);
+    evbuffer_copyout(in, body, len); body[len] = '\0';
+    cJSON *root = cJSON_Parse(body);
+    const cJSON *id = cJSON_GetObjectItem(root, "device_id");
+    const cJSON *action = cJSON_GetObjectItem(root, "action");
+    if (!id) { http_reply_json(req, 400, "Bad Request", "{\"error\":\"missing device_id\"}"); free(body); cJSON_Delete(root); return; }
+    if (action && strcmp(action->valuestring, "set_desired") == 0) {
+        const cJSON *key = cJSON_GetObjectItem(root, "key");
+        const cJSON *val = cJSON_GetObjectItem(root, "value");
+        if (key && val && shadow_set_desired(id->valuestring, key->valuestring, val->valuestring) == 0) {
+            http_reply_json(req, 200, "OK", "{\"status\":\"desired_set\"}");
+        } else {
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"set_desired failed\"}");
+        }
+    } else if (action && strcmp(action->valuestring, "delta") == 0) {
+        shadow_kv_t delta[SHADOW_MAX_KVS];
+        int n = shadow_compute_delta(id->valuestring, delta, SHADOW_MAX_KVS);
+        cJSON *res = cJSON_CreateObject();
+        cJSON *arr = cJSON_CreateArray();
+        for (int i = 0; i < n; i++) {
+            cJSON *kv = cJSON_CreateObject();
+            cJSON_AddStringToObject(kv, "key", delta[i].key);
+            cJSON_AddStringToObject(kv, "desired", delta[i].value);
+            cJSON_AddItemToArray(arr, kv);
+        }
+        cJSON_AddItemToObject(res, "delta", arr);
+        char *txt = cJSON_PrintUnformatted(res);
+        http_reply_json(req, 200, "OK", txt);
+        free(txt); cJSON_Delete(res);
+    } else {
+        const device_shadow_t *s = shadow_find(id->valuestring);
+        if (s) {
+            cJSON *res = cJSON_CreateObject();
+            cJSON_AddStringToObject(res, "device_id", s->device_id);
+            cJSON_AddNumberToObject(res, "version", (double)s->version);
+            char *txt = cJSON_PrintUnformatted(res);
+            http_reply_json(req, 200, "OK", txt);
+            free(txt); cJSON_Delete(res);
+        } else {
+            http_reply_json(req, 404, "Not Found", "{\"error\":\"shadow not found\"}");
+        }
+    }
+    free(body); cJSON_Delete(root);
+}

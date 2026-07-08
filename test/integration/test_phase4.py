@@ -14,6 +14,7 @@ import os
 import time
 import signal
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'bench'))
 sys.path.insert(0, os.path.dirname(__file__))
 from mqtt_conn_sim import (
     build_connect_packet, build_subscribe_packet, build_publish_packet,

@@ -9,6 +9,7 @@ import struct
 import sys
 import os
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'bench'))
 sys.path.insert(0, os.path.dirname(__file__))
 from mqtt_conn_sim import (
     encode_remain_len, decode_remain_len,
