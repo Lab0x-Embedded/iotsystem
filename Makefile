@@ -13,7 +13,7 @@ TARGET   := $(BUILDDIR)/iot-broker
 SRC      := $(wildcard $(SRCDIR)/*.c $(SRCDIR)/*/*.c)
 OBJ      := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRC))
 
-.PHONY: all clean dirs run bench
+.PHONY: all clean dirs run bench test_topic test_pub_sub test_integration
 
 all: dirs $(TARGET)
 
@@ -42,3 +42,17 @@ bench: all
 	@python3 tools/bench.py --host 127.0.0.1 --port 1883 --clients 500
 	@echo ">>> stopping server..."
 	@kill $$(cat /tmp/iot-broker.pid) 2>/dev/null; rm -f /tmp/iot-broker.pid
+
+test_topic: all
+	@echo ">>> running topic matching unit tests..."
+	@python3 tools/test_topic.py
+
+test_integration: all
+	@echo ">>> running MQTT integration tests (Phase 2)..."
+	@python3 tools/test_mqtt_integration.py
+	@echo ">>> running PUB/SUB integration tests (Phase 3)..."
+	@python3 tools/test_pub_sub.py
+
+test_pub_sub: all
+	@echo ">>> running PUB/SUB/UNSUB integration tests..."
+	@python3 tools/test_pub_sub.py

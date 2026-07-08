@@ -116,3 +116,107 @@ def parse_connack(buf):
     sp = buf[off]
     rc = buf[off + 1]
     return True, sp, rc, ""
+
+def build_unsubscribe_packet(topic, packet_id):
+    """构造 UNSUBSCRIBE 报文."""
+    payload = struct.pack("!H", packet_id)
+    payload += struct.pack("!H", len(topic)) + topic
+    return bytes([MQTT_UNSUBSCRIBE << 4 | 0x02]) + encode_remain_len(len(payload)) + payload
+
+def parse_suback(buf):
+    """解析 SUBACK.
+
+    返回 (ok, packet_id, return_codes, err_msg).
+    """
+    if len(buf) < 4:
+        return False, 0, [], "too short"
+    if buf[0] != (MQTT_SUBACK << 4):
+        return False, 0, [], f"bad type byte {buf[0]:#x}"
+    remain, off = decode_remain_len(buf, 1)
+    if off + 2 > len(buf):
+        return False, 0, [], "truncated"
+    packet_id = (buf[off] << 8) | buf[off + 1]
+    off += 2
+    codes = list(buf[off:off + remain - 2])
+    return True, packet_id, codes, ""
+
+def parse_unsuback(buf):
+    """解析 UNSUBACK.
+
+    返回 (ok, packet_id, err_msg).
+    """
+    if len(buf) < 4:
+        return False, 0, "too short"
+    if buf[0] != (MQTT_UNSUBACK << 4):
+        return False, 0, f"bad type byte {buf[0]:#x}"
+    remain, off = decode_remain_len(buf, 1)
+    if remain != 2:
+        return False, 0, f"unexpected remain_len {remain}"
+    packet_id = (buf[off] << 8) | buf[off + 1]
+    return True, packet_id, ""
+
+def parse_publish_header(buf):
+    """解析 PUBLISH 报文的 topic 和 payload.
+
+    返回 (ok, topic, packet_id, payload, err_msg).
+    topic 和 payload 以 bytes 返回.
+    """
+    if len(buf) < 4:
+        return False, b"", 0, b"", "too short"
+    if (buf[0] >> 4) != MQTT_PUBLISH:
+        return False, b"", 0, b"", f"bad type byte {buf[0]:#x}"
+    remain, off = decode_remain_len(buf, 1)
+    if off + 2 > len(buf):
+        return False, b"", 0, b"", "truncated"
+    tlen = (buf[off] << 8) | buf[off + 1]
+    off += 2
+    if off + tlen > len(buf):
+        return False, b"", 0, b"", "truncated topic"
+    topic = buf[off:off + tlen]
+    off += tlen
+    qos = (buf[0] >> 1) & 0x03
+    if qos > 0:
+        if off + 2 > len(buf):
+            return False, b"", 0, b"", "truncated packet_id"
+        pid = (buf[off] << 8) | buf[off + 1]
+        off += 2
+    else:
+        pid = 0
+    payload = buf[off:off + remain - (off - 1 - 1 - (0 if tlen == 0 else 2))]
+    # 准确 payload 长度: remain - (off-1-1)  因为 off 已移到 payload
+    # 更简单: 从 off 到末尾
+    payload = buf[off:]
+    return True, topic, pid, payload, ""
+
+# ---------------------------------------------------------------------------
+# 网络接收辅助函数 (供测试脚本使用)
+# ---------------------------------------------------------------------------
+
+def recv_exact(s, n, timeout=2.0):
+    """精确收 n 字节."""
+    s.settimeout(timeout)
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = s.recv(n - len(buf))
+        if not chunk:
+            raise ConnectionError("peer closed")
+        buf += chunk
+    return bytes(buf)
+
+def recv_packet(s, timeout=2.0):
+    """收一个完整 MQTT 报文."""
+    s.settimeout(timeout)
+    head = recv_exact(s, 1, timeout)
+    multiplier = 1
+    value = 0
+    while True:
+        b = recv_exact(s, 1, timeout)[0]
+        value += (b & 0x7F) * multiplier
+        if (b & 0x80) == 0:
+            break
+        multiplier *= 128
+    if value > 0:
+        body = recv_exact(s, value, timeout)
+    else:
+        body = b""
+    return head + encode_remain_len(value) + body

@@ -5,14 +5,19 @@
  *
  * 设计:
  *   - broker 是无状态的全局对象 (单实例).
- *   - 表结构：session[] 与[]  (连接对象).
- *   - dispatch 路由。
+ *   - 表结构：session[] 与连接对象.
+ *   - dispatch 路由.
  */
 
 #ifndef E2_MQTT_BROKER_H
 #define E2_MQTT_BROKER_H
 
 #include "mqtt_types.h"
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** broker 全局初始化. */
 void mqtt_broker_init(void);
@@ -26,5 +31,15 @@ void mqtt_broker_init(void);
  *  pkt 所有权归 broker 处理: 内部会 unref pkt.
  */
 void mqtt_broker_dispatch(mqtt_connection_t *conn, mqtt_packet_t *pkt);
+
+/**
+ * 注册/注销在线 MQTT 连接 (供 event_loop 在连接创建/销毁时调用).
+ */
+void mqtt_broker_register(mqtt_connection_t *conn);
+void mqtt_broker_unregister(mqtt_connection_t *conn);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* E2_MQTT_BROKER_H */

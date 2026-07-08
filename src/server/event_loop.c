@@ -14,6 +14,7 @@
 #include "event_loop.h"
 #include "connection.h"
 #include "thread_pool.h"
+#include "mqtt_broker.h"
 #include "common/log.h"
 
 #include <string.h>
@@ -213,8 +214,10 @@ static void handle_new_connection(event_loop_t *loop) {
         conn_wrapper_t *w = conn_wrapper_create(c);
         if (!w) { connection_destroy(c); close(cfd); return; }
         c->wrapper = (void *)w;
+        mqtt_broker_register(&w->mqtt);
 
         if (event_loop_add_conn(loop, c) != 0) {
+            mqtt_broker_unregister(&w->mqtt);
             conn_wrapper_destroy(w);
             c->wrapper = NULL;
             connection_destroy(c);
@@ -235,6 +238,7 @@ static void handle_new_connection(event_loop_t *loop) {
 static void handle_disconnect(event_loop_t *loop, connection_t *c) {
     if (!c) return;
     if (c->wrapper) {
+        mqtt_broker_unregister(&((conn_wrapper_t *)c->wrapper)->mqtt);
         conn_wrapper_destroy((conn_wrapper_t *)c->wrapper);
         c->wrapper = NULL;
     }
