@@ -15,6 +15,7 @@ public:
     void addSeries(const QString &name, const QColor &color);
     void appendPoint(const QString &name, const QPointF &p);
     void trim(int maxPoints);
+    void setDarkTheme(bool dark);
 
 private:
     QDateTimeAxis *m_axisX;

@@ -22,12 +22,7 @@ void TopDevicesTable::updateTopDevices(const QVector<DeviceInfo> &devices, int c
     QVector<DeviceInfo> sorted = devices;
     std::sort(sorted.begin(), sorted.end(), greaterTemp);
     int limit = qMin(5, sorted.size());
-    QLabel *h1 = new QLabel("#"); h1->setStyleSheet("color:#a6adc8;font-weight:bold;");
-    QLabel *h2 = new QLabel("设备"); h2->setStyleSheet("color:#a6adc8;font-weight:bold;");
-    QLabel *h3 = new QLabel("温度"); h3->setStyleSheet("color:#a6adc8;font-weight:bold;");
-    QLabel *h4 = new QLabel("湿度"); h4->setStyleSheet("color:#a6adc8;font-weight:bold;");
-    QLabel *h5 = new QLabel("电量"); h5->setStyleSheet("color:#a6adc8;font-weight:bold;");
-    m_grid->addWidget(h1, 0, 0); m_grid->addWidget(h2, 0, 1);
+    QLabel *h1 = new QLabel("#");     QLabel *h2 = new QLabel("设备");     QLabel *h3 = new QLabel("温度");     QLabel *h4 = new QLabel("湿度");     QLabel *h5 = new QLabel("电量");     m_grid->addWidget(h1, 0, 0); m_grid->addWidget(h2, 0, 1);
     m_grid->addWidget(h3, 0, 2); m_grid->addWidget(h4, 0, 3); m_grid->addWidget(h5, 0, 4);
     for (int i = 0; i < limit; ++i) {
         const auto &d = sorted[i];

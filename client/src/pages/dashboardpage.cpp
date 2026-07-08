@@ -8,6 +8,7 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QtAlgorithms>
+#include "theme/theme.h"
 
 DashboardPage::DashboardPage(QWidget *parent) : QWidget(parent) {
     auto *root = new QVBoxLayout(this);
@@ -15,7 +16,7 @@ DashboardPage::DashboardPage(QWidget *parent) : QWidget(parent) {
     root->setSpacing(12);
 
     m_lblTotal = new QLabel("IoT 设备管理数据大屏");
-    m_lblTotal->setStyleSheet("font-size:20px; font-weight:bold; color:#cdd6f4;");
+    m_lblTotal->setStyleSheet("font-size:20px; font-weight:bold;");
     root->addWidget(m_lblTotal);
 
     auto *topRow = new QHBoxLayout;
@@ -29,6 +30,10 @@ DashboardPage::DashboardPage(QWidget *parent) : QWidget(parent) {
     m_gaugeBattery->setRange(0, 100); m_gaugeBattery->setUnit("%"); m_gaugeBattery->setColor(QColor("#a6e3a1"));
     m_gaugeOnline = new GaugeWidget("在线率");
     m_gaugeOnline->setRange(0, 100); m_gaugeOnline->setUnit("%"); m_gaugeOnline->setColor(QColor("#f9e2af"));
+    m_gaugeTemp->applyTheme(ThemeManager::instance()->isDark());
+    m_gaugeHumid->applyTheme(ThemeManager::instance()->isDark());
+    m_gaugeBattery->applyTheme(ThemeManager::instance()->isDark());
+    m_gaugeOnline->applyTheme(ThemeManager::instance()->isDark());
     gaugeLay->addWidget(m_gaugeTemp); gaugeLay->addWidget(m_gaugeHumid);
     gaugeLay->addWidget(m_gaugeBattery); gaugeLay->addWidget(m_gaugeOnline);
     topRow->addWidget(gaugeGroup, 2);
@@ -51,6 +56,15 @@ DashboardPage::DashboardPage(QWidget *parent) : QWidget(parent) {
     midRow->addWidget(topBox, 1);
     root->addLayout(midRow);
     root->setStretch(2, 1);
+
+    connect(ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        bool dark = ThemeManager::instance()->isDark();
+        m_gaugeTemp->applyTheme(dark);
+        m_gaugeHumid->applyTheme(dark);
+        m_gaugeBattery->applyTheme(dark);
+        m_gaugeOnline->applyTheme(dark);
+        m_chart->setDarkTheme(dark);
+    });
 }
 
 void DashboardPage::setDevices(const QVector<DeviceInfo> &devices) {

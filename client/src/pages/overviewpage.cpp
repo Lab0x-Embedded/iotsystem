@@ -10,6 +10,7 @@
 #include <QHeaderView>
 #include <QSortFilterProxyModel>
 #include "widgets/statusindicator.h"
+#include "theme/theme.h"
 
 class DashboardCard : public QFrame {
 public:
@@ -17,12 +18,13 @@ public:
         : QFrame(parent) {
         setObjectName("card");
         setFrameShape(QFrame::StyledPanel);
+        const Theme &theme = ThemeManager::instance()->current();
         setStyleSheet(QString("DashboardCard{background-color:%1; border-left:4px solid %2;}")
-                          .arg("#313244", accent.name()));
+                          .arg(theme.cardBg, accent.name()));
         auto *lay = new QVBoxLayout(this);
         QLabel *t = new QLabel(title);
         t->setProperty("title", true);
-        t->setStyleSheet("color:#a6adc8; font-size:13px; font-weight:normal;");
+        t->setStyleSheet(QString("font-size:13px; font-weight:normal;"));
         QLabel *v = new QLabel(value);
         v->setProperty("value", true);
         v->setStyleSheet(QString("color:%1; font-size:28px; font-weight:bold;").arg(accent.name()));
@@ -48,10 +50,8 @@ OverviewPage::OverviewPage(DeviceModel *model, QWidget *parent)
     auto *filterRow = new QHBoxLayout;
     m_search = new QLineEdit;
     m_search->setPlaceholderText("搜索设备 ID/名称...");
-    m_search->setStyleSheet("background:#11111b; border:1px solid #313244; padding:8px; color:#cdd6f4;");
     m_filterStatus = new QComboBox;
     m_filterStatus->addItems({"全部", "在线", "离线", "告警"});
-    m_filterStatus->setStyleSheet("background:#11111b; color:#cdd6f4; padding:6px;");
     filterRow->addWidget(new QLabel("筛选:"));
     filterRow->addWidget(m_filterStatus);
     filterRow->addStretch();
@@ -67,8 +67,6 @@ OverviewPage::OverviewPage(DeviceModel *model, QWidget *parent)
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->verticalHeader()->setVisible(false);
-    m_table->setStyleSheet("QTableView{background:#1e1e2e; color:#cdd6f4; gridline-color:#313244;}"
-                          "QHeaderView::section{background:#11111b; color:#a6adc8; border:none; padding:8px; font-weight:bold;}");
     root->addWidget(m_table, 1);
 
     connect(m_table, &QTableView::doubleClicked, this, [this](const QModelIndex &idx) {

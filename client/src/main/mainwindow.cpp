@@ -38,9 +38,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setCentralWidget(center);
 
     auto *status = new QLabel("数据源: Mock (离线演示模式)  ·  共 0 设备");
-    status->setStyleSheet("color:#a6adc8; padding:4px 12px;");
     statusBar()->addPermanentWidget(status);
-    statusBar()->setStyleSheet("background:#11111b; border-top:1px solid #313244;");
 
     connect(m_sidebar, &NavSidebar::pageSelected, this, &MainWindow::switchPage);
     connect(m_overview, &OverviewPage::deviceSelected, this, &MainWindow::showDeviceDetail);

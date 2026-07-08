@@ -6,6 +6,7 @@
 
 class GaugeWidget : public QWidget {
     Q_OBJECT
+    Q_PROPERTY(QColor grooveColor READ grooveColor WRITE setGrooveColor)
 public:
     explicit GaugeWidget(const QString &label, QWidget *parent = nullptr);
 
@@ -13,6 +14,10 @@ public:
     void setRange(double min, double max);
     void setUnit(const QString &unit);
     void setColor(const QColor &c);
+    void applyTheme(bool dark);
+
+    QColor grooveColor() const { return m_groove; }
+    void setGrooveColor(const QColor &c) { m_groove = c; update(); }
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -22,5 +27,7 @@ private:
     double m_value = 0, m_min = 0, m_max = 100;
     QString m_unit;
     QColor m_color = QColor("#89b4fa");
+    QColor m_groove = QColor("#313244");
+    QColor m_labelColor = QColor("#a6adc8");
 };
 #endif

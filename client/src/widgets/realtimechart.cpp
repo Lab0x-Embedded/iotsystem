@@ -50,3 +50,30 @@ void RealtimeChart::trim(int maxPoints) {
         while (s->count() > m_maxPoints) s->remove(0);
     }
 }
+
+void RealtimeChart::setDarkTheme(bool dark) {
+    QChart *c = chart();
+    if (dark) {
+        c->setTheme(QChart::ChartThemeDark);
+        c->setBackgroundBrush(QColor("#1e1e2e"));
+        c->setTitleBrush(QColor("#cdd6f4"));
+        c->legend()->setLabelColor(QColor("#a6adc8"));
+        m_axisX->setLabelsColor(QColor("#a6adc8"));
+        m_axisY->setLabelsColor(QColor("#a6adc8"));
+        m_axisX->setTitleBrush(QColor("#cdd6f4"));
+        m_axisY->setTitleBrush(QColor("#cdd6f4"));
+        m_axisX->setLinePenColor(QColor("#313244"));
+        m_axisY->setLinePenColor(QColor("#313244"));
+    } else {
+        c->setTheme(QChart::ChartThemeLight);
+        c->setBackgroundBrush(QColor("#eff1f5"));
+        c->setTitleBrush(QColor("#4c4f69"));
+        c->legend()->setLabelColor(QColor("#5c5f77"));
+        m_axisX->setLabelsColor(QColor("#5c5f77"));
+        m_axisY->setLabelsColor(QColor("#5c5f77"));
+        m_axisX->setTitleBrush(QColor("#4c4f69"));
+        m_axisY->setTitleBrush(QColor("#4c4f69"));
+        m_axisX->setLinePenColor(QColor("#bcc0cc"));
+        m_axisY->setLinePenColor(QColor("#bcc0cc"));
+    }
+}

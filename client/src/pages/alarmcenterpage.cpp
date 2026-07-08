@@ -22,9 +22,8 @@ AlarmCenterPage::AlarmCenterPage(AlarmModel *model, QWidget *parent)
     auto *filterRow = new QHBoxLayout;
     m_filterSeverity = new QComboBox;
     m_filterSeverity->addItems({"全部", "CRITICAL", "WARNING", "INFO"});
-    m_filterSeverity->setStyleSheet("background:#11111b; color:#cdd6f4; padding:6px;");
     m_ackButton = new QPushButton("确认选中");
-    m_ackButton->setStyleSheet("background:#89b4fa; color:#1e1e2e; font-weight:bold; border:none; border-radius:6px; padding:6px;");
+    m_ackButton->setObjectName("primaryButton");
     filterRow->addWidget(new QLabel("筛选:"));
     filterRow->addWidget(m_filterSeverity);
     filterRow->addStretch();
@@ -38,8 +37,6 @@ AlarmCenterPage::AlarmCenterPage(AlarmModel *model, QWidget *parent)
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->verticalHeader()->setVisible(false);
-    m_table->setStyleSheet("QTableView{background:#1e1e2e; color:#cdd6f4; gridline-color:#313244;}"
-                          "QHeaderView::section{background:#11111b; color:#a6adc8; border:none; padding:8px; font-weight:bold;}");
     root->addWidget(m_table, 1);
 
     connect(m_filterSeverity, QOverload<int>::of(&QComboBox::currentIndexChanged),

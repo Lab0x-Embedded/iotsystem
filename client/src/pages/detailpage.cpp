@@ -11,6 +11,7 @@
 #include <QComboBox>
 #include <QDateTime>
 #include <QScrollArea>
+#include "theme/theme.h"
 
 DetailPage::DetailPage(QWidget *parent) : QWidget(parent) {
     QScrollArea *scroll;
@@ -21,9 +22,7 @@ DetailPage::DetailPage(QWidget *parent) : QWidget(parent) {
 
     auto *titleRow = new QHBoxLayout;
     m_lblName = new QLabel("未选择设备");
-    m_lblName->setStyleSheet("font-size:20px; font-weight:bold; color:#cdd6f4;");
     m_lblStatus = new QLabel("-");
-    m_lblStatus->setStyleSheet("font-size:13px; color:#a6adc8;");
     titleRow->addWidget(m_lblName);
     titleRow->addStretch();
     titleRow->addWidget(m_lblStatus);
@@ -41,8 +40,10 @@ DetailPage::DetailPage(QWidget *parent) : QWidget(parent) {
     auto *outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addWidget(scroll);
-
-    m_chartTemp = nullptr;
+    m_chartTemp->setDarkTheme(ThemeManager::instance()->isDark());
+    connect(ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        m_chartTemp->setDarkTheme(ThemeManager::instance()->isDark());
+    });
 }
 
 void DetailPage::setupShadowPanel(QVBoxLayout *root) {
@@ -52,15 +53,12 @@ void DetailPage::setupShadowPanel(QVBoxLayout *root) {
     grid->addWidget(new QLabel("Reported (上报状态):"), 0, 1);
     m_desiredEdit = new QTextEdit;
     m_desiredEdit->setPlaceholderText("{\"temperature\":25,\"fan_speed\":\"high\"}");
-    m_desiredEdit->setStyleSheet("background:#11111b; color:#cdd6f4; border:1px solid #313244;");
     m_reportedEdit = new QTextEdit;
     m_reportedEdit->setReadOnly(true);
-    m_reportedEdit->setStyleSheet("background:#11111b; color:#a6adc8; border:1px solid #313244;");
     grid->addWidget(m_desiredEdit, 1, 0);
     grid->addWidget(m_reportedEdit, 1, 1);
     QPushButton *applyBtn = new QPushButton("修改期望值");
     applyBtn->setObjectName("primaryButton");
-    applyBtn->setStyleSheet("background:#89b4fa; color:#1e1e2e; font-weight:bold; border:none; border-radius:6px; padding:8px;");
     grid->addWidget(applyBtn, 2, 0);
     root->addWidget(box);
 }
@@ -83,18 +81,15 @@ void DetailPage::setupControlPanel(QVBoxLayout *root) {
     int i = 0;
     for (const auto &c : cmds) {
         auto *btn = new QPushButton(c);
-        btn->setStyleSheet("background:#313244; color:#cdd6f4; border:none; border-radius:6px; padding:10px;");
         grid->addWidget(btn, i / 2, i % 2);
         ++i;
     }
     grid->addWidget(new QLabel("自定义指令:"), 2, 0);
     m_cmdInput = new QLineEdit;
     m_cmdInput->setPlaceholderText("例如: reboot");
-    m_cmdInput->setStyleSheet("background:#11111b; color:#cdd6f4; border:1px solid #313244; padding:6px;");
     grid->addWidget(m_cmdInput, 2, 1);
     auto *send = new QPushButton("发送");
     send->setObjectName("primaryButton");
-    send->setStyleSheet("background:#89b4fa; color:#1e1e2e; font-weight:bold; border:none; border-radius:6px; padding:6px;");
     grid->addWidget(send, 2, 2);
     root->addWidget(box);
 }
@@ -108,8 +103,6 @@ void DetailPage::setupHistoryPanel(QVBoxLayout *root) {
     metric->addItems({"温度", "湿度", "电量"});
     QPushButton *query = new QPushButton("查询");
     QPushButton *exportCsv = new QPushButton("导出CSV");
-    query->setStyleSheet("background:#89b4fa; color:#1e1e2e; font-weight:bold; border:none; border-radius:6px; padding:6px;");
-    exportCsv->setStyleSheet("background:#313244; color:#cdd6f4; border:none; border-radius:6px; padding:6px;");
     row->addWidget(new QLabel("时间范围:"));
     row->addWidget(range);
     row->addWidget(new QLabel("指标:"));
@@ -141,4 +134,3 @@ void DetailPage::showDevice(const DeviceInfo &device) {
                                      .arg(device.battery, 0, 'f', 0)
                                      .arg(device.status == DeviceStatus::Online ? "true" : "false"));
 }
-
