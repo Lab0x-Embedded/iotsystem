@@ -3,7 +3,7 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "mqtt_topic.h"
+#include "mqtt/mqtt_topic.h"
 
 static int check(const char *sub, const char *pub, int expected) {
     int r = mqtt_topic_match(sub, pub);

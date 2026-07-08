@@ -1,7 +1,7 @@
 /**
  * @file log.c
  */
-#include "common/log.h"
+#include "log.h"
 #include <stdarg.h>
 #include <time.h>
 #include <pthread.h>

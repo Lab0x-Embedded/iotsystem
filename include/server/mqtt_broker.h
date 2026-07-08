@@ -37,6 +37,29 @@ void mqtt_broker_dispatch(mqtt_connection_t *conn, mqtt_packet_t *pkt);
  */
 void mqtt_broker_register(mqtt_connection_t *conn);
 void mqtt_broker_unregister(mqtt_connection_t *conn);
+/**
+ * 查找在线连接 (线程安全).
+ *
+ *  @param client_id  设备的 MQTT client_id
+ *  @return 在线连接指针, 或 NULL
+ */
+mqtt_connection_t *mqtt_broker_find_conn(const char *client_id);
+
+/**
+ * 向在线设备发送一条 QoS 1 命令 (PUBLISH).
+ *
+ *  @param conn         目标连接 (必须在线)
+ *  @param topic        MQTT topic
+ *  @param app_payload  应用层 payload 字节
+ *  @param app_len      payload 长度
+ *  @param out_pid      [out] 分配的 packet_id
+ *  @return 0 成功, -1 失败
+ */
+int  mqtt_broker_send_cmd(mqtt_connection_t *conn,
+                          const char *topic,
+                          const uint8_t *app_payload,
+                          uint32_t app_len,
+                          uint16_t *out_pid);
 
 /**
  * 周期性 tick (1s 调用一次), 用于 keepalive 超时检测等.

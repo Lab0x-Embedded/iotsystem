@@ -5,11 +5,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "mqtt_parser.h"
-#include "mqtt_broker.h"
-#include "mqtt_codec.h"
-#include "mqtt_types.h"
-#include "mqtt_connection.h"
+#include "mqtt/mqtt_parser.h"
+#include "server/mqtt_broker.h"
+#include "mqtt/mqtt_codec.h"
+#include "mqtt/mqtt_types.h"
+#include "server/mqtt_connection.h"
 
 static connection_t test_base;
 

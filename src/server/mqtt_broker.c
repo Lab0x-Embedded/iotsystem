@@ -10,9 +10,10 @@
  *   - DISCONNECT → 标记连接关闭
  */
 #include "mqtt_broker.h"
-#include "mqtt_parser.h"
-#include "mqtt_codec.h"
-#include "mqtt_topic.h"
+#include "mqtt/mqtt_parser.h"
+#include "mqtt/mqtt_codec.h"
+#include "mqtt/mqtt_topic.h"
+#include "business/command_service.h"
 
 #include "common/log.h"
 
@@ -21,6 +22,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include <pthread.h>
 
 /* 前向声明 */
 static int send_bytes(int fd, const uint8_t *buf, uint32_t len);
@@ -42,11 +44,15 @@ static void send_packet(int fd, mqtt_packet_t *pkt);
 static mqtt_session_t    g_sessions[MAX_SESSIONS];
 static mqtt_connection_t *g_conns[MAX_CONNS];
 static int g_conn_count;
+static uint16_t g_pkt_id;
+static pthread_mutex_t g_conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void mqtt_broker_init(void) {
     memset(g_sessions, 0, sizeof(g_sessions));
     memset(g_conns, 0, sizeof(g_conns));
     g_conn_count = 0;
+    g_pkt_id = 1;
+    cmd_mgr_init();
 }
 
 void mqtt_broker_register(mqtt_connection_t *conn) {
@@ -58,7 +64,9 @@ void mqtt_broker_register(mqtt_connection_t *conn) {
     conn->will_topic[0] = '\0';
     conn->will_payload = NULL;
     conn->will_payload_len = 0;
+    pthread_mutex_lock(&g_conn_mutex);
     g_conns[g_conn_count++] = conn;
+    pthread_mutex_unlock(&g_conn_mutex);
     LOG_INFO("register conn fd=%d (total=%d)", conn->fd, g_conn_count);
 }
 
@@ -69,6 +77,19 @@ void mqtt_broker_unregister(mqtt_connection_t *conn) {
     if (conn->will_topic[0] != '\0' && conn->will_payload) {
         LOG_INFO("will publish topic=%s payload_len=%u",
                  conn->will_topic, conn->will_payload_len);
+        /* 构建 PUBLISH raw payload: [topic_len][topic][will_payload] */
+        uint16_t tlen = (uint16_t)strlen(conn->will_topic);
+        uint32_t raw_len = 2 + tlen + conn->will_payload_len;
+        uint8_t *raw = malloc(raw_len);
+        if (raw) {
+            raw[0] = (uint8_t)(tlen >> 8);
+            raw[1] = (uint8_t)(tlen & 0xFF);
+            memcpy(raw + 2, conn->will_topic, tlen);
+            memcpy(raw + 2 + tlen, conn->will_payload, conn->will_payload_len);
+        } else {
+            raw = conn->will_payload;
+            raw_len = conn->will_payload_len;
+        }
         /* 构造 PUBLISH 并遍历所有订阅者 */
         for (int ci = 0; ci < g_conn_count; ci++) {
             mqtt_connection_t *target = g_conns[ci];
@@ -78,8 +99,8 @@ void mqtt_broker_unregister(mqtt_connection_t *conn) {
                     mqtt_packet_t fwd = {0};
                     fwd.fix_header.type  = MQTT_PUBLISH;
                     fwd.fix_header.flags = 0;
-                    fwd.payload     = conn->will_payload;
-                    fwd.payload_len = conn->will_payload_len;
+                    fwd.payload     = raw;
+                    fwd.payload_len = raw_len;
                     send_packet(target->fd, &fwd);
                     LOG_INFO("  will -> fwd to fd=%d sub='%s'",
                              target->fd, target->subs[si].topic);
@@ -87,19 +108,23 @@ void mqtt_broker_unregister(mqtt_connection_t *conn) {
                 }
             }
         }
+        if (raw != conn->will_payload) free(raw);
         free(conn->will_payload);
         conn->will_payload = NULL;
         conn->will_payload_len = 0;
         conn->will_topic[0] = '\0';
     }
 
+    pthread_mutex_lock(&g_conn_mutex);
     for (int i = 0; i < g_conn_count; i++) {
         if (g_conns[i] == conn) {
             g_conns[i] = g_conns[--g_conn_count];
+            pthread_mutex_unlock(&g_conn_mutex);
             LOG_INFO("unregister conn fd=%d (total=%d)", conn->fd, g_conn_count);
             return;
         }
     }
+    pthread_mutex_unlock(&g_conn_mutex);
 }
 
 /* ------------------------------------------------------------------ */
@@ -116,10 +141,18 @@ static uint32_t read_str(const uint8_t *p, uint32_t len, char *out, size_t cap) 
 }
 
 static int send_bytes(int fd, const uint8_t *buf, uint32_t len) {
+    int eagain_count = 0;
     while (len > 0) {
         ssize_t n = send(fd, buf, len, 0);
         if (n > 0) { buf += n; len -= (uint32_t)n; continue; }
-        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) continue;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (++eagain_count > 100000) {
+                LOG_ERROR("send_bytes EAGAIN exhausted fd=%d", fd);
+                return -1;
+            }
+            continue;
+        }
+        if (errno == EINTR) continue;
         return -1;
     }
     return 0;
@@ -131,6 +164,92 @@ static void send_packet(int fd, mqtt_packet_t *pkt) {
         free(b.data);
     }
 
+}
+/* ------------------------------------------------------------------ */
+/* 外部 API — find_conn / send_cmd / 离线重放                           */
+/* ------------------------------------------------------------------ */
+mqtt_connection_t *mqtt_broker_find_conn(const char *client_id) {
+    if (!client_id) return NULL;
+    pthread_mutex_lock(&g_conn_mutex);
+    for (int i = 0; i < g_conn_count; i++) {
+        mqtt_connection_t *conn = g_conns[i];
+        if (conn && conn->connected && strcmp(conn->client_id, client_id) == 0) {
+            pthread_mutex_unlock(&g_conn_mutex);
+            return conn;
+        }
+    }
+    pthread_mutex_unlock(&g_conn_mutex);
+    return NULL;
+}
+
+int mqtt_broker_send_cmd(mqtt_connection_t *conn,
+                         const char *topic,
+                         const uint8_t *app_payload,
+                         uint32_t app_len,
+                         uint16_t *out_pid) {
+    if (!conn || !conn->connected) return -1;
+
+    uint16_t pid = g_pkt_id++;
+    uint16_t tlen = (uint16_t)strlen(topic);
+    uint32_t raw_len = 2 + tlen + 2 + app_len;
+    uint8_t *raw = malloc(raw_len);
+    if (!raw) return -1;
+
+    /* 构建 PUBLISH raw payload: topic_len + topic + packet_id + app_data */
+    raw[0] = (uint8_t)(tlen >> 8);
+    raw[1] = (uint8_t)(tlen & 0xFF);
+    memcpy(raw + 2, topic, tlen);
+    raw[2 + tlen]     = (uint8_t)(pid >> 8);
+    raw[2 + tlen + 1] = (uint8_t)(pid & 0xFF);
+    memcpy(raw + 2 + tlen + 2, app_payload, app_len);
+
+    mqtt_packet_t pkt = {0};
+    pkt.fix_header.type  = MQTT_PUBLISH;
+    pkt.fix_header.flags = 0x02;  /* QoS 1, DUP=0, Retain=0 */
+    pkt.payload     = raw;
+    pkt.payload_len = raw_len;
+
+    send_packet(conn->fd, &pkt);
+    free(raw);
+
+    if (out_pid) *out_pid = pid;
+    LOG_INFO("send_cmd fd=%d topic=%s pid=%u app_len=%u",
+             conn->fd, topic, pid, app_len);
+    return 0;
+}
+
+/* 设备重连后, 重放离线命令 */
+static void replay_offline_commands(mqtt_connection_t *conn) {
+    if (!conn || !conn->connected) return;
+    offline_cmd_t *list = cmd_mgr_dequeue_all(conn->client_id);
+    if (!list) return;
+    LOG_INFO("replay %d offline cmds for client=%s", 0, conn->client_id);
+    /* count first */
+    int count = 0;
+    for (offline_cmd_t *c = list; c; c = c->entry.stqe_next) count++;
+    LOG_INFO("replay %d offline cmds for client=%s", count, conn->client_id);
+
+    for (offline_cmd_t *cur = list; cur; cur = cur->entry.stqe_next) {
+        /* 构建应用层 JSON: {"id":"cmd_xxx","cmd":"set_temp","payload":{...}} */
+        /* payload_len = len("{\"id\":\"") + id + len("\",\"cmd\":\"") + cmd + len("\",\"payload\":") + payload + "}" */
+        char buf[CMD_BODY_LEN];
+        int n = snprintf(buf, sizeof(buf),
+                         "{\"id\":\"%s\",\"cmd\":\"%s\",\"payload\":%s}",
+                         cur->command_id, cur->cmd_name, cur->cmd_payload);
+        if (n <= 0 || (size_t)n >= sizeof(buf)) {
+            LOG_WARN("replay cmd too long, skip");
+            continue;
+        }
+
+        char topic[128];
+        snprintf(topic, sizeof(topic), "cmd/%s/exec", conn->client_id);
+
+        uint16_t pid = 0;
+        mqtt_broker_send_cmd(conn, topic,
+                             (const uint8_t *)buf, (uint32_t)n, &pid);
+        LOG_INFO("  replayed cmd=%s id=%s pid=%u", cur->cmd_name, cur->command_id, pid);
+    }
+    cmd_mgr_free_offline_list(list);
 }
 
 /* ------------------------------------------------------------------ */
@@ -311,6 +430,8 @@ static void handle_subscribe(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
         ack.payload_len           = rc_count;
         send_packet(conn->fd, &ack);
     }
+    /* 订阅后重放离线命令 */
+    replay_offline_commands(conn);
 }
 
 /* ------------------------------------------------------------------ */
@@ -447,6 +568,10 @@ void mqtt_broker_dispatch(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     case MQTT_UNSUBSCRIBE: handle_unsubscribe(conn, pkt); break;
     case MQTT_PINGREQ:     handle_ping(conn); break;
     case MQTT_PUBLISH:     handle_publish(conn, pkt); break;
+    case MQTT_PUBACK:
+        LOG_INFO("PUBACK from fd=%d pid=%u", conn->fd, pkt->vh.id.packet_id);
+        cmd_mgr_inflight_signal(conn->fd, pkt->vh.id.packet_id);
+        break;
     case MQTT_DISCONNECT:  conn->connected = 0; break;
     default:
         LOG_WARN("unsupported msg type %d", pkt->fix_header.type);

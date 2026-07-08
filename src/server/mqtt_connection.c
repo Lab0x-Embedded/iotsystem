@@ -3,8 +3,8 @@
  */
 #include "mqtt_connection.h"
 #include "mqtt_broker.h"
-#include "mqtt_parser.h"
-#include "mqtt_codec.h"
+#include "mqtt/mqtt_parser.h"
+#include "mqtt/mqtt_codec.h"
 #include "common/log.h"
 
 #include <stdlib.h>

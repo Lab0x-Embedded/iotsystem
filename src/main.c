@@ -5,6 +5,8 @@
 #include "server/event_loop.h"
 #include "server/connection.h"
 #include "server/thread_pool.h"
+#include "server/mqtt_broker.h"
+#include "api/http_server.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,6 +85,10 @@ int main(int argc, char **argv) {
     log_init(LOG_LEVEL_INFO);
     LOG_INFO("=== IoT broker (P1) ===");
     LOG_INFO("port=%d workers=%d backlog=%d", port, workers, backlog);
+    mqtt_broker_init();
+    if (http_server_start(8080) != 0) {
+        LOG_WARN("HTTP API start failed, continuing without it");
+    }
 
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
@@ -109,6 +115,7 @@ int main(int argc, char **argv) {
     }
 
     int rc = event_loop_run(g_loop);
+    http_server_stop();
 
     LOG_INFO("shutdown: total_conns=%u rc=%d", g_loop->total_conns, rc);
     event_loop_destroy(g_loop);
