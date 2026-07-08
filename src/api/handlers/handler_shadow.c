@@ -3,6 +3,8 @@
 #include "business/shadow_manager.h"
 #include "common/log.h"
 #include <cJSON.h>
+#include <stdlib.h>
+#include <string.h>
 #include <event2/buffer.h>
 
 void handler_shadow(struct evhttp_request *req, void *ctx) {

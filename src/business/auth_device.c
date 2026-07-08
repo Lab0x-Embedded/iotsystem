@@ -22,15 +22,6 @@ static auth_entry_t g_auth[MAX_AUTH_ENTRIES];
 static int          g_auth_count = 0;
 static int          g_initialized = 0;
 
-int auth_device_init(void) {
-    if (g_initialized) return 0;
-    memset(g_auth, 0, sizeof(g_auth));
-    g_auth_count = 0;
-    g_initialized = 1;
-    LOG_INFO("auth_device initialized");
-    return 0;
-}
-
 static int auth_add_credential(const char *pk, const char *did, const char *secret) {
     if (g_auth_count >= MAX_AUTH_ENTRIES) return -1;
     auth_entry_t *e = &g_auth[g_auth_count++];
@@ -39,6 +30,17 @@ static int auth_add_credential(const char *pk, const char *did, const char *secr
     strncpy(e->secret, secret, 127);
     return 0;
 }
+int auth_device_init(void) {
+    if (g_initialized) return 0;
+    memset(g_auth, 0, sizeof(g_auth));
+    g_auth_count = 0;
+    g_initialized = 1;
+    /* 注入一条 demo 凭据, 便于集成测试 */
+    auth_add_credential("pk_test", "dev_001", "secret_001");
+    LOG_INFO("auth_device initialized");
+    return 0;
+}
+
 
 int auth_device_verify(const char *product_key,
                        const char *device_id,

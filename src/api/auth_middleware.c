@@ -5,6 +5,7 @@
  */
 #include "api/auth_middleware.h"
 #include "common/log.h"
+#include <string.h>
 
 #include <event2/keyvalq_struct.h>
 

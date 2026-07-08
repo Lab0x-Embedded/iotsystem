@@ -3,6 +3,8 @@
 #include "api/auth_middleware.h"
 #include "common/log.h"
 #include <cJSON.h>
+#include <stdlib.h>
+#include <string.h>
 #include <event2/buffer.h>
 
 void handler_user(struct evhttp_request *req, void *ctx) {

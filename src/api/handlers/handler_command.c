@@ -4,6 +4,8 @@
 #include "server/mqtt_broker.h"
 #include "common/log.h"
 #include <cJSON.h>
+#include <stdlib.h>
+#include <string.h>
 #include <event2/buffer.h>
 
 void handler_command(struct evhttp_request *req, void *ctx) {

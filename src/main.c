@@ -1,5 +1,5 @@
 /**
- * @file main.c — Phase 1 entry
+ * @file main.c — 主入口 (P1 + P4/P5 集成)
  */
 #include "common/log.h"
 #include "server/event_loop.h"
@@ -7,6 +7,10 @@
 #include "server/thread_pool.h"
 #include "server/mqtt_broker.h"
 #include "api/http_server.h"
+#include "api/router.h"
+#include "business/device_manager.h"
+#include "business/shadow_manager.h"
+#include "business/alarm_service.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,36 +61,50 @@ static int make_listener(int port, int backlog) {
 }
 
 static void usage(const char *argv0) {
-    fprintf(stderr, "Usage: %s [--port P] [--workers N] [--backlog B]\n", argv0);
+    fprintf(stderr, "Usage: %s [--port P] [--http N] [--workers N] [--backlog B]\n", argv0);
 }
 
 int main(int argc, char **argv) {
     int port     = 65080;
+    int http_port = 8080;
     int workers  = 4;
     int backlog  = 1024;
 
     static struct option opts[] = {
         {"port",    required_argument, 0, 'p'},
+        {"http",    required_argument, 0, 'H'},
         {"workers", required_argument, 0, 'w'},
         {"backlog", required_argument, 0, 'b'},
         {"help",    no_argument,       0, 'h'},
     };
     int opt_i = 0, c;
-    while ((c = getopt_long(argc, argv, "p:w:b:h", opts, &opt_i)) != -1) {
+    while ((c = getopt_long(argc, argv, "p:H:w:b:h", opts, &opt_i)) != -1) {
         switch (c) {
-            case 'p': port    = atoi(optarg); break;
-            case 'w': workers = atoi(optarg); break;
-            case 'b': backlog = atoi(optarg); break;
+            case 'p': port      = atoi(optarg); break;
+            case 'H': http_port = atoi(optarg); break;
+            case 'w': workers   = atoi(optarg); break;
+            case 'b': backlog   = atoi(optarg); break;
             case 'h': usage(argv[0]); return 0;
             default:  usage(argv[0]); return 1;
         }
     }
 
     log_init(LOG_LEVEL_INFO);
-    LOG_INFO("=== IoT broker (P1) ===");
-    LOG_INFO("port=%d workers=%d backlog=%d", port, workers, backlog);
+    LOG_INFO("=== IoT broker (P1+P4/P5) ===");
+    LOG_INFO("mqtt_port=%d http_port=%d workers=%d backlog=%d",
+             port, http_port, workers, backlog);
+
+    /* -------- P4: 业务层初始化 -------- */
+    device_manager_init();
+    shadow_manager_init();
+    alarm_service_init();
+
+    /* -------- P5: HTTP + REST 路由 -------- */
     mqtt_broker_init();
-    if (http_server_start(8080) != 0) {
+    router_init();
+    router_register_rest_routes();
+
+    if (http_server_start(http_port) != 0) {
         LOG_WARN("HTTP API start failed, continuing without it");
     }
 

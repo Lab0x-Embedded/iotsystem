@@ -4,6 +4,8 @@
 #include "business/alarm_service.h"
 #include "common/log.h"
 #include <cJSON.h>
+#include <stdlib.h>
+#include <string.h>
 #include <event2/buffer.h>
 
 void handler_onenet(struct evhttp_request *req, void *ctx) {

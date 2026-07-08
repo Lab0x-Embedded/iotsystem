@@ -124,3 +124,37 @@ add_custom_target(bench_external
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running bench against an already-running broker on :65183"
     VERBATIM)
+
+# C unit test: router register/resolve
+# test_router pulls in the full backend (everything except main.c)
+# so that router_register_rest_routes() can link all handler symbols.
+file(GLOB TEST_ROUTER_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/api/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/api/handlers/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/business/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/data/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/server/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/common/*.c")
+list(FILTER TEST_ROUTER_SOURCES EXCLUDE REGEX "main\.c$")
+add_executable(test_router test/unit/test_router.c ${TEST_ROUTER_SOURCES})
+target_include_directories(test_router PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/common
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/server
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/mqtt
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/business
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/api
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/data
+    ${LIBEVENT_INCLUDE_DIRS}
+    ${CJSON_INCLUDE_DIRS})
+target_link_libraries(test_router PRIVATE ${LIBEVENT_LIBRARIES} ${CJSON_LIBRARIES})
+target_link_directories(test_router PRIVATE ${LIBEVENT_LIBRARY_DIRS} ${CJSON_LIBRARY_DIRS})
+
+add_custom_target(test_router_run
+    COMMAND test_router
+    DEPENDS test_router
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Router register/resolve unit tests"
+    VERBATIM)
