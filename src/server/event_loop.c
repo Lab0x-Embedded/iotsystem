@@ -270,6 +270,11 @@ static void dispatch_read(event_loop_t *loop, connection_t *c) {
             b->rx_off++;
         }
         b->rx_off = b->rx_len = 0;
+        /* keepalive 超时 etc → 连接标记断开 */
+        if (w->mode == CONN_MODE_MQTT && !w->mqtt.connected) {
+            handle_disconnect(loop, c);
+            return;
+        }
         event_loop_mod_in(loop, c);
         return;
     }
@@ -366,6 +371,7 @@ int event_loop_run(event_loop_t *loop) {
 
             dispatch_read(loop, c);
         }
+        mqtt_broker_tick(time(NULL));
     }
     return 0;
 }

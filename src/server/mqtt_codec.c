@@ -55,17 +55,13 @@ static uint32_t compute_length(const mqtt_packet_t *pkt) {
     uint32_t vh = 0, plen = pkt->payload_len;
     switch (pkt->fix_header.type) {
     case MQTT_CONNACK:    vh = 2; break;
-    case MQTT_SUBACK:     vh = 2 + plen; break;  /* 2 字节 packet_id + return codes */
+    case MQTT_SUBACK:     vh = 2; break;  /* 2 字节 packet_id; return codes in payload */
     case MQTT_PUBACK:
     case MQTT_UNSUBACK:   vh = 2; break;
     case MQTT_PINGRESP:   vh = 0; break;
     case MQTT_DISCONNECT: vh = 0; break;
     case MQTT_PUBLISH:
-        /* 2 字节 topic + (qos>0 ? 2 字节 packet_id : 0) + payload */
-        if (plen >= 2) {
-            uint16_t tlen = (pkt->payload[0] << 8) | pkt->payload[1];
-            vh = 2 + tlen + (((pkt->fix_header.flags >> 1) & 0x03) > 0 ? 2 : 0);
-        }
+        /* payload 已包含 topic + payload; remaining length = plen */
         break;
     default:
         vh = 0;

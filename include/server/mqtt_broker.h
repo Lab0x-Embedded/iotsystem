@@ -38,6 +38,14 @@ void mqtt_broker_dispatch(mqtt_connection_t *conn, mqtt_packet_t *pkt);
 void mqtt_broker_register(mqtt_connection_t *conn);
 void mqtt_broker_unregister(mqtt_connection_t *conn);
 
+/**
+ * 周期性 tick (1s 调用一次), 用于 keepalive 超时检测等.
+ *
+ *  @param now  当前时间 (time(NULL))
+ */
+void mqtt_broker_tick(time_t now);
+
+
 #ifdef __cplusplus
 }
 #endif

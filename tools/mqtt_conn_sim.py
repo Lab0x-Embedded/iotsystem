@@ -4,6 +4,7 @@
 """
 
 import struct
+import socket
 
 PROTOCOL_NAME = b"MQTT"
 PROTOCOL_LEVEL = 4  # MQTT 3.1.1
@@ -69,6 +70,10 @@ def build_connect_packet(client_id, username=None, password=None, keepalive=60, 
 MQTT_CONNECT     = 1
 MQTT_CONNACK     = 2
 MQTT_PUBLISH     = 3
+MQTT_PUBACK      = 4
+MQTT_PUBREC      = 5
+MQTT_PUBREL      = 6
+MQTT_PUBCOMP     = 7
 MQTT_SUBSCRIBE   = 8
 MQTT_SUBACK      = 9
 MQTT_UNSUBSCRIBE = 10
@@ -220,3 +225,17 @@ def recv_packet(s, timeout=2.0):
     else:
         body = b""
     return head + encode_remain_len(value) + body
+
+def recv_puback(s, timeout=1.0):
+    """收一条 PUBACK, 返回 (ok, packet_id, err_msg)."""
+    try:
+        pkt = recv_packet(s, timeout=timeout)
+        if pkt[0] != (MQTT_PUBACK << 4):
+            return False, 0, f"bad type byte {pkt[0]:#x}"
+        remain, off = decode_remain_len(pkt, 1)
+        if remain != 2:
+            return False, 0, f"unexpected remain_len {remain}"
+        pid = (pkt[off] << 8) | pkt[off + 1]
+        return True, pid, ""
+    except (OSError, ConnectionError, socket.timeout) as e:
+        return False, 0, str(e)

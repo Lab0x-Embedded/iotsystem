@@ -22,6 +22,10 @@
 #include <netinet/in.h>
 #include <errno.h>
 
+/* 前向声明 */
+static int send_bytes(int fd, const uint8_t *buf, uint32_t len);
+static void send_packet(int fd, mqtt_packet_t *pkt);
+
 /* ------------------------------------------------------------------ */
 /* 硬编码认证凭据                                                       */
 /* ------------------------------------------------------------------ */
@@ -51,12 +55,44 @@ void mqtt_broker_register(mqtt_connection_t *conn) {
         LOG_ERROR("connection table full, can't register fd=%d", conn->fd);
         return;
     }
+    conn->will_topic[0] = '\0';
+    conn->will_payload = NULL;
+    conn->will_payload_len = 0;
     g_conns[g_conn_count++] = conn;
     LOG_INFO("register conn fd=%d (total=%d)", conn->fd, g_conn_count);
 }
 
 void mqtt_broker_unregister(mqtt_connection_t *conn) {
     if (!conn) return;
+
+    /* 触发 Will Message (断连时发布, 只发一次) */
+    if (conn->will_topic[0] != '\0' && conn->will_payload) {
+        LOG_INFO("will publish topic=%s payload_len=%u",
+                 conn->will_topic, conn->will_payload_len);
+        /* 构造 PUBLISH 并遍历所有订阅者 */
+        for (int ci = 0; ci < g_conn_count; ci++) {
+            mqtt_connection_t *target = g_conns[ci];
+            if (!target || !target->connected || target == conn) continue;
+            for (int si = 0; si < target->sub_count; si++) {
+                if (mqtt_topic_match(target->subs[si].topic, conn->will_topic)) {
+                    mqtt_packet_t fwd = {0};
+                    fwd.fix_header.type  = MQTT_PUBLISH;
+                    fwd.fix_header.flags = 0;
+                    fwd.payload     = conn->will_payload;
+                    fwd.payload_len = conn->will_payload_len;
+                    send_packet(target->fd, &fwd);
+                    LOG_INFO("  will -> fwd to fd=%d sub='%s'",
+                             target->fd, target->subs[si].topic);
+                    break;
+                }
+            }
+        }
+        free(conn->will_payload);
+        conn->will_payload = NULL;
+        conn->will_payload_len = 0;
+        conn->will_topic[0] = '\0';
+    }
+
     for (int i = 0; i < g_conn_count; i++) {
         if (g_conns[i] == conn) {
             g_conns[i] = g_conns[--g_conn_count];
@@ -88,13 +124,13 @@ static int send_bytes(int fd, const uint8_t *buf, uint32_t len) {
     }
     return 0;
 }
-
 static void send_packet(int fd, mqtt_packet_t *pkt) {
     mqtt_buf_t b = mqtt_encode(pkt);
     if (b.data) {
         send_bytes(fd, b.data, b.len);
         free(b.data);
     }
+
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,29 +146,77 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
         LOG_ERROR("bad protocol name: %.8s", pkt->vh.connect.protocol_name);
         goto refused;
     }
-
     /* 解析 CLIENT ID */
-    uint32_t remain = pkt->payload_len, off = 0;
-    if (remain < 2) goto refused;
-    uint16_t cid_len = ((uint16_t)pkt->payload[0] << 8) | pkt->payload[1];
-    if (cid_len + 2 > remain) goto refused;
+    uint32_t remain = pkt->payload_len;
+    uint32_t off;
+    uint16_t cid_len;
     char client_id[65];
-    memset(client_id, 0, sizeof(client_id));
-    memcpy(client_id, pkt->payload + 2, cid_len);
-    client_id[cid_len] = '\0';
-    off = 2 + cid_len;
-
-    /* 解析 USERNAME / PASSWORD */
     char username[65] = {0};
     char password[65] = {0};
-    uint8_t cflags = pkt->vh.connect.connect_flags;
+    uint8_t cflags;
+
+    if (remain < 10) {
+        goto refused;
+    }
+    off = 10;
+
+    cid_len = ((uint16_t)pkt->payload[off] << 8) | pkt->payload[off + 1];
+    off += 2;
+    if (off + cid_len > remain) {
+        goto refused;
+    }
+    memset(client_id, 0, sizeof(client_id));
+    memcpy(client_id, pkt->payload + off, cid_len);
+    client_id[cid_len] = '\0';
+    off += cid_len;
+
+    cflags = pkt->vh.connect.connect_flags;
+
+    /* Will Topic / Message (Will Flag = bit3) */
+    if (cflags & 0x08) {
+        if (off + 2 > remain) {
+            goto refused;
+        }
+        uint16_t wt_len = ((uint16_t)pkt->payload[off] << 8) | pkt->payload[off + 1];
+        off += 2;
+        if (off + wt_len > remain) {
+            goto refused;
+        }
+        memset(conn->will_topic, 0, sizeof(conn->will_topic));
+        size_t wt_copy = wt_len < (sizeof(conn->will_topic) - 1) ? wt_len : (sizeof(conn->will_topic) - 1);
+        memcpy(conn->will_topic, pkt->payload + off, wt_copy);
+        conn->will_topic[wt_copy] = '\0';
+        off += wt_len;
+
+        if (off + 2 > remain) {
+            goto refused;
+        }
+        uint16_t wm_len = ((uint16_t)pkt->payload[off] << 8) | pkt->payload[off + 1];
+        off += 2;
+        if (off + wm_len > remain) {
+            goto refused;
+        }
+        conn->will_payload = malloc(wm_len);
+        if (conn->will_payload) {
+            memcpy(conn->will_payload, pkt->payload + off, wm_len);
+            conn->will_payload_len = wm_len;
+        }
+        off += wm_len;
+        conn->will_qos = (cflags >> 3) & 0x03;
+        LOG_INFO("WILL topic=%s qos=%d payload_len=%u",
+                 conn->will_topic, conn->will_qos, conn->will_payload_len);
+    }
 
     if (cflags & 0x80) {
-        if (off + 2 > remain) goto refused;
+        if (off + 2 > remain) {
+            goto refused;
+        }
         off += read_str(pkt->payload + off, remain - off, username, sizeof(username));
     }
     if (cflags & 0x40) {
-        if (off + 2 > remain) goto refused;
+        if (off + 2 > remain) {
+            goto refused;
+        }
         off += read_str(pkt->payload + off, remain - off, password, sizeof(password));
     }
 
@@ -149,6 +233,8 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     /* 存储 session */
     conn->connected = 1;
     conn->authenticated = 1;
+    conn->keepalive = pkt->vh.connect.keepalive;
+    conn->last_active = time(NULL);
     strncpy(conn->client_id, client_id, sizeof(conn->client_id) - 1);
 
     /* CONNACK ACCEPTED */
@@ -317,8 +403,26 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
         }
     }
 
-    /* TODO: P4 — 如果 client 有 pending subscriber, 继续 */
-    /* (data 不在这里 free, pkt 的 unref 由 dispatch 负责) */
+    /* 如果发布者 QoS > 0, 回复 PUBACK */
+    {
+        uint8_t qos = (pkt->fix_header.flags >> 1) & 0x03;
+        if (qos > 0) {
+            /* 从 payload 解析 packet_id (topic 之后, QoS 1/2 时发方必带) */
+            uint16_t packet_id = 0;
+            uint32_t payload_off = 2 + tlen;  /* skip topic in payload */
+            if (payload_off + 2 <= len) {
+                packet_id = ((uint16_t)pkt->payload[payload_off] << 8)
+                          | pkt->payload[payload_off + 1];
+            }
+            mqtt_packet_t ack = {0};
+            ack.fix_header.type       = MQTT_PUBACK;
+            ack.fix_header.flags      = 0;
+            ack.fix_header.remain_len = 2;
+            ack.vh.id.packet_id       = packet_id;
+            send_packet(conn->fd, &ack);
+            LOG_INFO("PUBACK to fd=%d pid=%u", conn->fd, packet_id);
+        }
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -348,5 +452,27 @@ void mqtt_broker_dispatch(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
         LOG_WARN("unsupported msg type %d", pkt->fix_header.type);
         break;
     }
+    conn->last_active = time(NULL);
     mqtt_packet_unref(pkt);
+}
+
+/* ------------------------------------------------------------------ */
+/* 周期性 tick: keepalive 超时检测                                     */
+/* ------------------------------------------------------------------ */
+void mqtt_broker_tick(time_t now) {
+    for (int i = 0; i < g_conn_count; i++) {
+        mqtt_connection_t *conn = g_conns[i];
+        if (!conn || !conn->connected) continue;
+        if (conn->keepalive == 0) continue;  /* 0 = 不主动断开 */
+
+        uint32_t timeout = (uint32_t)conn->keepalive * 3 / 2;  /* 1.5x */
+        if (timeout < 5) timeout = 5;  /* 最少 5s */
+
+        if ((uint32_t)(now - conn->last_active) > timeout) {
+            LOG_INFO("keepalive timeout fd=%d cid=%s (%us > %us)",
+                     conn->fd, conn->client_id,
+                     (unsigned)(now - conn->last_active), timeout);
+            conn->connected = 0;
+        }
+    }
 }

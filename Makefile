@@ -56,3 +56,7 @@ test_integration: all
 test_pub_sub: all
 	@echo ">>> running PUB/SUB/UNSUB integration tests..."
 	@python3 tools/test_pub_sub.py
+
+test_phase4: all
+	@echo ">>> running Phase 4 integration tests (Keepalive/QoS1/Will)..."
+	@python3 tools/test_phase4.py

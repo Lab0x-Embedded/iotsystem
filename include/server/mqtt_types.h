@@ -29,6 +29,12 @@ typedef struct mqtt_connection {
     char                client_id[65];
     uint8_t             authenticated;
     uint8_t             connected;
+    uint16_t            keepalive;
+    time_t              last_active;
+    char                will_topic[64];
+    uint8_t            *will_payload;
+    uint32_t            will_payload_len;
+    uint8_t             will_qos;
 } mqtt_connection_t;
 
 typedef struct {

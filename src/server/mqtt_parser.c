@@ -96,6 +96,7 @@ static void reset_state(mqtt_parser_t *p) {
 static int full_parse_type(uint8_t type) {
     return type == MQTT_CONNECT
         || type == MQTT_SUBSCRIBE
+        || type == MQTT_UNSUBSCRIBE
         || type == MQTT_PINGREQ
         || type == MQTT_DISCONNECT
         || type == MQTT_PUBLISH;
@@ -223,17 +224,17 @@ mqtt_packet_t *mqtt_parser_take(mqtt_parser_t *p) {
     mqtt_packet_t *out = mqtt_packet_alloc();
     if (!out) return NULL;
     out->fix_header  = p->current.fix_header;
-    out->vh          = p->current.vh;
     out->payload     = p->current.payload;
     out->payload_len = p->current.payload_len;
     out->ref_count   = 1;
 
-    /* 解码 CONNECT 语义 */
+    /* 解码 CONNECT 语义 (先解析, 再赋值 vh, 确保 parse_connect_payload 写入 p->current.vh) */
     if (out->fix_header.type == MQTT_CONNECT) {
         if (parse_connect_payload(p) != 0) {
             LOG_ERROR("parse_connect_payload failed");
         }
     }
+    out->vh = p->current.vh;
 
     /* 复位 current */
     memset(&p->current, 0, sizeof(p->current));
