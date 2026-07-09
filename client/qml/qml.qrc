@@ -1,0 +1,20 @@
+<RCC>
+    <qresource prefix="/qml">
+        <file>main.qml</file>
+        <file>theme/ThemeManager.qml</file>
+        <file>theme/qmldir</file>
+        <file>components/NavSidebar.qml</file>
+        <file>components/StatCard.qml</file>
+        <file>components/GaugeCard.qml</file>
+        <file>components/RealtimeChart.qml</file>
+        <file>components/TopDevicesTable.qml</file>
+        <file>components/MetricCard.qml</file>
+        <file>components/DashboardCard.qml</file>
+        <file>components/StatusIndicator.qml</file>
+        <file>components/GaugeWidget.qml</file>
+        <file>pages/OverviewPage.qml</file>
+        <file>pages/DashboardPage.qml</file>
+        <file>pages/DetailPage.qml</file>
+        <file>pages/AlarmCenterPage.qml</file>
+    </qresource>
+</RCC>
