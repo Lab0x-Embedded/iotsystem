@@ -45,7 +45,7 @@ Item {
 
             ctx.arc(centerX, centerY, radius, Math.PI * 0.75, Math.PI * 2.25, false);
 
-            ctx.strokeStyle = root.isDark ? "#313244" : "#e5e7eb";
+            ctx.strokeStyle = root.isDark ? '#686a91' : "#e5e7eb";
 
             ctx.lineWidth = 14;
 
