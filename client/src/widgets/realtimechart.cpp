@@ -19,10 +19,9 @@ RealtimeChart::RealtimeChart(const QString &title, QWidget *parent)
     chart->legend()->setAlignment(Qt::AlignBottom);
     chart->setAnimationOptions(QChart::SeriesAnimations);
     chart->setDropShadowEnabled(true);
-    
+
     // Apply initial theme
     bool dark = ThemeManager::instance()->isDark();
-    setDarkTheme(dark);
 
     m_axisX = new QDateTimeAxis;
     m_axisX->setFormat("hh:mm:ss");
@@ -35,9 +34,12 @@ RealtimeChart::RealtimeChart(const QString &title, QWidget *parent)
     m_axisY->setLabelsFont(QFont("PingFang SC", 10));
     chart->addAxis(m_axisY, Qt::AlignLeft);
 
+    // Apply initial theme AFTER axes are created
+    setDarkTheme(dark);
+
     setChart(chart);
     setRenderHint(QPainter::Antialiasing);
-    
+
     // Connect to theme changes
     connect(ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
         setDarkTheme(ThemeManager::instance()->isDark());
@@ -76,6 +78,8 @@ void RealtimeChart::trim(int maxPoints) {
 
 void RealtimeChart::setDarkTheme(bool dark) {
     QChart *c = chart();
+    if (!c || !m_axisX || !m_axisY) return;  // Safety check
+
     if (dark) {
         // Dark theme - Catppuccin Mocha
         c->setTheme(QChart::ChartThemeDark);
@@ -84,7 +88,7 @@ void RealtimeChart::setDarkTheme(bool dark) {
         c->setTitleFont(QFont("PingFang SC", 14, QFont::Bold));
         c->legend()->setLabelColor(QColor("#a6adc8"));
         c->legend()->setFont(QFont("PingFang SC", 10));
-        
+
         m_axisX->setLabelsColor(QColor("#a6adc8"));
         m_axisY->setLabelsColor(QColor("#a6adc8"));
         m_axisX->setTitleBrush(QColor("#cdd6f4"));
@@ -101,7 +105,7 @@ void RealtimeChart::setDarkTheme(bool dark) {
         c->setTitleFont(QFont("PingFang SC", 14, QFont::Bold));
         c->legend()->setLabelColor(QColor("#5c5f77"));
         c->legend()->setFont(QFont("PingFang SC", 10));
-        
+
         m_axisX->setLabelsColor(QColor("#5c5f77"));
         m_axisY->setLabelsColor(QColor("#5c5f77"));
         m_axisX->setTitleBrush(QColor("#4c4f69"));

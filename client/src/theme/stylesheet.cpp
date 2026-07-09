@@ -35,9 +35,10 @@ QWidget#NavSidebar {
 }
 #sidebarTitle {
     color: %13;
-    font-size: 16px;
+    font-size: 20px;
     font-weight: bold;
-    padding: 0 16px 16px;
+    padding: 4px 16px 20px;
+    letter-spacing: 0.5px;
 }
 QWidget#NavSidebar QPushButton {
     background: transparent;
