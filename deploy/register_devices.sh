@@ -2,9 +2,26 @@
 # 批量注册测试设备
 
 SERVER="http://127.0.0.1:8080"
+USERNAME="admin"
+PASSWORD="admin@123"
 
 echo "=== 批量注册测试设备 ==="
 echo "服务器: $SERVER"
+echo ""
+
+# 登录获取token
+echo "正在登录..."
+LOGIN_RESP=$(curl -s -X POST "$SERVER/api/user" \
+    -H "Content-Type: application/json" \
+    -d "{\"action\":\"login\",\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}")
+
+TOKEN=$(echo "$LOGIN_RESP" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+
+if [ -z "$TOKEN" ]; then
+    echo "❌ 登录失败: $LOGIN_RESP"
+    exit 1
+fi
+echo "✅ 登录成功"
 echo ""
 
 register() {
@@ -15,6 +32,7 @@ register() {
     
     response=$(curl -s -X POST "$SERVER/api/device" \
         -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
         -d "{\"action\":\"register\",\"device_id\":\"$device_id\",\"name\":\"$name\",\"product_key\":\"$product_key\",\"group_id\":\"$group_id\"}")
     
     if echo "$response" | grep -q "registered"; then
