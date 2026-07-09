@@ -3,82 +3,129 @@ import QtQuick.Controls 2.15
 
 Item {
     id: root
-    width: 120
-    height: 120
-    
-    property string label: ""
-    property real value: 0
-    property real minValue: 0
-    property real maxValue: 100
-    property string unit: ""
-    property color color: "#89b4fa"
+
+    property color color: "#3b82f6"
     property bool isDark: true
-    
+    property string label: ""
+    property real maxValue: 100
+    property real minValue: 0
+    property string unit: ""
+    property real value: 0
+
+    height: 180
+    width: 180
+
+    Component.onCompleted: {
+        canvas.requestPaint();
+    }
+
     Canvas {
         id: canvas
+
         anchors.fill: parent
-        
+
         onPaint: {
             var ctx = getContext("2d");
+
             ctx.reset();
-            
+
+            var size = Math.min(width, height);
+
             var centerX = width / 2;
+
             var centerY = height / 2;
-            var radius = width / 2 - 12;
-            
-            // Background arc
+
+            var radius = size / 2 - 18;
+
+            /*
+             * 背景轨道
+             */
+
             ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0.75 * Math.PI, 0.25 * Math.PI);
-            ctx.strokeStyle = root.isDark ? "#45475a" : "#e0e0e0";
-            ctx.lineWidth = 12;
+
+            ctx.arc(centerX, centerY, radius, Math.PI * 0.75, Math.PI * 2.25, false);
+
+            ctx.strokeStyle = root.isDark ? "#313244" : "#e5e7eb";
+
+            ctx.lineWidth = 14;
+
             ctx.lineCap = "round";
+
             ctx.stroke();
-            
-            // Value arc
+
+            /*
+             * 当前值
+             */
+
             var progress = (root.value - root.minValue) / (root.maxValue - root.minValue);
-            var startAngle = 0.75 * Math.PI;
-            var endAngle = startAngle + (1.5 * Math.PI) * progress;
-            
+
+            progress = Math.max(0, Math.min(1, progress));
+
+            var startAngle = Math.PI * 0.75;
+
+            var endAngle = startAngle + Math.PI * 1.5 * progress;
+
             ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
+
             ctx.strokeStyle = root.color;
-            ctx.lineWidth = 12;
+
+            ctx.lineWidth = 14;
+
             ctx.lineCap = "round";
+
             ctx.stroke();
         }
-        
+
         Connections {
+            function onColorChanged() {
+                canvas.requestPaint();
+            }
+            function onIsDarkChanged() {
+                canvas.requestPaint();
+            }
+            function onValueChanged() {
+                canvas.requestPaint();
+            }
+
             target: root
-            function onValueChanged() { canvas.requestPaint() }
         }
     }
-    
+
+    /*
+     * 中间数据
+     */
+
     Column {
         anchors.centerIn: parent
-        spacing: 2
-        
+        spacing: 3
+
         Label {
-            text: root.value.toFixed(1)
-            font.pixelSize: 18
-            font.bold: true
+            anchors.horizontalCenter: parent.horizontalCenter
             color: root.color
-            anchors.horizontalCenter: parent.horizontalCenter
+            font.bold: true
+            font.pixelSize: 26
+            text: root.value.toFixed(1)
         }
-        
         Label {
-            text: root.unit
-            font.pixelSize: 10
-            color: root.isDark ? "#a6adc8" : "#666666"
             anchors.horizontalCenter: parent.horizontalCenter
+            color: root.isDark ? "#a6adc8" : "#64748b"
+            font.pixelSize: 12
+            text: root.unit
         }
     }
-    
+
+    /*
+     * 底部名称
+     */
+
     Label {
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 4
+        anchors.bottomMargin: 8
         anchors.horizontalCenter: parent.horizontalCenter
+        color: root.isDark ? "#cdd6f4" : "#334155"
+        font.pixelSize: 13
         text: root.label
-        font.pixelSize: 11
-        color: root.isDark ? "#cdd6f4" : "#1e1e2e"
     }
 }
