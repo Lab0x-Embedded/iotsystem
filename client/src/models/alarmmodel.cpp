@@ -2,60 +2,93 @@
 
 AlarmModel::AlarmModel(QObject *parent) : QAbstractTableModel(parent) {}
 
-int AlarmModel::rowCount(const QModelIndex &) const { return m_records.size(); }
-int AlarmModel::columnCount(const QModelIndex &) const { return ColCount; }
-
-QVariant AlarmModel::data(const QModelIndex &index, int role) const {
-    if (!index.isValid() || index.row() >= m_records.size()) return {};
-    const AlarmRecord &r = m_records[index.row()];
-    if (role == Qt::DisplayRole) {
-        switch (index.column()) {
-            case ColSeverity: return r.severityText();
-            case ColDevice:   return r.deviceId;
-            case ColMetric:   return r.metric;
-            case ColValue:    return QString::number(r.value, 'f', 2);
-            case ColMessage:  return r.message;
-            case ColTime:     return r.triggeredAt.toString("hh:mm:ss");
-            case ColAck:      return r.acknowledged ? QStringLiteral("已确认") : QStringLiteral("-");
-        }
-    }
-    if (role == Qt::ForegroundRole && index.column() == ColSeverity) return r.severityColor();
-    if (role == Qt::CheckStateRole && index.column() == ColAck) return r.acknowledged ? Qt::Checked : Qt::Unchecked;
-    return {};
+int AlarmModel::rowCount(const QModelIndex &parent) const {
+    Q_UNUSED(parent);
+    return m_records.size();
 }
 
-QVariant AlarmModel::headerData(int section, Qt::Orientation o, int role) const {
-    if (role != Qt::DisplayRole || o != Qt::Horizontal) return {};
+int AlarmModel::columnCount(const QModelIndex &parent) const {
+    Q_UNUSED(parent);
+    return ColCount;
+}
+
+QVariant AlarmModel::data(const QModelIndex &index, int role) const {
+    if (!index.isValid() || index.row() >= m_records.size())
+        return QVariant();
+
+    const AlarmRecord &rec = m_records[index.row()];
+
+    if (role == Qt::DisplayRole) {
+        switch (index.column()) {
+            case ColSeverity: return rec.severityText();
+            case ColDevice: return rec.deviceId;
+            case ColMetric: return rec.metric;
+            case ColValue: return QString::number(rec.currentValue, 'f', 2);
+            case ColThreshold: return QString::number(rec.threshold, 'f', 2);
+            case ColStatus: return rec.statusText();
+            case ColTime: return rec.createdAt.toString("yyyy-MM-dd hh:mm:ss");
+        }
+    } else if (role == Qt::ForegroundRole) {
+        if (index.column() == ColSeverity)
+            return QBrush(rec.severityColor());
+        if (index.column() == ColStatus) {
+            if (rec.status == AlarmStatus::Active)
+                return QBrush(QColor("#FF5722"));
+            else if (rec.status == AlarmStatus::Acknowledged)
+                return QBrush(QColor("#FFC107"));
+            else
+                return QBrush(QColor("#4CAF50"));
+        }
+    } else if (role == Qt::TextAlignmentRole) {
+        if (index.column() == ColValue || index.column() == ColThreshold)
+            return static_cast<int>(Qt::AlignRight | Qt::AlignVCenter);
+    }
+
+    return QVariant();
+}
+
+QVariant AlarmModel::headerData(int section, Qt::Orientation orientation, int role) const {
+    if (role != Qt::DisplayRole || orientation != Qt::Horizontal)
+        return QVariant();
+
     switch (section) {
         case ColSeverity: return QStringLiteral("级别");
-        case ColDevice:   return QStringLiteral("设备");
-        case ColMetric:   return QStringLiteral("指标");
-        case ColValue:    return QStringLiteral("值");
-        case ColMessage:  return QStringLiteral("描述");
-        case ColTime:     return QStringLiteral("时间");
-        case ColAck:      return QStringLiteral("确认");
+        case ColDevice: return QStringLiteral("设备ID");
+        case ColMetric: return QStringLiteral("指标");
+        case ColValue: return QStringLiteral("当前值");
+        case ColThreshold: return QStringLiteral("阈值");
+        case ColStatus: return QStringLiteral("状态");
+        case ColTime: return QStringLiteral("触发时间");
     }
-    return {};
+    return QVariant();
 }
 
 void AlarmModel::addRecord(const AlarmRecord &rec) {
-    beginInsertRows(QModelIndex(), 0, 0);
-    m_records.push_front(rec);
+    beginInsertRows(QModelIndex(), m_records.size(), m_records.size());
+    m_records.append(rec);
     endInsertRows();
+    emit countsChanged();
 }
 
-void AlarmModel::setRecords(const QVector<AlarmRecord> &records) {
+void AlarmModel::setAlarms(const QVector<AlarmRecord> &records) {
     beginResetModel();
     m_records = records;
     endResetModel();
+    emit countsChanged();
 }
 
-void AlarmModel::acknowledge(int row) {
-    if (row < 0 || row >= m_records.size()) return;
-    m_records[row].acknowledged = true;
-    emit dataChanged(index(row, ColAck), index(row, ColAck));
+void AlarmModel::clear() {
+    beginResetModel();
+    m_records.clear();
+    endResetModel();
+    emit countsChanged();
 }
 
-int AlarmModel::unacknowledgedCount() const {
-    int n = 0; for (const auto &r : m_records) if (!r.acknowledged) ++n; return n;
+int AlarmModel::activeCount() const {
+    int count = 0;
+    for (const auto &rec : m_records) {
+        if (rec.status == AlarmStatus::Active)
+            count++;
+    }
+    return count;
 }

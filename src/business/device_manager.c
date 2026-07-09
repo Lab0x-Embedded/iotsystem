@@ -129,3 +129,19 @@ int device_manager_online_count(void) {
     pthread_mutex_unlock(&g_lock);
     return n;
 }
+
+int device_manager_get_all(const device_info_t **devices, int *count) {
+    if (!devices || !count) return -1;
+    pthread_mutex_lock(&g_lock);
+    *devices = g_devices;
+    *count = g_device_count;
+    pthread_mutex_unlock(&g_lock);
+    return 0;
+}
+
+int device_manager_total_count(void) {
+    pthread_mutex_lock(&g_lock);
+    int n = g_device_count;
+    pthread_mutex_unlock(&g_lock);
+    return n;
+}

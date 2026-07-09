@@ -69,3 +69,9 @@ int  device_manager_online_count(void);
 #endif
 
 #endif /* E2_DEVICE_MANAGER_H */
+
+/** 获取所有设备列表 (用于API查询). */
+int device_manager_get_all(const device_info_t **devices, int *count);
+
+/** 获取设备总数. */
+int device_manager_total_count(void);

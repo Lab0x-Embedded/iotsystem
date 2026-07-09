@@ -7,28 +7,85 @@
 #include <QString>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 
 class HttpClient : public QObject {
     Q_OBJECT
+    Q_PROPERTY(QString serverUrl READ serverUrl WRITE setServerUrl NOTIFY serverUrlChanged)
+    Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
+    Q_PROPERTY(QString authToken READ authToken NOTIFY authTokenChanged)
+
 public:
     explicit HttpClient(QObject *parent = nullptr);
 
-    void setBaseUrl(const QString &url);
-    void setAuthToken(const QString &token);
-    void login(const QString &username, const QString &password);
-    void fetchDevices();
-    void sendCommand(const QString &deviceId, const QString &cmd, const QJsonObject &payload);
+    // 属性访问器
+    QString serverUrl() const { return m_baseUrl; }
+    bool connected() const { return m_connected; }
+    QString authToken() const { return m_token; }
+
+    // 连接设置
+    Q_INVOKABLE void setServerUrl(const QString &url);
+    Q_INVOKABLE void setAuthToken(const QString &token);
+
+    // 用户认证
+    Q_INVOKABLE void login(const QString &username, const QString &password);
+
+    // 设备管理
+    Q_INVOKABLE void fetchDevices();
+    Q_INVOKABLE void registerDevice(const QString &deviceId, const QString &name, 
+                                     const QString &productKey, const QString &groupId);
+    Q_INVOKABLE void queryDevice(const QString &deviceId);
+
+    // 设备影子
+    Q_INVOKABLE void getShadow(const QString &deviceId);
+    Q_INVOKABLE void updateShadow(const QString &deviceId, const QJsonObject &desired);
+
+    // 指令下发
+    Q_INVOKABLE void sendCommand(const QString &deviceId, const QString &cmd, 
+                                  const QJsonObject &payload = QJsonObject());
+
+    // 告警
+    Q_INVOKABLE void fetchAlarms(const QString &deviceId = QString());
 
 signals:
+    // 连接状态
+    void serverUrlChanged();
+    void connectedChanged();
+    void authTokenChanged();
+    void connectionError(const QString &error);
+
+    // 认证
     void loginSucceeded(const QString &token, const QString &role);
     void loginFailed(const QString &error);
-    void devicesFetched(const QJsonDocument &doc);
+
+    // 设备
+    void devicesFetched(const QJsonArray &devices);
+    void deviceRegistered(const QString &deviceId);
+    void deviceQueryResult(const QJsonObject &device);
+    void deviceOperationError(const QString &error);
+
+    // 影子
+    void shadowFetched(const QString &deviceId, const QJsonObject &shadow);
+    void shadowUpdated(const QString &deviceId);
+    void shadowError(const QString &error);
+
+    // 指令
     void commandSent(bool ok, const QString &status, const QString &commandId);
-    void requestError(const QString &error);
+    void commandError(const QString &error);
+
+    // 告警
+    void alarmsFetched(const QJsonArray &alarms);
+    void alarmError(const QString &error);
 
 private:
+    QNetworkRequest makeRequest(const QString &path);
+    void handleReply(QNetworkReply *reply, std::function<void(const QJsonObject &)> onSuccess,
+                     std::function<void(const QString &)> onError);
+
     QNetworkAccessManager m_mgr;
     QString m_baseUrl;
-    QNetworkRequest makeRequest(const QString &path);
+    QString m_token;
+    bool m_connected = false;
 };
-#endif
+
+#endif // HTTPCLIENT_H

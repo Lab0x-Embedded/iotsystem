@@ -64,11 +64,11 @@ void MockDataSource::onTick() {
         a.id = ++m_alarmSeq;
         a.deviceId = d.id;
         a.metric = "temperature";
-        a.value = d.temperature;
+        a.currentValue = d.temperature;
+        a.threshold = 32.0;
         a.severity = d.temperature > 35.0 ? AlarmSeverity::Critical : AlarmSeverity::Warning;
-        a.message = QString("温度超限 %1°C > 32°C").arg(d.temperature, 0, 'f', 1);
-        a.triggeredAt = QDateTime::currentDateTime();
-        a.acknowledged = false;
+        a.status = AlarmStatus::Active;
+        a.createdAt = QDateTime::currentDateTime();
         emit newAlarm(a);
     } else if (d.temperature < 30.0 && d.status == DeviceStatus::Alarm) {
         d.status = DeviceStatus::Online;

@@ -6,24 +6,27 @@
 #include <QString>
 #include <QDateTime>
 #include <QColor>
+#include <QBrush>
 
 enum class AlarmSeverity { Info = 0, Warning = 1, Critical = 2 };
+enum class AlarmStatus { Active = 0, Acknowledged = 1, Resolved = 2 };
 
 struct AlarmRecord {
     uint64_t id = 0;
     QString deviceId;
     QString metric;
-    double value = 0.0;
+    double currentValue = 0.0;
+    double threshold = 0.0;
     AlarmSeverity severity = AlarmSeverity::Info;
-    QString message;
-    QDateTime triggeredAt;
-    bool acknowledged = false;
+    AlarmStatus status = AlarmStatus::Active;
+    QDateTime createdAt;
+    QDateTime resolvedAt;
 
     QString severityText() const {
         switch (severity) {
-            case AlarmSeverity::Critical: return QStringLiteral("CRITICAL");
-            case AlarmSeverity::Warning:  return QStringLiteral("WARNING");
-            case AlarmSeverity::Info:     return QStringLiteral("INFO");
+            case AlarmSeverity::Critical: return QStringLiteral("严重");
+            case AlarmSeverity::Warning:  return QStringLiteral("警告");
+            case AlarmSeverity::Info:     return QStringLiteral("信息");
         }
         return QStringLiteral("?");
     }
@@ -35,14 +38,22 @@ struct AlarmRecord {
         }
         return QColor("#9E9E9E");
     }
+    QString statusText() const {
+        switch (status) {
+            case AlarmStatus::Active: return QStringLiteral("活跃");
+            case AlarmStatus::Acknowledged: return QStringLiteral("已确认");
+            case AlarmStatus::Resolved: return QStringLiteral("已解决");
+        }
+        return QStringLiteral("?");
+    }
 };
 
 class AlarmModel : public QAbstractTableModel {
     Q_OBJECT
 public:
     enum Column {
-        ColSeverity = 0, ColDevice, ColMetric, ColValue,
-        ColMessage, ColTime, ColAck, ColCount
+        ColSeverity = 0, ColDevice, ColMetric, ColValue, ColThreshold,
+        ColStatus, ColTime, ColCount
     };
     explicit AlarmModel(QObject *parent = nullptr);
 
@@ -53,11 +64,16 @@ public:
 
     const AlarmRecord &at(int row) const { return m_records[row]; }
     void addRecord(const AlarmRecord &rec);
-    void acknowledge(int row);
-    void setRecords(const QVector<AlarmRecord> &records);
-    int unacknowledgedCount() const;
+    void setAlarms(const QVector<AlarmRecord> &records);
+    void clear();
+    int activeCount() const;
+    int totalCount() const { return m_records.size(); }
+
+signals:
+    void countsChanged();
 
 private:
     QVector<AlarmRecord> m_records;
 };
-#endif
+
+#endif // ALARMMODEL_H

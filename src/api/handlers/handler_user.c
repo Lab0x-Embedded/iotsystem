@@ -19,7 +19,7 @@ void handler_user(struct evhttp_request *req, void *ctx) {
         const cJSON *user = cJSON_GetObjectItem(root, "username");
         const cJSON *pass = cJSON_GetObjectItem(root, "password");
         if (user && pass && strcmp(user->valuestring, "admin") == 0 &&
-            strcmp(pass->valuestring, "admin123") == 0) {
+            strcmp(pass->valuestring, "admin@123") == 0) {
             char token[256];
             auth_middleware_generate_token(user->valuestring, token, sizeof(token));
             cJSON *res = cJSON_CreateObject();
