@@ -1,6 +1,9 @@
 #include "theme.h"
 #include <QGlobalStatic>
 #include <QSettings>
+#include <QApplication>
+#include <QFile>
+#include <QTextStream>
 
 Q_GLOBAL_STATIC(ThemeManager, s_instance)
 
@@ -92,6 +95,7 @@ void ThemeManager::load() {
     QSettings s;
     m_isDark = s.value("theme/dark", true).toBool();
     m_theme = m_isDark ? buildDark() : buildLight();
+    applyStyleSheet();
 }
 
 void ThemeManager::toggle() {
@@ -104,5 +108,16 @@ void ThemeManager::setDark(bool dark) {
     m_theme = m_isDark ? buildDark() : buildLight();
     QSettings s;
     s.setValue("theme/dark", m_isDark);
+    applyStyleSheet();
     emit themeChanged();
+}
+
+void ThemeManager::applyStyleSheet() {
+    QString styleFile = m_isDark ? ":/styles/dark.css" : ":/styles/light.css";
+    QFile file(styleFile);
+    if (file.open(QFile::ReadOnly | QFile::Text)) {
+        QTextStream in(&file);
+        qApp->setStyleSheet(in.readAll());
+        file.close();
+    }
 }

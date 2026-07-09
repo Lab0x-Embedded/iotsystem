@@ -23,7 +23,8 @@ SOURCES += \
     src/widgets/realtimechart.cpp \
     src/widgets/gaugewidget.cpp \
     src/widgets/topdevicestable.cpp \
-    src/widgets/statusindicator.cpp
+    src/widgets/statusindicator.cpp \
+    src/theme/theme.cpp
 
 HEADERS += \
     src/main/mainwindow.h \
@@ -41,7 +42,8 @@ HEADERS += \
     src/widgets/realtimechart.h \
     src/widgets/gaugewidget.h \
     src/widgets/topdevicestable.h \
-    src/widgets/statusindicator.h
+    src/widgets/statusindicator.h \
+    src/theme/theme.h
 
 RESOURCES += resources/styles.qrc
 
@@ -51,5 +53,5 @@ MOC_DIR     = build/moc
 RCC_DIR     = build/rcc
 UI_DIR      = build/ui
 
-INCLUDEPATH += src
+INCLUDEPATH += src src/theme
 QMAKE_CXXFLAGS += -Wall -Wextra

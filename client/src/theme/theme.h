@@ -63,6 +63,7 @@ public:
 private:
     Theme buildDark() const;
     Theme buildLight() const;
+    void applyStyleSheet();
 
     Theme m_theme;
     bool m_isDark = true;

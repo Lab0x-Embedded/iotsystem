@@ -1,0 +1,115 @@
+/* IoTClient Light Theme */
+QMainWindow, QDialog {
+    background-color: #eff1f5;
+    color: #4c4f69;
+}
+QWidget#centralWidget {
+    background-color: #eff1f5;
+}
+/* Navigation sidebar */
+NavSidebar {
+    background-color: #e6e9ef;
+    border-right: 1px solid #ccd0da;
+}
+NavSidebar QPushButton {
+    background: transparent;
+    color: #5c5f77;
+    border: none;
+    border-left: 3px solid transparent;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 14px;
+    min-height: 40px;
+}
+NavSidebar QPushButton:hover {
+    background-color: #ccd0da;
+    color: #4c4f69;
+}
+NavSidebar QPushButton:checked {
+    background-color: #bcc0cc;
+    color: #1e66f5;
+    border-left: 3px solid #1e66f5;
+    font-weight: bold;
+}
+/* Cards */
+DashboardCard {
+    background-color: #dce0e8;
+    border-radius: 8px;
+    padding: 16px;
+}
+QLabel[title="true"] {
+    color: #5c5f77;
+    font-size: 13px;
+}
+QLabel[value="true"] {
+    color: #4c4f69;
+    font-size: 28px;
+    font-weight: bold;
+}
+/* Status indicator */
+StatusIndicator {
+    min-width: 12px; max-width: 12px;
+    min-height: 12px; max-height: 12px;
+    border-radius: 6px;
+}
+/* Table */
+QTableView {
+    background-color: #eff1f5;
+    alternate-background-color: #e6e9ef;
+    color: #4c4f69;
+    gridline-color: #ccd0da;
+    border: 1px solid #ccd0da;
+    selection-background-color: #bcc0cc;
+}
+QHeaderView::section {
+    background-color: #dce0e8;
+    color: #5c5f77;
+    border: none;
+    border-bottom: 1px solid #ccd0da;
+    padding: 8px;
+    font-weight: bold;
+}
+/* Buttons */
+QPushButton#primaryButton {
+    background-color: #1e66f5;
+    color: #eff1f5;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+QPushButton#primaryButton:hover { background-color: #4a8af4; }
+QPushButton#primaryButton:pressed { background-color: #1a5fe0; }
+QPushButton#dangerButton {
+    background-color: #d20f39;
+    color: #eff1f5;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: bold;
+}
+/* ScrollBars */
+QScrollBar:vertical {
+    background: #dce0e8;
+    width: 10px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #bcc0cc;
+    min-height: 20px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical:hover { background: #9ca0b0; }
+/* Group box */
+QGroupBox {
+    border: 1px solid #ccd0da;
+    border-radius: 6px;
+    margin-top: 12px;
+    color: #5c5f77;
+    font-weight: bold;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 4px;
+}
