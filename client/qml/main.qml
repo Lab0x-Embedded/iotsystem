@@ -140,6 +140,7 @@ ApplicationWindow {
                 id: overviewPage
                 isDark: root.isDark
                 deviceModel: deviceModel
+                dataManager: dataManager
                 
                 onDeviceSelected: function(deviceId) {
                     detailPage.showDevice(deviceId)

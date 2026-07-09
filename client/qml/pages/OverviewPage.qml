@@ -9,11 +9,75 @@ Rectangle {
 
     property string currentGroup: "全部设备"
     property var deviceModel: null
+    property var dataManager: null
     property bool isDark: true
 
     signal deviceSelected(string deviceId)
 
     color: isDark ? "#1e1e2e" : "#f5f5f5"
+
+    // 从设备列表中提取分组统计
+    ListModel {
+        id: groupModel
+    }
+
+    function updateGroupModel() {
+        if (!deviceModel) return;
+        
+        groupModel.clear();
+        
+        // 统计各分组设备数
+        var groups = {};
+        var totalCount = 0;
+        
+        for (var i = 0; i < deviceModel.rowCount(); i++) {
+            var idx = deviceModel.index(i, 0);
+            var group = deviceModel.data(deviceModel.index(i, 3), Qt.DisplayRole) || "未分组";
+            
+            totalCount++;
+            if (!groups[group]) {
+                groups[group] = { count: 0, online: 0 };
+            }
+            groups[group].count++;
+            // 检查是否在线 (status列)
+            var status = deviceModel.data(deviceModel.index(i, 0), Qt.UserRole);
+            if (status === 1) { // Online
+                groups[group].online++;
+            }
+        }
+        
+        // 添加"全部设备"
+        groupModel.append({
+            name: "全部设备",
+            count: totalCount,
+            depth: 0,
+            hasChildren: Object.keys(groups).length > 0,
+            expanded: true
+        });
+        
+        // 添加各分组
+        for (var groupName in groups) {
+            groupModel.append({
+                name: groupName,
+                count: groups[groupName].count,
+                depth: 1,
+                hasChildren: false,
+                expanded: false
+            });
+        }
+    }
+
+    // 监听模型变化
+    Connections {
+        target: deviceModel
+        function onModelReset() { updateGroupModel() }
+        function onRowsInserted() { updateGroupModel() }
+        function onRowsRemoved() { updateGroupModel() }
+    }
+
+    Component.onCompleted: {
+        updateGroupModel()
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -43,7 +107,6 @@ Rectangle {
                 }
                 ListView {
                     id: groupTree
-
                     Layout.fillHeight: true
                     Layout.fillWidth: true
                     clip: true
@@ -82,7 +145,6 @@ Rectangle {
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-
                             onClicked: {
                                 root.currentGroup = model.name;
                             }
@@ -133,42 +195,6 @@ Rectangle {
                 }
             }
 
-            // Filter row
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
-                Label {
-                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                    font.pixelSize: 13
-                    text: "筛选:"
-                }
-                ComboBox {
-                    id: statusFilter
-
-                    Layout.preferredHeight: 36
-                    Layout.preferredWidth: 120
-                    Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                    model: ["全部状态", "在线", "离线", "告警"]
-                }
-                Item {
-                    Layout.fillWidth: true
-                }
-                Label {
-                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                    font.pixelSize: 13
-                    text: "搜索:"
-                }
-                TextField {
-                    id: searchField
-
-                    Layout.preferredHeight: 36
-                    Layout.preferredWidth: 250
-                    Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                    placeholderText: "搜索设备 ID/名称..."
-                }
-            }
-
             // Device table
             Rectangle {
                 Layout.fillHeight: true
@@ -180,13 +206,15 @@ Rectangle {
 
                 ColumnLayout {
                     anchors.fill: parent
+                    anchors.margins: 12
                     spacing: 0
 
                     // Table header
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 44
-                        color: root.isDark ? "#181825" : "#f8f9fa"
+                        Layout.preferredHeight: 36
+                        color: root.isDark ? "#1e1e2e" : "#f8f9fa"
+                        radius: 6
 
                         RowLayout {
                             anchors.fill: parent
@@ -194,88 +222,33 @@ Rectangle {
                             anchors.rightMargin: 16
                             spacing: 12
 
-                            Label {
-                                Layout.preferredWidth: 50
-                                color: root.isDark ? "#a6adc8" : "#666666"
-                                font.bold: true
-                                font.pixelSize: 12
-                                text: "状态"
-                            }
-                            Label {
-                                Layout.preferredWidth: 100
-                                color: root.isDark ? "#a6adc8" : "#666666"
-                                font.bold: true
-                                font.pixelSize: 12
-                                text: "设备ID"
-                            }
-                            Label {
-                                Layout.preferredWidth: 80
-                                color: root.isDark ? "#a6adc8" : "#666666"
-                                font.bold: true
-                                font.pixelSize: 12
-                                text: "类型"
-                            }
-                            Label {
-                                Layout.preferredWidth: 80
-                                color: root.isDark ? "#a6adc8" : "#666666"
-                                font.bold: true
-                                font.pixelSize: 12
-                                text: "分组"
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                color: root.isDark ? "#a6adc8" : "#666666"
-                                font.bold: true
-                                font.pixelSize: 12
-                                text: "最后上报"
-                            }
-                            Label {
-                                Layout.preferredWidth: 60
-                                color: root.isDark ? "#a6adc8" : "#666666"
-                                font.bold: true
-                                font.pixelSize: 12
-                                text: "操作"
-                            }
+                            Label { Layout.preferredWidth: 50; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "状态" }
+                            Label { Layout.preferredWidth: 100; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "设备ID" }
+                            Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "名称" }
+                            Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "分组" }
+                            Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "最后上报" }
+                            Label { Layout.preferredWidth: 56; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "操作" }
                         }
                     }
 
-                    // Divider
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 1
-                        color: root.isDark ? "#45475a" : "#e0e0e0"
-                    }
-
-                    // Table data
+                    // Table content
                     ListView {
                         id: deviceList
-
                         Layout.fillHeight: true
                         Layout.fillWidth: true
                         clip: true
                         model: deviceModel
 
+                        // 过滤当前分组
+                        // 注意: 简化处理，显示所有设备
+
                         ScrollBar.vertical: ScrollBar {
-                            parent: deviceList
+                            active: true
                             policy: ScrollBar.AsNeeded
-                            width: 6
-                            x: deviceList.width - width - 4
-
-                            background: Rectangle {
-                                color: "transparent"
-                            }
-                            contentItem: Rectangle {
-                                color: parent.parent.pressed ? "#CBD5E1" : parent.parent.hovered ? "#94A3B8" : '#DBEAFE'
-                                implicitWidth: 6
-                                radius: 3
-
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: 200
-                                    }
-                                }
-                            }
                         }
+
+                        header: Rectangle { height: 6; width: deviceList.width; color: "transparent" }
+
                         delegate: Rectangle {
                             color: index % 2 === 0 ? (root.isDark ? "#313244" : "#ffffff") : (root.isDark ? "#2a2a3c" : "#f8f9fa")
                             height: 44
@@ -287,7 +260,6 @@ Rectangle {
                                 anchors.rightMargin: 16
                                 spacing: 12
 
-                                // Status dot
                                 StatusIndicator {
                                     Layout.preferredHeight: 32
                                     Layout.preferredWidth: 50
@@ -317,8 +289,6 @@ Rectangle {
                                     font.pixelSize: 12
                                     text: model.lastSeen
                                 }
-
-                                // Detail button
                                 Button {
                                     Layout.preferredHeight: 28
                                     Layout.preferredWidth: 56
@@ -343,7 +313,6 @@ Rectangle {
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
-
                                         onClicked: root.deviceSelected(model.id)
                                     }
                                 }
@@ -352,47 +321,6 @@ Rectangle {
                     }
                 }
             }
-        }
-    }
-
-    // Group tree data model
-    ListModel {
-        id: groupModel
-
-        ListElement {
-            count: 847
-            depth: 0
-            expanded: true
-            hasChildren: true
-            name: "全部设备"
-        }
-        ListElement {
-            count: 523
-            depth: 1
-            expanded: true
-            hasChildren: true
-            name: "工厂A"
-        }
-        ListElement {
-            count: 312
-            depth: 2
-            expanded: false
-            hasChildren: false
-            name: "车间1"
-        }
-        ListElement {
-            count: 211
-            depth: 2
-            expanded: false
-            hasChildren: false
-            name: "车间2"
-        }
-        ListElement {
-            count: 324
-            depth: 1
-            expanded: false
-            hasChildren: true
-            name: "工厂B"
         }
     }
 }

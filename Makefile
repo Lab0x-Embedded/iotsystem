@@ -1,4 +1,4 @@
-.PHONY: build run db_init register_devices dev clean help
+.PHONY: build run db_init register_devices dev clean client help
 
 build:
 	@mkdir -p build && cd build && cmake .. && make -j$$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
@@ -15,16 +15,21 @@ register_devices:
 dev: build
 	@./build/iot-broker --config deploy/config.json
 
+client:
+	@cd client && cmake -B build && cmake --build build
+	@open client/build/IoTDeviceManager.app
+
 clean:
 	@rm -rf build/*
 	@echo "Build directory cleaned"
 
 help:
 	@echo "可用命令:"
-	@echo "  make build            - 编译项目"
+	@echo "  make build            - 编译服务端"
 	@echo "  make run              - 启动服务"
+	@echo "  make client           - 编译并启动QT客户端"
 	@echo "  make db_init          - 初始化数据库"
 	@echo "  make register_devices - 注册测试设备"
-	@echo "  make dev              - 编译并启动"
+	@echo "  make dev              - 编译并启动服务"
 	@echo "  make clean            - 清理构建"
 	@echo "  make help             - 查看帮助"
