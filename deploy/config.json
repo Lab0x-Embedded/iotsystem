@@ -1,0 +1,14 @@
+{
+    "mqtt_port": 65080,
+    "http_port": 8080,
+    "workers": 4,
+    "backlog": 1024,
+    "database": {
+        "host": "127.0.0.1",
+        "port": 3306,
+        "user": "admin",
+        "password": "123456",
+        "database": "e2_iot",
+        "pool_size": 4
+    }
+}

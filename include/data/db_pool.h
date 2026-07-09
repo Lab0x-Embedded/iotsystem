@@ -42,6 +42,18 @@ void db_pool_put(db_conn_t *conn);
 /** 执行查询 (简化封装). */
 int db_pool_exec(db_conn_t *conn, const char *sql);
 
+/** 执行查询并获取结果集. */
+void *db_pool_query(db_conn_t *conn, const char *sql);
+
+/** 释放结果集. */
+void db_pool_free_result(void *result);
+
+/** 获取连接的MySQL句柄 (用于prepared statements). */
+void *db_pool_get_mysql(db_conn_t *conn);
+
+/** 检查连接是否有效. */
+int db_pool_ping(db_conn_t *conn);
+
 #ifdef __cplusplus
 }
 #endif

@@ -15,6 +15,9 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBEVENT REQUIRED libevent)
 pkg_check_modules(CJSON REQUIRED libcjson)
 
+# MySQL client library
+pkg_check_modules(MYSQL REQUIRED mysqlclient)
+
 find_package(Threads REQUIRED)
 
 file(GLOB_RECURSE IOT_BROKER_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
@@ -28,12 +31,16 @@ target_include_directories(iot-broker PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/mqtt
     ${CMAKE_CURRENT_SOURCE_DIR}/include/business
     ${CMAKE_CURRENT_SOURCE_DIR}/include/api
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/data
 
     # libevent
     ${LIBEVENT_INCLUDE_DIRS}
 
     # cJSON
     ${CJSON_INCLUDE_DIRS}
+
+    # MySQL
+    ${MYSQL_INCLUDE_DIRS}
 )
 
 target_link_libraries(iot-broker PRIVATE
@@ -42,17 +49,22 @@ target_link_libraries(iot-broker PRIVATE
     # cJSON
     ${CJSON_LIBRARIES}
 
+    # MySQL
+    ${MYSQL_LIBRARIES}
+
     Threads::Threads
 )
 
 target_link_directories(iot-broker PRIVATE
     ${LIBEVENT_LIBRARY_DIRS}
     ${CJSON_LIBRARY_DIRS}
+    ${MYSQL_LIBRARY_DIRS}
 )
 
 target_link_options(iot-broker PRIVATE
     ${LIBEVENT_LDFLAGS_OTHER}
     ${CJSON_LDFLAGS_OTHER}
+    ${MYSQL_LDFLAGS_OTHER}
 )
 
 # ---------------------------------------------------------------------------
@@ -148,9 +160,10 @@ target_include_directories(test_router PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/api
     ${CMAKE_CURRENT_SOURCE_DIR}/include/data
     ${LIBEVENT_INCLUDE_DIRS}
-    ${CJSON_INCLUDE_DIRS})
-target_link_libraries(test_router PRIVATE ${LIBEVENT_LIBRARIES} ${CJSON_LIBRARIES})
-target_link_directories(test_router PRIVATE ${LIBEVENT_LIBRARY_DIRS} ${CJSON_LIBRARY_DIRS})
+    ${CJSON_INCLUDE_DIRS}
+    ${MYSQL_INCLUDE_DIRS})
+target_link_libraries(test_router PRIVATE ${LIBEVENT_LIBRARIES} ${CJSON_LIBRARIES} ${MYSQL_LIBRARIES})
+target_link_directories(test_router PRIVATE ${LIBEVENT_LIBRARY_DIRS} ${CJSON_LIBRARY_DIRS} ${MYSQL_LIBRARY_DIRS})
 
 add_custom_target(test_router_run
     COMMAND test_router
