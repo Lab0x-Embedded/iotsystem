@@ -93,7 +93,7 @@ Rectangle {
             // Top devices table
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 250
+                Layout.preferredHeight: 280
                 radius: 12
                 color: root.isDark ? "#313244" : "#ffffff"
                 border.color: root.isDark ? "#45475a" : "#e0e0e0"

@@ -257,7 +257,7 @@ Rectangle {
                                 }
                             }
 
-                            onClicked: console.log("Edit desired")
+                            onClicked: desiredDialog.open()
                         }
                     }
                     RowLayout {
@@ -393,18 +393,22 @@ Rectangle {
                             model: ListModel {
                                 ListElement {
                                     cmd: "fan_on"
+                                    danger: false
                                     name: "开启风扇"
                                 }
                                 ListElement {
                                     cmd: "fan_off"
+                                    danger: false
                                     name: "关闭风扇"
                                 }
                                 ListElement {
                                     cmd: "set_temp"
+                                    danger: false
                                     name: "设置温度"
                                 }
                                 ListElement {
                                     cmd: "reboot"
+                                    danger: true
                                     name: "重启设备"
                                 }
                             }
@@ -414,7 +418,7 @@ Rectangle {
                                 text: model.name
 
                                 background: Rectangle {
-                                    border.color: root.isDark ? "#45475a" : "#cbd5e1"
+                                    border.color: model.danger ? "#f38ba8" : (root.isDark ? "#45475a" : "#cbd5e1")
                                     border.width: 1
                                     color: parent.pressed ? (root.isDark ? "#45475a" : "#d1d5db") : parent.hovered ? (root.isDark ? "#3b3b4f" : "#e8edf5") : (root.isDark ? "#1e1e2e" : "#f8f9fa")
                                     implicitHeight: 40
@@ -427,7 +431,8 @@ Rectangle {
                                     }
                                 }
                                 contentItem: Label {
-                                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                                    color: model.danger ? "#f38ba8" : (root.isDark ? "#cdd6f4" : "#1e1e2e")
+                                    font.bold: model.danger
                                     font.pixelSize: 13
                                     horizontalAlignment: Text.AlignHCenter
                                     text: parent.text
@@ -442,4 +447,70 @@ Rectangle {
             }
         }
     }
+
+    // Edit desired state dialog
+    Dialog {
+        id: desiredDialog
+        title: "修改期望值"
+        anchors.centerIn: parent
+        width: 400
+        modal: true
+        closePolicy: Dialog.CloseOnEscape
+
+        contentItem: ColumnLayout {
+            spacing: 12
+
+            Label {
+                text: "Desired JSON:"
+                font.pixelSize: 12
+                color: root.isDark ? "#a6adc8" : "#666666"
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 200
+                radius: 8
+                color: root.isDark ? "#1e1e2e" : "#f8f9fa"
+                border.color: root.isDark ? "#45475a" : "#cbd5e1"
+                border.width: 1
+
+                ScrollView {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    clip: true
+
+                    TextArea {
+                        id: desiredEditor
+                        font.family: "Monaco"
+                        font.pixelSize: 12
+                        color: root.isDark ? "#a6e3a1" : "#2e7d32"
+                        wrapMode: TextArea.Wrap
+                        text: '{\n  "temperature": 25,\n  "fan_speed": "high"\n}'
+                        background: Rectangle { color: "transparent" }
+                    }
+                }
+            }
+        }
+
+        footer: RowLayout {
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Button {
+                text: "取消"
+                flat: true
+                Material.foreground: root.isDark ? "#a6adc8" : "#666666"
+                onClicked: desiredDialog.close()
+            }
+            Button {
+                text: "保存"
+                flat: true
+                Material.foreground: "#89b4fa"
+                onClicked: {
+                    console.log("Save desired:", desiredEditor.text)
+                    desiredDialog.close()
+                }
+            }
+        }
+    }
+
 }
