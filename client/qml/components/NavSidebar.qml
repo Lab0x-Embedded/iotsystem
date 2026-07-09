@@ -94,14 +94,14 @@ Rectangle {
                             Layout.preferredWidth: 20
                             color: "#f38ba8"
                             radius: 10
-                            visible: model.idx === 3 && alarmModel && alarmModel.unacknowledgedCount > 0
+                            visible: model.idx === 3 && alarmModel && alarmModel.activeCount > 0
 
                             Label {
                                 anchors.centerIn: parent
                                 color: "white"
                                 font.bold: true
                                 font.pixelSize: 10
-                                text: alarmModel ? (alarmModel.unacknowledgedCount > 99 ? "99+" : alarmModel.unacknowledgedCount.toString()) : "0"
+                                text: alarmModel ? (alarmModel.activeCount > 99 ? "99+" : alarmModel.activeCount.toString()) : "0"
                             }
                         }
                     }

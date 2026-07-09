@@ -43,11 +43,26 @@ struct DeviceInfo {
 
 class DeviceModel : public QAbstractTableModel {
     Q_OBJECT
+    Q_PROPERTY(int totalCount READ totalCount NOTIFY countsChanged)
+    Q_PROPERTY(int onlineCount READ onlineCount NOTIFY countsChanged)
+    Q_PROPERTY(int alarmCount READ alarmCount NOTIFY countsChanged)
+
 public:
     enum Column {
         ColStatus = 0, ColId, ColName, ColGroup,
         ColTemp, ColHumid, ColBattery, ColLastSeen,
         ColCount
+    };
+
+    enum Roles {
+        StatusRole = Qt::UserRole + 1,
+        IdRole,
+        NameRole,
+        GroupRole,
+        TempRole,
+        HumidRole,
+        BatteryRole,
+        LastSeenRole
     };
 
     explicit DeviceModel(QObject *parent = nullptr);
@@ -56,6 +71,7 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
 
     const DeviceInfo &deviceAt(int row) const { return m_devices[row]; }
     void setDevices(const QVector<DeviceInfo> &devices);
@@ -71,4 +87,5 @@ signals:
 private:
     QVector<DeviceInfo> m_devices;
 };
-#endif
+
+#endif // DEVICEMODEL_H

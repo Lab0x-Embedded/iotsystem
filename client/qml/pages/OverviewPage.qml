@@ -26,27 +26,18 @@ Rectangle {
         
         groupModel.clear();
         
-        // 统计各分组设备数
         var groups = {};
         var totalCount = 0;
         
         for (var i = 0; i < deviceModel.rowCount(); i++) {
-            var idx = deviceModel.index(i, 0);
             var group = deviceModel.data(deviceModel.index(i, 3), Qt.DisplayRole) || "未分组";
-            
             totalCount++;
             if (!groups[group]) {
-                groups[group] = { count: 0, online: 0 };
+                groups[group] = 0;
             }
-            groups[group].count++;
-            // 检查是否在线 (status列)
-            var status = deviceModel.data(deviceModel.index(i, 0), Qt.UserRole);
-            if (status === 1) { // Online
-                groups[group].online++;
-            }
+            groups[group]++;
         }
         
-        // 添加"全部设备"
         groupModel.append({
             name: "全部设备",
             count: totalCount,
@@ -55,11 +46,10 @@ Rectangle {
             expanded: true
         });
         
-        // 添加各分组
         for (var groupName in groups) {
             groupModel.append({
                 name: groupName,
-                count: groups[groupName].count,
+                count: groups[groupName],
                 depth: 1,
                 hasChildren: false,
                 expanded: false
@@ -67,12 +57,10 @@ Rectangle {
         }
     }
 
-    // 监听模型变化
     Connections {
         target: deviceModel
         function onModelReset() { updateGroupModel() }
-        function onRowsInserted() { updateGroupModel() }
-        function onRowsRemoved() { updateGroupModel() }
+        function onCountsChanged() { updateGroupModel() }
     }
 
     Component.onCompleted: {
@@ -224,7 +212,7 @@ Rectangle {
 
                             Label { Layout.preferredWidth: 50; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "状态" }
                             Label { Layout.preferredWidth: 100; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "设备ID" }
-                            Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "名称" }
+                            Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "名称" }
                             Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "分组" }
                             Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "最后上报" }
                             Label { Layout.preferredWidth: 56; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "操作" }
@@ -239,15 +227,10 @@ Rectangle {
                         clip: true
                         model: deviceModel
 
-                        // 过滤当前分组
-                        // 注意: 简化处理，显示所有设备
-
                         ScrollBar.vertical: ScrollBar {
                             active: true
                             policy: ScrollBar.AsNeeded
                         }
-
-                        header: Rectangle { height: 6; width: deviceList.width; color: "transparent" }
 
                         delegate: Rectangle {
                             color: index % 2 === 0 ? (root.isDark ? "#313244" : "#ffffff") : (root.isDark ? "#2a2a3c" : "#f8f9fa")
@@ -260,34 +243,42 @@ Rectangle {
                                 anchors.rightMargin: 16
                                 spacing: 12
 
-                                StatusIndicator {
-                                    Layout.preferredHeight: 32
+                                // Status dot
+                                Rectangle {
                                     Layout.preferredWidth: 50
-                                    status: model.status
+                                    Layout.preferredHeight: 32
+                                    color: "transparent"
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 12
+                                        height: 12
+                                        radius: 6
+                                        color: model.status === 1 ? "#4CAF50" : model.status === 2 ? "#FF5722" : "#9E9E9E"
+                                    }
                                 }
                                 Label {
                                     Layout.preferredWidth: 100
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
-                                    text: model.id
+                                    text: model.deviceId || ""
+                                }
+                                Label {
+                                    Layout.preferredWidth: 120
+                                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                                    font.pixelSize: 12
+                                    text: model.deviceName || ""
                                 }
                                 Label {
                                     Layout.preferredWidth: 80
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
-                                    text: model.name
-                                }
-                                Label {
-                                    Layout.preferredWidth: 80
-                                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                                    font.pixelSize: 12
-                                    text: model.group
+                                    text: model.group || ""
                                 }
                                 Label {
                                     Layout.fillWidth: true
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.pixelSize: 12
-                                    text: model.lastSeen
+                                    text: model.lastSeen || ""
                                 }
                                 Button {
                                     Layout.preferredHeight: 28
@@ -313,7 +304,7 @@ Rectangle {
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.deviceSelected(model.id)
+                                        onClicked: root.deviceSelected(model.deviceId || "")
                                     }
                                 }
                             }

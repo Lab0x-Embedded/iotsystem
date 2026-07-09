@@ -9,7 +9,6 @@ void HttpClient::setServerUrl(const QString &url) {
     if (m_baseUrl != url) {
         m_baseUrl = url;
         emit serverUrlChanged();
-        // 测试连接
         m_connected = !url.isEmpty();
         emit connectedChanged();
     }
@@ -36,22 +35,20 @@ void HttpClient::handleReply(QNetworkReply *reply,
                               std::function<void(const QJsonObject &)> onSuccess,
                               std::function<void(const QString &)> onError) {
     connect(reply, &QNetworkReply::finished, this, [reply, onSuccess, onError]() {
+        QByteArray data = reply->readAll();
+        
         if (reply->error() != QNetworkReply::NoError) {
             QString error = reply->errorString();
-            // 尝试解析错误响应
-            QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
             if (doc.isObject() && doc.object().contains("error")) {
                 error = doc.object()["error"].toString();
             }
             if (onError) onError(error);
         } else {
-            QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
             if (doc.isObject()) {
                 if (onSuccess) onSuccess(doc.object());
             } else if (doc.isArray()) {
-                // 对于数组响应，包装成对象
                 QJsonObject wrapper;
                 wrapper["data"] = doc.array();
                 if (onSuccess) onSuccess(wrapper);
@@ -60,8 +57,6 @@ void HttpClient::handleReply(QNetworkReply *reply,
         reply->deleteLater();
     });
 }
-
-// ==================== 用户认证 ====================
 
 void HttpClient::login(const QString &username, const QString &password) {
     QJsonObject body;
@@ -90,8 +85,6 @@ void HttpClient::login(const QString &username, const QString &password) {
         }
     );
 }
-
-// ==================== 设备管理 ====================
 
 void HttpClient::fetchDevices() {
     QJsonObject body;
@@ -155,8 +148,6 @@ void HttpClient::queryDevice(const QString &deviceId) {
     );
 }
 
-// ==================== 设备影子 ====================
-
 void HttpClient::getShadow(const QString &deviceId) {
     QJsonObject body;
     body["action"] = "get";
@@ -195,8 +186,6 @@ void HttpClient::updateShadow(const QString &deviceId, const QJsonObject &desire
     );
 }
 
-// ==================== 指令下发 ====================
-
 void HttpClient::sendCommand(const QString &deviceId, const QString &cmd,
                               const QJsonObject &payload) {
     QJsonObject body;
@@ -218,8 +207,6 @@ void HttpClient::sendCommand(const QString &deviceId, const QString &cmd,
         }
     );
 }
-
-// ==================== 告警 ====================
 
 void HttpClient::fetchAlarms(const QString &deviceId) {
     QJsonObject body;

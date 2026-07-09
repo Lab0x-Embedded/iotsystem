@@ -50,6 +50,9 @@ struct AlarmRecord {
 
 class AlarmModel : public QAbstractTableModel {
     Q_OBJECT
+    Q_PROPERTY(int activeCount READ activeCount NOTIFY countsChanged)
+    Q_PROPERTY(int totalCount READ totalCount NOTIFY countsChanged)
+
 public:
     enum Column {
         ColSeverity = 0, ColDevice, ColMetric, ColValue, ColThreshold,

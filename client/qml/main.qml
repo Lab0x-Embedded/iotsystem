@@ -29,7 +29,7 @@ ApplicationWindow {
     // ===== 启动时自动连接服务器 =====
     Component.onCompleted: {
         console.log("应用启动，正在连接服务器...")
-        dataManager.connectToServer("http://127.0.0.1:18080", "admin", "admin@123")
+        dataManager.connectToServer("http://127.0.0.1:8080", "admin", "admin@123")
     }
     
     // ===== 登录对话框 =====
@@ -56,7 +56,7 @@ ApplicationWindow {
             TextField {
                 id: serverUrlField
                 placeholderText: "服务器地址"
-                text: "http://127.0.0.1:18080"
+                text: "http://127.0.0.1:8080"
                 Layout.fillWidth: true
             }
             

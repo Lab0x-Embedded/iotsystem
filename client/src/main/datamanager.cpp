@@ -1,7 +1,6 @@
 #include "datamanager.h"
 #include <QDebug>
 #include <QRandomGenerator>
-
 DataManager::DataManager(QObject *parent) : QObject(parent) {
     // 连接HttpClient信号
     connect(&m_http, &HttpClient::loginSucceeded, this, &DataManager::onLoginSucceeded);
@@ -22,56 +21,46 @@ DataManager::DataManager(QObject *parent) : QObject(parent) {
         }
     });
 }
-
 void DataManager::start() {
-    qDebug() << "DataManager started";
+    
     // 启动时不自动连接，等待用户调用connectToServer
 }
-
 void DataManager::stop() {
     m_refreshTimer.stop();
     disconnect();
-    qDebug() << "DataManager stopped";
+    
 }
-
 void DataManager::setOnline(bool online) {
     if (m_online != online) {
         m_online = online;
         emit onlineChanged();
     }
 }
-
 void DataManager::connectToServer(const QString &url, const QString &username, const QString &password) {
     emit connectionStatusChanged("connecting");
     m_http.setServerUrl(url);
     m_http.login(username, password);
 }
-
 void DataManager::disconnect() {
     m_refreshTimer.stop();
     m_online = false;
     emit onlineChanged();
     emit connectionStatusChanged("disconnected");
 }
-
 void DataManager::refreshDevices() {
     if (m_online) {
         m_http.fetchDevices();
     }
 }
-
 void DataManager::refreshAlarms() {
     if (m_online) {
         m_http.fetchAlarms();
     }
 }
-
 void DataManager::pushDataPoint(const QString &deviceId, const QString &metric, double value, qint64 ts) {
     emit dataPointArrived(deviceId, metric, value, ts);
 }
-
 // ==================== 私有槽函数 ====================
-
 void DataManager::onLoginSucceeded(const QString &token, const QString &role) {
     Q_UNUSED(token);
     Q_UNUSED(role);
@@ -86,14 +75,12 @@ void DataManager::onLoginSucceeded(const QString &token, const QString &role) {
     // 启动自动刷新（每30秒）
     startAutoRefresh();
 }
-
 void DataManager::onLoginFailed(const QString &error) {
     m_online = false;
     emit onlineChanged();
     emit connectionStatusChanged("failed");
     emit errorOccurred("登录失败: " + error);
 }
-
 void DataManager::onDevicesFetched(const QJsonArray &devices) {
     QVector<DeviceInfo> deviceList;
     
@@ -141,9 +128,8 @@ void DataManager::onDevicesFetched(const QJsonArray &devices) {
     }
     
     m_devices.setDevices(deviceList);
-    qDebug() << "Fetched" << deviceList.size() << "devices from server";
+    
 }
-
 void DataManager::onAlarmsFetched(const QJsonArray &alarms) {
     QVector<AlarmRecord> alarmList;
     
@@ -173,13 +159,11 @@ void DataManager::onAlarmsFetched(const QJsonArray &alarms) {
     }
     
     m_alarms.setAlarms(alarmList);
-    qDebug() << "Fetched" << alarmList.size() << "alarms from server";
+    
 }
-
 void DataManager::onDeviceOperationError(const QString &error) {
     emit errorOccurred("设备操作失败: " + error);
 }
-
 void DataManager::startAutoRefresh() {
     m_refreshTimer.start(30000); // 30秒刷新一次
 }

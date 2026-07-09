@@ -17,7 +17,8 @@ dev: build
 
 client:
 	@cd client && cmake -B build && cmake --build build
-	@open client/build/IoTDeviceManager.app
+# 	@open client/build/IoTDeviceManager.app
+	@./client/build/IoTDeviceManager.app/Contents/MacOS/IoTDeviceManager
 
 clean:
 	@rm -rf build/*
