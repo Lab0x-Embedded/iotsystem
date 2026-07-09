@@ -31,9 +31,9 @@ Rectangle {
     ScrollView {
         anchors.fill: parent
         contentWidth: availableWidth
+        padding: 16
 
         ColumnLayout {
-            anchors.margins: 16
             spacing: 16
             width: parent.width
 

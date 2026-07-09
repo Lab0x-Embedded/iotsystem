@@ -50,6 +50,7 @@ Rectangle {
                 id: severityFilter
 
                 Layout.preferredWidth: 140
+                Layout.preferredHeight: 36
                 Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
                 model: ["全部", "CRITICAL", "WARNING", "INFO"]
             }

@@ -19,7 +19,7 @@ Rectangle {
             spacing: 0
 
             Label {
-                Layout.preferredWidth: 50
+                Layout.preferredWidth: 80
                 color: root.isDark ? "#a6adc8" : "#666666"
                 font.bold: true
                 font.pixelSize: 12

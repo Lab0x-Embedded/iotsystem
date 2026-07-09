@@ -67,6 +67,7 @@ Rectangle {
             ComboBox {
                 id: statusFilter
 
+                Layout.preferredHeight: 36
                 Layout.preferredWidth: 120
                 Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
                 model: ["全部状态", "在线", "离线", "告警"]
@@ -82,6 +83,7 @@ Rectangle {
             TextField {
                 id: searchField
 
+                Layout.preferredHeight: 36
                 Layout.preferredWidth: 250
                 Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
                 placeholderText: "搜索设备 ID/名称..."

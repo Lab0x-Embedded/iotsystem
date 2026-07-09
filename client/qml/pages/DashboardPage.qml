@@ -18,9 +18,9 @@ Rectangle {
     ScrollView {
         anchors.fill: parent
         contentWidth: availableWidth
+        padding: 16
 
         ColumnLayout {
-            anchors.margins: 16
             spacing: 16
             width: parent.width
 
@@ -31,7 +31,7 @@ Rectangle {
 
                 GaugeWidget {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 140
+                    Layout.preferredHeight: 180
                     color: "#89b4fa"
                     isDark: root.isDark
                     label: "平均温度"
@@ -42,7 +42,7 @@ Rectangle {
                 }
                 GaugeWidget {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 140
+                    Layout.preferredHeight: 180
                     color: "#a6e3a1"
                     isDark: root.isDark
                     label: "平均湿度"
@@ -53,7 +53,7 @@ Rectangle {
                 }
                 GaugeWidget {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 140
+                    Layout.preferredHeight: 180
                     color: "#f9e2af"
                     isDark: root.isDark
                     label: "平均电量"
@@ -64,7 +64,7 @@ Rectangle {
                 }
                 GaugeWidget {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 140
+                    Layout.preferredHeight: 180
                     color: "#cba6f7"
                     isDark: root.isDark
                     label: "在线率"
