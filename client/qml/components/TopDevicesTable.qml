@@ -11,22 +11,25 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 8
+        spacing: 0
 
         // Header
         RowLayout {
             Layout.fillWidth: true
-            spacing: 0
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
+            Layout.preferredHeight: 36
+            spacing: 12
 
             Label {
-                Layout.preferredWidth: 80
+                Layout.preferredWidth: 60
                 color: root.isDark ? "#a6adc8" : "#666666"
                 font.bold: true
                 font.pixelSize: 12
                 text: "排名"
             }
             Label {
-                Layout.preferredWidth: 120
+                Layout.preferredWidth: 100
                 color: root.isDark ? "#a6adc8" : "#666666"
                 font.bold: true
                 font.pixelSize: 12
@@ -55,27 +58,27 @@ Rectangle {
             color: root.isDark ? "#45475a" : "#e0e0e0"
         }
 
-        // Mock data rows
+        // Data rows
         Repeater {
             model: 5
 
             delegate: Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: 40
                 color: index % 2 === 0 ? "transparent" : (root.isDark ? "#2a2a3c" : "#f8f9fa")
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
-                    spacing: 0
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 12
 
-                    // Rank badge
+                    // Rank badge - match header width
                     Rectangle {
+                        Layout.preferredWidth: 60
                         Layout.preferredHeight: 24
-                        Layout.preferredWidth: 50
-                        color: index === 0 ? "#f9e2af" : index === 1 ? "#c0c0c0" : index === 2 ? "#cd7f32" : "transparent"
                         radius: 4
+                        color: index === 0 ? "#f9e2af" : index === 1 ? "#c0c0c0" : index === 2 ? "#cd7f32" : "transparent"
 
                         Label {
                             anchors.centerIn: parent
@@ -86,7 +89,7 @@ Rectangle {
                         }
                     }
                     Label {
-                        Layout.preferredWidth: 120
+                        Layout.preferredWidth: 100
                         color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                         font.pixelSize: 12
                         text: "DEV-" + (1001 + index)
