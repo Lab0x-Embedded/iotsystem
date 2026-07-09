@@ -1,6 +1,15 @@
 #include "realtimechart.h"
+#include "theme/theme.h"
 #include <QtCharts>
 #include <QDateTime>
+
+/* ============================================
+ * RealtimeChart - Live Data Visualization
+ * Following Qt UI Design Guidelines:
+ * - Doherty Threshold: Visual feedback within 400ms
+ * - Progressive Disclosure: Show relevant data
+ * - Color + Shape: Visual state communication
+ * ============================================ */
 
 RealtimeChart::RealtimeChart(const QString &title, QWidget *parent)
     : QChartView(parent) {
@@ -8,25 +17,39 @@ RealtimeChart::RealtimeChart(const QString &title, QWidget *parent)
     chart->setTitle(title);
     chart->legend()->setVisible(true);
     chart->legend()->setAlignment(Qt::AlignBottom);
-    chart->setTheme(QChart::ChartThemeDark);
+    chart->setAnimationOptions(QChart::SeriesAnimations);
+    chart->setDropShadowEnabled(true);
+    
+    // Apply initial theme
+    bool dark = ThemeManager::instance()->isDark();
+    setDarkTheme(dark);
 
     m_axisX = new QDateTimeAxis;
     m_axisX->setFormat("hh:mm:ss");
     m_axisX->setTitleText("时间");
+    m_axisX->setLabelsFont(QFont("PingFang SC", 10));
     chart->addAxis(m_axisX, Qt::AlignBottom);
 
     m_axisY = new QValueAxis;
     m_axisY->setTitleText("值");
+    m_axisY->setLabelsFont(QFont("PingFang SC", 10));
     chart->addAxis(m_axisY, Qt::AlignLeft);
 
     setChart(chart);
     setRenderHint(QPainter::Antialiasing);
+    
+    // Connect to theme changes
+    connect(ThemeManager::instance(), &ThemeManager::themeChanged, this, [this]() {
+        setDarkTheme(ThemeManager::instance()->isDark());
+    });
 }
 
 void RealtimeChart::addSeries(const QString &name, const QColor &color) {
     auto *s = new QLineSeries();
     s->setName(name);
-    QPen pen(color); pen.setWidth(2); s->setPen(pen);
+    QPen pen(color);
+    pen.setWidth(2);
+    s->setPen(pen);
     chart()->addSeries(s);
     s->attachAxis(m_axisX);
     s->attachAxis(m_axisY);
@@ -54,26 +77,38 @@ void RealtimeChart::trim(int maxPoints) {
 void RealtimeChart::setDarkTheme(bool dark) {
     QChart *c = chart();
     if (dark) {
+        // Dark theme - Catppuccin Mocha
         c->setTheme(QChart::ChartThemeDark);
         c->setBackgroundBrush(QColor("#1e1e2e"));
         c->setTitleBrush(QColor("#cdd6f4"));
+        c->setTitleFont(QFont("PingFang SC", 14, QFont::Bold));
         c->legend()->setLabelColor(QColor("#a6adc8"));
+        c->legend()->setFont(QFont("PingFang SC", 10));
+        
         m_axisX->setLabelsColor(QColor("#a6adc8"));
         m_axisY->setLabelsColor(QColor("#a6adc8"));
         m_axisX->setTitleBrush(QColor("#cdd6f4"));
         m_axisY->setTitleBrush(QColor("#cdd6f4"));
         m_axisX->setLinePenColor(QColor("#313244"));
         m_axisY->setLinePenColor(QColor("#313244"));
+        m_axisX->setGridLineColor(QColor("#313244"));
+        m_axisY->setGridLineColor(QColor("#313244"));
     } else {
+        // Light theme - Catppuccin Latte
         c->setTheme(QChart::ChartThemeLight);
         c->setBackgroundBrush(QColor("#eff1f5"));
         c->setTitleBrush(QColor("#4c4f69"));
+        c->setTitleFont(QFont("PingFang SC", 14, QFont::Bold));
         c->legend()->setLabelColor(QColor("#5c5f77"));
+        c->legend()->setFont(QFont("PingFang SC", 10));
+        
         m_axisX->setLabelsColor(QColor("#5c5f77"));
         m_axisY->setLabelsColor(QColor("#5c5f77"));
         m_axisX->setTitleBrush(QColor("#4c4f69"));
         m_axisY->setTitleBrush(QColor("#4c4f69"));
-        m_axisX->setLinePenColor(QColor("#bcc0cc"));
-        m_axisY->setLinePenColor(QColor("#bcc0cc"));
+        m_axisX->setLinePenColor(QColor("#ccd0da"));
+        m_axisY->setLinePenColor(QColor("#ccd0da"));
+        m_axisX->setGridLineColor(QColor("#ccd0da"));
+        m_axisY->setGridLineColor(QColor("#ccd0da"));
     }
 }

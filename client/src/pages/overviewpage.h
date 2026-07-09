@@ -5,10 +5,10 @@
 #include "models/devicemodel.h"
 
 class QTableView;
-class QGroupBox;
 class QLabel;
 class QLineEdit;
 class QComboBox;
+class DashboardCard;
 
 class OverviewPage : public QWidget {
     Q_OBJECT
@@ -24,10 +24,10 @@ public slots:
 private:
     DeviceModel *m_model;
     QTableView *m_table;
-    QLabel *m_statTotal;
-    QLabel *m_statOnline;
-    QLabel *m_statOffline;
-    QLabel *m_statAlarm;
+    DashboardCard *m_cardTotal;
+    DashboardCard *m_cardOnline;
+    DashboardCard *m_cardOffline;
+    DashboardCard *m_cardAlarm;
     QLineEdit *m_search;
     QComboBox *m_filterStatus;
 };

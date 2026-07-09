@@ -10,10 +10,19 @@
 #include <QStatusBar>
 #include <QLabel>
 
+/* ============================================
+ * MainWindow - Application Main Window
+ * Following Qt UI Design Guidelines:
+ * - Wayfinding: Clear navigation structure
+ * - Modularity: Self-contained pages
+ * - State visibility: Status bar shows system state
+ * ============================================ */
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowTitle("IoT Device Manager");
     resize(1280, 800);
     setObjectName("MainWindow");
+    setMinimumSize(1024, 600);
 
     m_data = new DataManager(this);
     m_sidebar = new NavSidebar(this);
@@ -37,40 +46,51 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     lay->addWidget(m_stack, 1);
     setCentralWidget(center);
 
+    // Status bar with system information
     auto *status = new QLabel("数据源: Mock (离线演示模式)  ·  共 0 设备");
+    status->setStyleSheet("font-size:13px; padding: 4px 12px;");
     statusBar()->addPermanentWidget(status);
 
+    // Connect signals
     connect(m_sidebar, &NavSidebar::pageSelected, this, &MainWindow::switchPage);
     connect(m_overview, &OverviewPage::deviceSelected, this, &MainWindow::showDeviceDetail);
+    
     connect(m_data, &DataManager::countsChanged, status, [status](int tot, int on, int al) {
-        status->setText(QString("数据源: Mock (离线演示模式)  ·  共 %1 设备  ·  在线 %2  ·  告警 %3").arg(tot).arg(on).arg(al));
+        status->setText(QString("数据源: Mock (离线演示模式)  ·  共 %1 设备  ·  在线 %2  ·  告警 %3")
+                            .arg(tot).arg(on).arg(al));
     });
+    
     connect(m_data, &DataManager::deviceUpdated, m_data->deviceModel(), &DeviceModel::updateDevice);
     connect(m_data, &DataManager::newAlarm, m_data->alarmModel(), &AlarmModel::addRecord);
+    
     connect(m_data, &DataManager::deviceUpdated, m_dashboard, [this](const DeviceInfo &d) {
         Q_UNUSED(d);
         QVector<DeviceInfo> all;
-        for (int i = 0; i < m_data->deviceModel()->rowCount(); ++i)
+        for (int i = 0; i < m_data->deviceModel()->rowCount(); ++i) {
             all.push_back(m_data->deviceModel()->deviceAt(i));
+        }
         m_dashboard->setDevices(all);
     });
+    
     connect(m_data, &DataManager::dataPointArrived, m_dashboard, [this](const QString &devId, const QString &metric, double v, qint64 ts) {
         m_dashboard->addDataPoint(metric, v, ts);
     });
+    
     connect(m_data, &DataManager::dataPointArrived, m_detail, [this](const QString &devId, const QString &metric, double v, qint64 ts) {
         m_detail->addDataPoint(metric, v, ts);
-    });
-    connect(m_data, &DataManager::newAlarm, status, [status]() {
-        /* alarm count updates via overview */
     });
 
     m_data->start();
 }
 
-MainWindow::~MainWindow() { m_data->stop(); }
+MainWindow::~MainWindow() { 
+    m_data->stop(); 
+}
 
 void MainWindow::switchPage(int index) {
-    if (index >= 0 && index < m_stack->count()) m_stack->setCurrentIndex(index);
+    if (index >= 0 && index < m_stack->count()) {
+        m_stack->setCurrentIndex(index);
+    }
 }
 
 void MainWindow::showDeviceDetail(const QString &deviceId) {
