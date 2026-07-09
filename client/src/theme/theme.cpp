@@ -54,46 +54,63 @@ Theme ThemeManager::buildDark() const {
 
 Theme ThemeManager::buildLight() const {
     Theme t;
-    t.name = "latte";
-    t.sidebarBg        = "#e6e9ef";
-    t.sidebarBorder    = "#ccd0da";
-    t.sidebarTitle     = "#1e66f5";
-    t.sidebarText      = "#5c5f77";
-    t.sidebarTextActive= "#4c4f69";
-    t.sidebarHover     = "#ccd0da";
-    t.sidebarSelected  = "#bcc0cc";
-    t.sidebarSelectedBorder = "#1e66f5";
-    t.sidebarToggleBg  = "#dce0e8";
-    t.pageBg           = "#eff1f5";
-    t.cardBg           = "#dce0e8";
-    t.cardBorder       = "#ccd0da";
-    t.surface          = "#ccd0da";
-    t.surfaceAlt       = "#e6e9ef";
-    t.border           = "#ccd0da";
-    t.borderStrong     = "#bcc0cc";
-    t.text             = "#4c4f69";
-    t.textMuted        = "#5c5f77";
+    t.name = "industrial";
+    // Industrial IoT Gray-Blue Theme
+    t.sidebarBg        = "#e2e8f0";
+    t.sidebarBorder    = "#cbd5e1";
+    t.sidebarTitle     = "#2563eb";
+    t.sidebarText      = "#64748b";
+    t.sidebarTextActive= "#334155";
+    t.sidebarHover     = "#d1d5db";
+    t.sidebarSelected  = "#dbeafe";
+    t.sidebarSelectedBorder = "#2563eb";
+    t.sidebarToggleBg  = "#d1d5db";
+    
+    // Page Background - Industrial Gray-Blue
+    t.pageBg           = "#eef2f7";
+    t.cardBg           = "#f8fafc";  // User requested color
+    t.cardBorder       = "#b0b5bf";
+    t.surface          = "#e8edf5";
+    t.surfaceAlt       = "#d1d5db";
+    t.border           = "#cbd5e1";
+    t.borderStrong     = "#9ca0b0";
+    
+    // Text Colors
+    t.text             = "#334155";
+    t.textMuted        = "#64748b";
     t.textFaint        = "#9ca0b0";
-    t.accent           = "#1e66f5";
-    t.accentText       = "#eff1f5";
-    t.accentSoft       = "rgba(30,102,245,0.14)";
-    t.chipBg           = "rgba(30,102,245,0.12)";
-    t.chipText         = "#1e66f5";
-    t.statusBarBg      = "#dce0e8";
-    t.statusBarBorder  = "#ccd0da";
-    t.statusBarText    = "#5c5f77";
-    t.danger           = "#d20f39";
-    t.warning          = "#df8e1d";
-    t.success          = "#40a02b";
-    t.info             = "#1e66f5";
-    t.tooltipBg        = "#bcc0cc";
-    t.tooltipText      = "#4c4f69";
+    
+    // Accent - Industrial Blue
+    t.accent           = "#2563eb";
+    t.accentText       = "#ffffff";
+    t.accentSoft       = "rgba(37,99,235,0.1)";
+    t.chipBg           = "rgba(37,99,235,0.08)";
+    t.chipText         = "#2563eb";
+    
+    // Status Bar
+    t.statusBarBg      = "#d1d5db";
+    t.statusBarBorder  = "#cbd5e1";
+    t.statusBarText    = "#64748b";
+    
+    // Status Colors - Industrial IoT
+    t.danger           = "#dc2626";
+    t.warning          = "#f59e0b";
+    t.success          = "#22c55e";
+    t.info             = "#2563eb";
+    
+    // Tooltip
+    t.tooltipBg        = "#334155";
+    t.tooltipText      = "#f8fafc";
     return t;
 }
 
 void ThemeManager::load() {
     QSettings s;
-    m_isDark = s.value("theme/dark", true).toBool();
+    // Force light industrial theme on first launch
+    if (!s.contains("theme/dark")) {
+        s.setValue("theme/dark", false);
+    }
+    m_isDark = s.value("theme/dark", false).toBool();
     m_theme = m_isDark ? buildDark() : buildLight();
     applyStyleSheet();
 }

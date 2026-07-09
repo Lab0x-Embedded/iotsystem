@@ -100,19 +100,19 @@ void RealtimeChart::setDarkTheme(bool dark) {
     } else {
         // Light theme - Catppuccin Latte
         c->setTheme(QChart::ChartThemeLight);
-        c->setBackgroundBrush(QColor("#eff1f5"));
-        c->setTitleBrush(QColor("#4c4f69"));
+        c->setBackgroundBrush(QColor("#f8fafc"));
+        c->setTitleBrush(QColor("#334155"));
         c->setTitleFont(QFont("PingFang SC", 14, QFont::Bold));
-        c->legend()->setLabelColor(QColor("#5c5f77"));
+        c->legend()->setLabelColor(QColor("#64748b"));
         c->legend()->setFont(QFont("PingFang SC", 10));
 
-        m_axisX->setLabelsColor(QColor("#5c5f77"));
-        m_axisY->setLabelsColor(QColor("#5c5f77"));
-        m_axisX->setTitleBrush(QColor("#4c4f69"));
-        m_axisY->setTitleBrush(QColor("#4c4f69"));
-        m_axisX->setLinePenColor(QColor("#ccd0da"));
-        m_axisY->setLinePenColor(QColor("#ccd0da"));
-        m_axisX->setGridLineColor(QColor("#ccd0da"));
-        m_axisY->setGridLineColor(QColor("#ccd0da"));
+        m_axisX->setLabelsColor(QColor("#64748b"));
+        m_axisY->setLabelsColor(QColor("#64748b"));
+        m_axisX->setTitleBrush(QColor("#334155"));
+        m_axisY->setTitleBrush(QColor("#334155"));
+        m_axisX->setLinePenColor(QColor("#e2e8f0"));
+        m_axisY->setLinePenColor(QColor("#e2e8f0"));
+        m_axisX->setGridLineColor(QColor("#e2e8f0"));
+        m_axisY->setGridLineColor(QColor("#e2e8f0"));
     }
 }

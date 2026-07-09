@@ -27,7 +27,7 @@ private:
     double m_value = 0, m_min = 0, m_max = 100;
     QString m_unit;
     QColor m_color = QColor("#89b4fa");
-    QColor m_groove = QColor("#313244");
+    QColor m_groove = QColor("#cbd5e1");
     QColor m_labelColor = QColor("#a6adc8");
 };
 #endif

@@ -3,21 +3,19 @@
 
 #include <QWidget>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
-#include <QTextEdit>
+#include <QPlainTextEdit>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QComboBox>
 #include <QScrollArea>
+#include <QFrame>
 #include "models/devicemodel.h"
 
 class RealtimeChart;
-class QLabel;
-class QGroupBox;
-class QPushButton;
-class QTextEdit;
-class QLineEdit;
 
 class DetailPage : public QWidget {
     Q_OBJECT
@@ -30,13 +28,30 @@ public slots:
 
 private:
     DeviceInfo m_current;
+
+    // === Device Status Card ===
+    QFrame *m_statusCard;
     QLabel *m_lblName;
-    QLabel *m_lblStatus;
-    QTextEdit *m_desiredEdit;
-    QTextEdit *m_reportedEdit;
+    QLabel *m_lblStatusDot;
+    QLabel *m_lblStatusText;
+    QLabel *m_lblTemperature;
+    QLabel *m_lblHumidity;
+    QLabel *m_lblLastUpdate;
+
+    // === Shadow Panel ===
+    QPlainTextEdit *m_desiredEdit;
+    QPlainTextEdit *m_reportedEdit;
+
+    // === Chart Panel ===
     RealtimeChart *m_chartTemp;
+    QLabel *m_lblChartTemp;
+    QLabel *m_lblChartHumidity;
+    QLabel *m_lblChartStatus;
+
+    // === Control Panel ===
     QLineEdit *m_cmdInput;
 
+    void setupStatusCard(QVBoxLayout *root);
     void setupShadowPanel(QVBoxLayout *root);
     void setupChartPanel(QVBoxLayout *root);
     void setupControlPanel(QVBoxLayout *root);

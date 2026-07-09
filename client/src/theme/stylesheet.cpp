@@ -460,6 +460,175 @@ QMenu::item:selected {
 QMenu::separator {
     height: 1px;
     background: %6;
+}
+
+/* ============================================
+ * Industrial IoT Dashboard Styles
+ * Gray-Blue Industrial Theme
+ * ============================================ */
+
+#detailHost {
+    background-color: #eef2f7;
+}
+
+QFrame#statusCard {
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 16px;
+}
+
+QFrame#statusCard:hover {
+    border-color: #2563eb;
+}
+
+#statusCardTitle {
+    font-size: 22px;
+    font-weight: bold;
+    color: #334155;
+    background: transparent;
+}
+
+#statusCardSubtitle {
+    font-size: 15px;
+    color: #64748b;
+    background: transparent;
+}
+
+#statusDotOnline {
+    color: #22c55e;
+    font-size: 16px;
+    background: transparent;
+}
+
+#statusDotOffline {
+    color: #9ca0b0;
+    font-size: 16px;
+    background: transparent;
+}
+
+QPlainTextEdit#codeEditor,
+QPlainTextEdit#codeEditorReadonly {
+    background: #e8edf5;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "JetBrains Mono", "SF Mono", "Cascadia Code", "Consolas", monospace;
+    font-size: 13px;
+}
+
+QPlainTextEdit#codeEditor:focus {
+    border: 1px solid #2563eb;
+}
+
+QPlainTextEdit#codeEditorReadonly {
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+QGroupBox#iotSection {
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    margin-top: 12px;
+    padding-top: 16px;
+    font-weight: bold;
+    color: #334155;
+}
+
+QGroupBox#iotSection::title {
+    subcontrol-origin: margin;
+    left: 15px;
+    padding: 0 8px;
+    color: #2563eb;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+QPushButton#primaryButton {
+    background: #2563eb;
+    color: white;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: bold;
+}
+
+QPushButton#primaryButton:hover {
+    background: #1d4ed8;
+}
+
+QPushButton#controlButton {
+    background: #f8fafc;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 16px;
+}
+
+QPushButton#controlButton:hover {
+    background: #e2e8f0;
+    border-color: #2563eb;
+}
+
+QPushButton#chipButton {
+    background: rgba(37,99,235,0.08);
+    color: #2563eb;
+    border: 1px solid rgba(37,99,235,0.2);
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: "JetBrains Mono", monospace;
+}
+
+QPushButton#chipButton:hover {
+    background: rgba(37,99,235,0.15);
+    border-color: #2563eb;
+}
+
+#syncBadge {
+    color: #22c55e;
+    font-size: 12px;
+    background: transparent;
+    padding: 2px 8px;
+}
+
+QFrame#iotSeparator {
+    background: #cbd5e1;
+    max-height: 1px;
+    margin: 4px 0;
+}
+
+#formLabel {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    background: transparent;
+}
+
+QLineEdit {
+    background: #e8edf5;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+QLineEdit:focus {
+    border: 1px solid #2563eb;
+}
+
+QComboBox {
+    background: #e8edf5;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+QComboBox:hover {
+    border-color: #2563eb;
+}
     margin: 4px 8px;
 }
 )")
