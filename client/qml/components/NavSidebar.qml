@@ -80,41 +80,26 @@ Rectangle {
                             font.pixelSize: 18
                             text: model.icon
                         }
+
                         Label {
                             Layout.fillWidth: true
                             color: root.currentIndex === model.idx ? (root.isDark ? "#89b4fa" : "#3b82f6") : (root.isDark ? "#cdd6f4" : "#1e1e2e")
-                            font.pixelSize: 14
-                            font.weight: root.currentIndex === model.idx ? Font.Medium : Font.Normal
+                            font.pixelSize: 13
+                            font.bold: root.currentIndex === model.idx
                             text: model.name
                         }
-
-                        // Badge for alarm
-                        Rectangle {
-                            Layout.preferredHeight: 20
-                            Layout.preferredWidth: 20
-                            color: "#f38ba8"
-                            radius: 10
-                            visible: model.idx === 3 && alarmModel && alarmModel.activeCount > 0
-
-                            Label {
-                                anchors.centerIn: parent
-                                color: "white"
-                                font.bold: true
-                                font.pixelSize: 10
-                                text: alarmModel ? (alarmModel.activeCount > 99 ? "99+" : alarmModel.activeCount.toString()) : "0"
-                            }
-                        }
                     }
+
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-
                         onClicked: {
-                            root.currentIndex = model.idx;
-                            root.pageSelected(model.idx);
+                            root.currentIndex = model.idx
+                            root.pageSelected(model.idx)
                         }
                     }
                 }
+
                 model: ListModel {
                     ListElement {
                         icon: "📊"
@@ -122,65 +107,62 @@ Rectangle {
                         name: "设备总览"
                     }
                     ListElement {
-                        icon: "📱"
+                        icon: "📁"
                         idx: 1
+                        name: "分组管理"
+                    }
+                    ListElement {
+                        icon: "📱"
+                        idx: 2
                         name: "设备详情"
                     }
                     ListElement {
                         icon: "📈"
-                        idx: 2
+                        idx: 3
                         name: "数据面板"
                     }
                     ListElement {
                         icon: "🔔"
-                        idx: 3
+                        idx: 4
                         name: "告警中心"
                     }
                 }
             }
         }
+
         Item {
+            Layout.fillWidth: true
             Layout.fillHeight: true
         }
 
         // Theme toggle
         Rectangle {
             Layout.fillWidth: true
-            Layout.margins: 12
-            Layout.preferredHeight: 48
-            color: root.isDark ? "#313244" : "#f0f0f0"
-            radius: 8
+            Layout.preferredHeight: 50
+            color: root.isDark ? "#181825" : "#ffffff"
 
             RowLayout {
-                anchors.centerIn: parent
-                spacing: 8
+                anchors.fill: parent
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
 
                 Label {
                     font.pixelSize: 16
                     text: root.isDark ? "🌙" : "☀️"
                 }
+
                 Label {
-                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                    font.pixelSize: 12
+                    Layout.fillWidth: true
+                    color: root.isDark ? "#a6adc8" : "#666666"
+                    font.pixelSize: 13
                     text: root.isDark ? "深色模式" : "浅色模式"
                 }
-            }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
 
-                onClicked: root.themeToggle()
+                Switch {
+                    checked: root.isDark
+                    onCheckedChanged: root.themeToggle()
+                }
             }
-        }
-
-        // Version info
-        Label {
-            Layout.bottomMargin: 12
-            Layout.fillWidth: true
-            color: root.isDark ? "#585b70" : "#999999"
-            font.pixelSize: 10
-            horizontalAlignment: Text.AlignHCenter
-            text: "v2.0.0"
         }
     }
 }

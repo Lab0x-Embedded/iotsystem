@@ -28,7 +28,6 @@ ApplicationWindow {
     
     // ===== 启动时自动连接服务器 =====
     Component.onCompleted: {
-        console.log("应用启动，正在连接服务器...")
         dataManager.connectToServer("http://127.0.0.1:8080", "admin", "admin@123")
     }
     
@@ -45,7 +44,7 @@ ApplicationWindow {
         
         ColumnLayout {
             spacing: 16
-            implicitWidth: 600
+            implicitWidth: 350
             
             Label {
                 text: "请输入服务器信息"
@@ -117,9 +116,6 @@ ApplicationWindow {
             Layout.fillHeight: true
             isDark: root.isDark
             
-            // 显示连接状态
-            property bool isConnected: dataManager ? dataManager.online : false
-            
             onPageSelected: function(index) {
                 stackView.currentIndex = index
             }
@@ -136,6 +132,7 @@ ApplicationWindow {
             Layout.fillHeight: true
             currentIndex: 0
             
+            // 0: 设备总览
             OverviewPage {
                 id: overviewPage
                 isDark: root.isDark
@@ -144,21 +141,31 @@ ApplicationWindow {
                 
                 onDeviceSelected: function(deviceId) {
                     detailPage.showDevice(deviceId)
-                    stackView.currentIndex = 1
-                    sidebar.currentIndex = 1
+                    stackView.currentIndex = 2  // 跳转到设备详情
+                    sidebar.currentIndex = 2
                 }
             }
             
+            // 1: 分组管理
+            GroupManagePage {
+                id: groupManagePage
+                isDark: root.isDark
+                deviceModel: deviceModel
+            }
+            
+            // 2: 设备详情
             DetailPage {
                 id: detailPage
                 isDark: root.isDark
             }
             
+            // 3: 数据面板
             DashboardPage {
                 id: dashboardPage
                 isDark: root.isDark
             }
             
+            // 4: 告警中心
             AlarmCenterPage {
                 id: alarmCenterPage
                 isDark: root.isDark
@@ -213,7 +220,6 @@ ApplicationWindow {
         target: dataManager
         
         function onConnectionStatusChanged(status) {
-            console.log("连接状态:", status)
             if (status === "connected") {
                 loginDialog.close()
                 loginDialog.connecting = false
@@ -225,7 +231,6 @@ ApplicationWindow {
         }
         
         function onErrorOccurred(error) {
-            console.log("错误:", error)
             loginDialog.errorMsg = error
         }
         

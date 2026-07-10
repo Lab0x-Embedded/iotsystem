@@ -1,5 +1,5 @@
 {
-    "mqtt_port": 65080,
+    "mqtt_port": 1883,
     "http_port": 8080,
     "workers": 4,
     "backlog": 1024,

@@ -1,4 +1,4 @@
-.PHONY: build run db_init register_devices dev clean client help
+.PHONY: build run db_init register_devices dev clean client simulator help
 
 build:
 	@mkdir -p build && cd build && cmake .. && make -j$$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
@@ -17,8 +17,11 @@ dev: build
 
 client:
 	@cd client && cmake -B build && cmake --build build
-# 	@open client/build/IoTDeviceManager.app
-	@./client/build/IoTDeviceManager.app/Contents/MacOS/IoTDeviceManager
+# 	@open client/build/IoTDeviceManager.app #请勿删除
+	@client/build/IoTDeviceManager.app/Contents/MacOS/IoTDeviceManager
+
+simulator:
+	@python3 deploy/mqtt_simulator.py
 
 clean:
 	@rm -rf build/*
@@ -31,6 +34,7 @@ help:
 	@echo "  make client           - 编译并启动QT客户端"
 	@echo "  make db_init          - 初始化数据库"
 	@echo "  make register_devices - 注册测试设备"
+	@echo "  make simulator        - 启动MQTT设备模拟器"
 	@echo "  make dev              - 编译并启动服务"
 	@echo "  make clean            - 清理构建"
 	@echo "  make help             - 查看帮助"
