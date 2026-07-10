@@ -19,6 +19,7 @@ Rectangle {
         title: "新增分组"
         anchors.centerIn: parent
         modal: true
+        width: 380
         standardButtons: Dialog.Ok | Dialog.Cancel
 
         ColumnLayout {

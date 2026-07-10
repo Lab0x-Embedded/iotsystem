@@ -453,7 +453,7 @@ Rectangle {
         id: desiredDialog
         title: "修改期望值"
         anchors.centerIn: parent
-        width: 400
+        width: 480
         modal: true
         closePolicy: Dialog.CloseOnEscape
 

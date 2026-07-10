@@ -38,13 +38,14 @@ ApplicationWindow {
         anchors.centerIn: parent
         modal: true
         closePolicy: Popup.NoAutoClose
+        width: 480
         
         property bool connecting: false
         property string errorMsg: ""
         
         ColumnLayout {
             spacing: 16
-            implicitWidth: 350
+            implicitWidth: 420
             
             Label {
                 text: "请输入服务器信息"
