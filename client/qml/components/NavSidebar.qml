@@ -80,26 +80,24 @@ Rectangle {
                             font.pixelSize: 18
                             text: model.icon
                         }
-
                         Label {
                             Layout.fillWidth: true
                             color: root.currentIndex === model.idx ? (root.isDark ? "#89b4fa" : "#3b82f6") : (root.isDark ? "#cdd6f4" : "#1e1e2e")
-                            font.pixelSize: 13
                             font.bold: root.currentIndex === model.idx
+                            font.pixelSize: 13
                             text: model.name
                         }
                     }
-
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
+
                         onClicked: {
-                            root.currentIndex = model.idx
-                            root.pageSelected(model.idx)
+                            root.currentIndex = model.idx;
+                            root.pageSelected(model.idx);
                         }
                     }
                 }
-
                 model: ListModel {
                     ListElement {
                         icon: "📊"
@@ -124,10 +122,9 @@ Rectangle {
                 }
             }
         }
-
         Item {
-            Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.fillWidth: true
         }
 
         // Theme toggle
@@ -145,16 +142,17 @@ Rectangle {
                     font.pixelSize: 16
                     text: root.isDark ? "🌙" : "☀️"
                 }
-
                 Label {
                     Layout.fillWidth: true
                     color: root.isDark ? "#a6adc8" : "#666666"
                     font.pixelSize: 13
                     text: root.isDark ? "深色模式" : "浅色模式"
                 }
-
                 Switch {
                     checked: root.isDark
+                    scale: 0.8
+                    transformOrigin: Item.Center
+
                     onCheckedChanged: root.themeToggle()
                 }
             }
