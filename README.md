@@ -295,16 +295,18 @@ make client
 
 ```json
 {
-  "mqtt": {
-    "port": 1883,
-    "max_connections": 1000
-  },
-  "database": {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "iot_platform"
-  }
+    "mqtt_port": 1883,
+    "http_port": 8080,
+    "workers": 4,
+    "backlog": 1024,
+    "database": {
+        "host": "127.0.0.1",
+        "port": 3306,
+        "user": "admin",
+        "password": "123456",
+        "database": "e2_iot",
+        "pool_size": 4
+    }
 }
 ```
 
