@@ -61,6 +61,86 @@ Rectangle {
         }
     }
 
+    // 编辑分组对话框
+    Dialog {
+        id: editGroupDialog
+        title: "编辑分组"
+        width: 380
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        property int currentGroupId: 0
+
+        Column {
+            spacing: 12
+                anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 24
+            Label { text: "分组名称:" }
+            TextField {
+                id: editGroupNameField
+                placeholderText: "请输入分组名称"
+                width: parent.width
+            }
+            Label { text: "描述:" }
+            TextField {
+                id: editGroupDescField
+                placeholderText: "请输入描述"
+                width: parent.width
+            }
+        }
+
+        onAccepted: {
+            if (editGroupNameField.text && dataManager) {
+                dataManager.httpClient.updateGroup(
+                    editGroupDialog.currentGroupId,
+                    editGroupNameField.text,
+                    editGroupDescField.text
+                )
+            }
+        }
+    }
+
+    // 删除确认对话框
+    Dialog {
+        id: deleteConfirmDialog
+        title: "确认删除"
+        width: 340
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        property int targetGroupId: 0
+        property string targetGroupName: ""
+
+        Column {
+            spacing: 12
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 24
+            Label {
+                text: "确定要删除分组 \"" + deleteConfirmDialog.targetGroupName + "\" 吗？"
+                wrapMode: Text.Wrap
+                width: parent.width
+                color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+            }
+            Label {
+                text: "删除后无法恢复，请谨慎操作。"
+                font.pixelSize: 12
+                color: root.isDark ? "#a6adc8" : "#666666"
+            }
+        }
+
+        onAccepted: {
+            if (dataManager && deleteConfirmDialog.targetGroupId > 0) {
+                dataManager.httpClient.deleteGroup(deleteConfirmDialog.targetGroupId)
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
@@ -240,10 +320,13 @@ Rectangle {
                                     text: "编辑"
                                     flat: true
                                     font.pixelSize: 11
-                                    enabled: model.parentId > 0
+                                    enabled: true
                                     Material.foreground: "#89b4fa"
                                     onClicked: {
-                                        // TODO: 编辑分组
+                                        editGroupDialog.currentGroupId = model.groupId
+                                        editGroupNameField.text = model.groupName
+                                        editGroupDescField.text = model.description
+                                        editGroupDialog.open()
                                     }
                                 }
 
@@ -251,12 +334,12 @@ Rectangle {
                                     text: "删除"
                                     flat: true
                                     font.pixelSize: 11
-                                    enabled: model.parentId > 0 && model.deviceCount === 0
+                                    enabled: model.deviceCount === 0
                                     Material.foreground: "#f38ba8"
                                     onClicked: {
-                                        if (dataManager) {
-                                            dataManager.httpClient.deleteGroup(model.groupId)
-                                        }
+                                        deleteConfirmDialog.targetGroupId = model.groupId
+                                        deleteConfirmDialog.targetGroupName = model.groupName
+                                        deleteConfirmDialog.open()
                                     }
                                 }
                             }

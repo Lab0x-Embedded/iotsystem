@@ -73,7 +73,7 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    const DeviceInfo &deviceAt(int row) const { return m_devices[row]; }
+    Q_INVOKABLE const DeviceInfo &deviceAt(int row) const { return m_devices[row]; }
     void setDevices(const QVector<DeviceInfo> &devices);
     void updateDevice(const DeviceInfo &device);
     void clear();

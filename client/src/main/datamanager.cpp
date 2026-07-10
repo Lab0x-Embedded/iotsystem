@@ -11,6 +11,7 @@ DataManager::DataManager(QObject *parent) : QObject(parent) {
     connect(&m_http, &HttpClient::deviceOperationError, this, &DataManager::onDeviceOperationError);
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
     connect(&m_http, &HttpClient::groupCreated, this, [this](int id) { Q_UNUSED(id); refreshGroups(); });
+    connect(&m_http, &HttpClient::groupUpdated, this, [this](int id) { Q_UNUSED(id); refreshGroups(); });
     connect(&m_http, &HttpClient::groupDeleted, this, [this](int id) { Q_UNUSED(id); refreshGroups(); });
 
     // 自动刷新
