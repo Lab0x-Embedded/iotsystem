@@ -15,6 +15,7 @@ class DataManager : public QObject {
     Q_PROPERTY(int deviceCount READ deviceCount NOTIFY countsChanged)
     Q_PROPERTY(int onlineDeviceCount READ onlineDeviceCount NOTIFY countsChanged)
     Q_PROPERTY(int alarmCount READ alarmCount NOTIFY countsChanged)
+    Q_PROPERTY(HttpClient *httpClient READ httpClient CONSTANT)
 
 public:
     explicit DataManager(QObject *parent = nullptr);

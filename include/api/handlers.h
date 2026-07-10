@@ -10,8 +10,8 @@ void handler_command(struct evhttp_request *req, void *ctx);
 void handler_alarm(struct evhttp_request *req, void *ctx);
 void handler_user(struct evhttp_request *req, void *ctx);
 void handler_onenet(struct evhttp_request *req, void *ctx);
+void handler_group(struct evhttp_request *req, void *ctx);
 #ifdef __cplusplus
 }
 #endif
 #endif
-void handler_group(struct evhttp_request *req, void *ctx);

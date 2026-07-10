@@ -10,7 +10,9 @@ DataManager::DataManager(QObject *parent) : QObject(parent) {
     connect(&m_http, &HttpClient::alarmsFetched, this, &DataManager::onAlarmsFetched);
     connect(&m_http, &HttpClient::deviceOperationError, this, &DataManager::onDeviceOperationError);
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
-    
+    connect(&m_http, &HttpClient::groupCreated, this, [this](int id) { Q_UNUSED(id); refreshGroups(); });
+    connect(&m_http, &HttpClient::groupDeleted, this, [this](int id) { Q_UNUSED(id); refreshGroups(); });
+
     // 自动刷新
     connect(&m_refreshTimer, &QTimer::timeout, this, [this]() {
         if (m_online) {
@@ -140,12 +142,7 @@ void DataManager::onGroupsFetched(const QJsonArray &groups) {
     for (const auto &item : groups) {
         QJsonObject obj = item.toObject();
         
-        // 过滤掉根节点（全部设备），它是虚拟顶层分组，不在列表中展示
         int parentId = obj["parent_id"].toInt();
-        if (parentId == 0) {
-            continue;
-        }
-        
         GroupInfo info;
         info.groupId = obj["group_id"].toInt();
         info.parentId = parentId;

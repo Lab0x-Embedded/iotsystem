@@ -50,7 +50,7 @@ Rectangle {
 
         onAccepted: {
             if (groupNameField.text && dataManager) {
-                dataManager.httpClient().createGroup(
+                dataManager.httpClient.createGroup(
                     groupNameField.text,
                     0,
                     groupDescField.text
@@ -255,7 +255,7 @@ Rectangle {
                                     Material.foreground: "#f38ba8"
                                     onClicked: {
                                         if (dataManager) {
-                                            dataManager.httpClient().deleteGroup(model.groupId)
+                                            dataManager.httpClient.deleteGroup(model.groupId)
                                         }
                                     }
                                 }
