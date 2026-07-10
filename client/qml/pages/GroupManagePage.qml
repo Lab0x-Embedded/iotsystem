@@ -6,8 +6,9 @@ import QtQuick.Controls.Material 2.15
 Rectangle {
     id: root
 
-    property var deviceModel: null
-    property var groupModel: null
+
+    property var deviceData
+    property var groupData
     property bool isDark: true
 
     color: isDark ? "#1e1e2e" : "#f5f5f5"
@@ -38,7 +39,7 @@ Rectangle {
             ComboBox {
                 id: parentGroupCombo
                 Layout.fillWidth: true
-                model: groupModel ? ["无 (顶级分组)"] : ["无 (顶级分组)"]
+                model: groupData ? ["无 (顶级分组)"] : ["无 (顶级分组)"]
             }
         }
 
@@ -101,7 +102,7 @@ Rectangle {
                         color: root.isDark ? "#89b4fa" : "#3b82f6"
                         font.pixelSize: 24
                         font.bold: true
-                        text: groupModel ? groupModel.totalCount.toString() : "0"
+                        text: groupData ? groupData.totalCount.toString() : "0"
                     }
                     Label {
                         Layout.alignment: Qt.AlignHCenter
@@ -127,7 +128,7 @@ Rectangle {
                         color: root.isDark ? "#a6e3a1" : "#16a34a"
                         font.pixelSize: 24
                         font.bold: true
-                        text: deviceModel ? deviceModel.totalCount.toString() : "0"
+                        text: deviceData ? deviceData.totalCount.toString() : "0"
                     }
                     Label {
                         Layout.alignment: Qt.AlignHCenter
@@ -179,7 +180,7 @@ Rectangle {
                     Layout.fillHeight: true
                     Layout.fillWidth: true
                     clip: true
-                    model: groupModel
+                    model: groupData
 
                     ScrollBar.vertical: ScrollBar {
                         active: true

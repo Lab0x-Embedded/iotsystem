@@ -150,8 +150,8 @@ ApplicationWindow {
             GroupManagePage {
                 id: groupManagePage
                 isDark: root.isDark
-                deviceModel: deviceModel
-                groupModel: groupModel
+                deviceData: deviceModel
+                groupData: groupModel
             }
             
             // 2: 设备详情

@@ -36,6 +36,7 @@ void DataManager::setOnline(bool online) {
 }
 
 void DataManager::connectToServer(const QString &url, const QString &username, const QString &password) {
+    qDebug() << "[DataManager] connectToServer:" << url << "user:" << username;
     emit connectionStatusChanged("connecting");
     m_http.setServerUrl(url);
     m_http.login(username, password);
@@ -71,6 +72,7 @@ void DataManager::refreshAlarms() {
 void DataManager::onLoginSucceeded(const QString &token, const QString &role) {
     Q_UNUSED(token);
     Q_UNUSED(role);
+    qDebug() << "[DataManager] onLoginSucceeded! Going online.";
     m_online = true;
     emit onlineChanged();
     emit connectionStatusChanged("connected");
@@ -83,6 +85,7 @@ void DataManager::onLoginSucceeded(const QString &token, const QString &role) {
 }
 
 void DataManager::onLoginFailed(const QString &error) {
+    qDebug() << "[DataManager] onLoginFailed:" << error;
     m_online = false;
     emit onlineChanged();
     emit connectionStatusChanged("failed");
@@ -136,10 +139,16 @@ void DataManager::onGroupsFetched(const QJsonArray &groups) {
     
     for (const auto &item : groups) {
         QJsonObject obj = item.toObject();
-        GroupInfo info;
         
+        // 过滤掉根节点（全部设备），它是虚拟顶层分组，不在列表中展示
+        int parentId = obj["parent_id"].toInt();
+        if (parentId == 0) {
+            continue;
+        }
+        
+        GroupInfo info;
         info.groupId = obj["group_id"].toInt();
-        info.parentId = obj["parent_id"].toInt();
+        info.parentId = parentId;
         info.name = obj["group_name"].toString();
         info.description = obj["description"].toString();
         info.deviceCount = obj["device_count"].toInt();
