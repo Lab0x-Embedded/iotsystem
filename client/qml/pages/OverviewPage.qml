@@ -200,6 +200,7 @@ Rectangle {
                                     Layout.preferredWidth: 56
                                     flat: true
                                     font.pixelSize: 11
+                                    hoverEnabled: true
                                     text: "详情"
 
                                     background: Rectangle {
@@ -217,6 +218,14 @@ Rectangle {
                                     }
 
                                     onClicked: root.deviceSelected(model.deviceId || "")
+
+                                    // 新增 MouseArea 来接管鼠标光标形状
+                                    MouseArea {
+                                        acceptedButtons: Qt.NoButton // 关键：不拦截鼠标点击，让点击事件正常传递给 Button
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        hoverEnabled: true // 必须开启，否则光标不会在悬停时改变
+                                    }
                                 }
                             }
                         }
