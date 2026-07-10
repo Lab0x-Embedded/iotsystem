@@ -14,3 +14,4 @@ void handler_onenet(struct evhttp_request *req, void *ctx);
 }
 #endif
 #endif
+void handler_group(struct evhttp_request *req, void *ctx);

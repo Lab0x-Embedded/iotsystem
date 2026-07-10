@@ -18,37 +18,38 @@ class HttpClient : public QObject {
 public:
     explicit HttpClient(QObject *parent = nullptr);
 
-    // 属性访问器
     QString serverUrl() const { return m_baseUrl; }
     bool connected() const { return m_connected; }
     QString authToken() const { return m_token; }
 
-    // 连接设置
     Q_INVOKABLE void setServerUrl(const QString &url);
     Q_INVOKABLE void setAuthToken(const QString &token);
-
-    // 用户认证
     Q_INVOKABLE void login(const QString &username, const QString &password);
 
     // 设备管理
     Q_INVOKABLE void fetchDevices();
-    Q_INVOKABLE void registerDevice(const QString &deviceId, const QString &name, 
+    Q_INVOKABLE void registerDevice(const QString &deviceId, const QString &name,
                                      const QString &productKey, const QString &groupId);
     Q_INVOKABLE void queryDevice(const QString &deviceId);
+
+    // 分组管理
+    Q_INVOKABLE void fetchGroups();
+    Q_INVOKABLE void createGroup(const QString &name, int parentId, const QString &description);
+    Q_INVOKABLE void updateGroup(int groupId, const QString &name, const QString &description);
+    Q_INVOKABLE void deleteGroup(int groupId);
 
     // 设备影子
     Q_INVOKABLE void getShadow(const QString &deviceId);
     Q_INVOKABLE void updateShadow(const QString &deviceId, const QJsonObject &desired);
 
     // 指令下发
-    Q_INVOKABLE void sendCommand(const QString &deviceId, const QString &cmd, 
+    Q_INVOKABLE void sendCommand(const QString &deviceId, const QString &cmd,
                                   const QJsonObject &payload = QJsonObject());
 
     // 告警
     Q_INVOKABLE void fetchAlarms(const QString &deviceId = QString());
 
 signals:
-    // 连接状态
     void serverUrlChanged();
     void connectedChanged();
     void authTokenChanged();
@@ -63,6 +64,13 @@ signals:
     void deviceRegistered(const QString &deviceId);
     void deviceQueryResult(const QJsonObject &device);
     void deviceOperationError(const QString &error);
+
+    // 分组
+    void groupsFetched(const QJsonArray &groups);
+    void groupCreated(int groupId);
+    void groupUpdated(int groupId);
+    void groupDeleted(int groupId);
+    void groupOperationError(const QString &error);
 
     // 影子
     void shadowFetched(const QString &deviceId, const QJsonObject &shadow);

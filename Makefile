@@ -17,8 +17,10 @@ dev: build
 
 client:
 	@cd client && cmake -B build && cmake --build build
-# 	@open client/build/IoTDeviceManager.app #请勿删除
 	@client/build/IoTDeviceManager.app/Contents/MacOS/IoTDeviceManager
+app:
+	@cd client && cmake -B build && cmake --build build
+	@open client/build/IoTDeviceManager.app
 
 simulator:
 	@python3 deploy/mqtt_simulator.py

@@ -58,6 +58,8 @@ void HttpClient::handleReply(QNetworkReply *reply,
     });
 }
 
+// ==================== 用户认证 ====================
+
 void HttpClient::login(const QString &username, const QString &password) {
     QJsonObject body;
     body["action"] = "login";
@@ -85,6 +87,8 @@ void HttpClient::login(const QString &username, const QString &password) {
         }
     );
 }
+
+// ==================== 设备管理 ====================
 
 void HttpClient::fetchDevices() {
     QJsonObject body;
@@ -148,6 +152,91 @@ void HttpClient::queryDevice(const QString &deviceId) {
     );
 }
 
+// ==================== 分组管理 ====================
+
+void HttpClient::fetchGroups() {
+    QJsonObject body;
+    body["action"] = "query_all";
+
+    auto *reply = m_mgr.post(makeRequest("/api/group"),
+                             QJsonDocument(body).toJson());
+    
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            QJsonArray groups;
+            if (obj.contains("data")) {
+                groups = obj["data"].toArray();
+            }
+            emit groupsFetched(groups);
+        },
+        [this](const QString &error) {
+            emit groupOperationError(error);
+        }
+    );
+}
+
+void HttpClient::createGroup(const QString &name, int parentId, const QString &description) {
+    QJsonObject body;
+    body["action"] = "create";
+    body["name"] = name;
+    body["parent_id"] = parentId;
+    body["description"] = description;
+
+    auto *reply = m_mgr.post(makeRequest("/api/group"),
+                             QJsonDocument(body).toJson());
+    
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            emit groupCreated(obj["group_id"].toInt());
+        },
+        [this](const QString &error) {
+            emit groupOperationError(error);
+        }
+    );
+}
+
+void HttpClient::updateGroup(int groupId, const QString &name, const QString &description) {
+    QJsonObject body;
+    body["action"] = "update";
+    body["group_id"] = groupId;
+    body["name"] = name;
+    body["description"] = description;
+
+    auto *reply = m_mgr.post(makeRequest("/api/group"),
+                             QJsonDocument(body).toJson());
+    
+    handleReply(reply,
+        [this, groupId](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit groupUpdated(groupId);
+        },
+        [this](const QString &error) {
+            emit groupOperationError(error);
+        }
+    );
+}
+
+void HttpClient::deleteGroup(int groupId) {
+    QJsonObject body;
+    body["action"] = "delete";
+    body["group_id"] = groupId;
+
+    auto *reply = m_mgr.post(makeRequest("/api/group"),
+                             QJsonDocument(body).toJson());
+    
+    handleReply(reply,
+        [this, groupId](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit groupDeleted(groupId);
+        },
+        [this](const QString &error) {
+            emit groupOperationError(error);
+        }
+    );
+}
+
+// ==================== 设备影子 ====================
+
 void HttpClient::getShadow(const QString &deviceId) {
     QJsonObject body;
     body["action"] = "get";
@@ -186,6 +275,8 @@ void HttpClient::updateShadow(const QString &deviceId, const QJsonObject &desire
     );
 }
 
+// ==================== 指令下发 ====================
+
 void HttpClient::sendCommand(const QString &deviceId, const QString &cmd,
                               const QJsonObject &payload) {
     QJsonObject body;
@@ -207,6 +298,8 @@ void HttpClient::sendCommand(const QString &deviceId, const QString &cmd,
         }
     );
 }
+
+// ==================== 告警 ====================
 
 void HttpClient::fetchAlarms(const QString &deviceId) {
     QJsonObject body;
