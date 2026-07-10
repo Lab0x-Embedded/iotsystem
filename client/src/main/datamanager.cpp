@@ -124,42 +124,44 @@ void DataManager::onDevicesFetched(const QJsonArray &devices)
         info.id = obj["device_id"].toString();
         info.name = obj["name"].toString();
         info.productKey = obj["product_key"].toString();
-        info.group = obj["group"].toString();
+
+        /* group_id 是整数, 转字符串给界面 */
+        int gid = obj["group_id"].toInt();
+        info.group = QString::number(gid);
 
         int state = obj["state"].toInt();
         bool online = obj["online"].toBool();
 
+        /*
+         * 状态映射 (对齐服务端 device_state_t):
+         *   online=true                       -> Online
+         *   state=3 (MAINTENANCE)             -> Maintenance
+         *   state=4 (DISABLED)                -> Offline
+         *   其他                              -> Offline
+         */
         if (online)
         {
             info.status = DeviceStatus::Online;
         }
+        else if (state == 3)
+        {
+            info.status = DeviceStatus::Maintenance;
+        }
         else
         {
-            switch (state)
-            {
-            case 2:
-                info.status = DeviceStatus::Online;
-                break;
-            case 4:
-                info.status = DeviceStatus::Maintenance;
-                break;
-            default:
-                info.status = DeviceStatus::Offline;
-            }
+            info.status = DeviceStatus::Offline;
         }
 
         info.temperature = 20.0 + (rand() % 150) / 10.0;
         info.humidity = 40.0 + (rand() % 400) / 10.0;
         info.battery = 80.0 + (rand() % 200) / 10.0;
 
-        if (obj.contains("last_active") && obj["last_active"].toDouble() > 0)
-        {
-            info.lastSeen = QDateTime::fromSecsSinceEpoch(obj["last_active"].toDouble());
-        }
-        else
-        {
-            info.lastSeen = QDateTime::currentDateTime();
-        }
+        qint64 ts = 0;
+        if (obj.contains("last_online") && obj["last_online"].toDouble() > 0)
+            ts = obj["last_online"].toDouble();
+        else if (obj.contains("last_active") && obj["last_active"].toDouble() > 0)
+            ts = obj["last_active"].toDouble();
+        info.lastSeen = (ts > 0) ? QDateTime::fromSecsSinceEpoch(ts) : QDateTime::currentDateTime();
 
         info.reportCount = obj["report_count"].toInt();
         deviceList.append(info);
