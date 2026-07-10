@@ -112,11 +112,6 @@ Rectangle {
                         name: "分组管理"
                     }
                     ListElement {
-                        icon: "📱"
-                        idx: 2
-                        name: "设备详情"
-                    }
-                    ListElement {
                         icon: "📈"
                         idx: 3
                         name: "数据面板"

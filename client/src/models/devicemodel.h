@@ -10,6 +10,18 @@
 enum class DeviceStatus { Offline = 0, Online = 1, Alarm = 2, Maintenance = 3 };
 
 struct DeviceInfo {
+    Q_GADGET
+public:
+    Q_PROPERTY(QString id MEMBER id)
+    Q_PROPERTY(QString name MEMBER name)
+    Q_PROPERTY(QString productKey MEMBER productKey)
+    Q_PROPERTY(QString group MEMBER group)
+    Q_PROPERTY(DeviceStatus status MEMBER status)
+    Q_PROPERTY(double temperature MEMBER temperature)
+    Q_PROPERTY(double humidity MEMBER humidity)
+    Q_PROPERTY(double battery MEMBER battery)
+    Q_PROPERTY(int reportCount MEMBER reportCount)
+    Q_PROPERTY(QDateTime lastSeen MEMBER lastSeen)
     QString id;
     QString name;
     QString productKey;
@@ -40,6 +52,8 @@ struct DeviceInfo {
         return QColor("#9E9E9E");
     }
 };
+
+ Q_DECLARE_METATYPE(DeviceInfo)
 
 class DeviceModel : public QAbstractTableModel {
     Q_OBJECT
@@ -73,7 +87,7 @@ public:
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    Q_INVOKABLE const DeviceInfo &deviceAt(int row) const { return m_devices[row]; }
+    Q_INVOKABLE QVariant deviceAt(int row) const { if (row < 0 || row >= m_devices.size()) return QVariant(); return QVariant::fromValue(m_devices[row]); }
     void setDevices(const QVector<DeviceInfo> &devices);
     void updateDevice(const DeviceInfo &device);
     void clear();

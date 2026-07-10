@@ -7,20 +7,19 @@ import "../components"
 Rectangle {
     id: root
 
-    property var deviceData: null
     property var dataManager: null
+    property var deviceData: null
     property bool isDark: true
 
     signal deviceSelected(string deviceId)
 
     color: isDark ? "#1e1e2e" : "#f5f5f5"
 
-
-
     RowLayout {
         anchors.fill: parent
         anchors.margins: 16
         spacing: 16
+
         // Right: Stats + Table
         ColumnLayout {
             Layout.fillHeight: true
@@ -89,18 +88,55 @@ Rectangle {
                             anchors.rightMargin: 16
                             spacing: 12
 
-                            Label { Layout.preferredWidth: 50; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "状态" }
-                            Label { Layout.preferredWidth: 100; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "设备ID" }
-                            Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "名称" }
-                            Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "分组" }
-                            Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "最后上报" }
-                            Label { Layout.preferredWidth: 56; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "操作" }
+                            Label {
+                                Layout.preferredWidth: 50
+                                color: root.isDark ? "#a6adc8" : "#666666"
+                                font.bold: true
+                                font.pixelSize: 11
+                                text: "状态"
+                            }
+                            Label {
+                                Layout.preferredWidth: 100
+                                color: root.isDark ? "#a6adc8" : "#666666"
+                                font.bold: true
+                                font.pixelSize: 11
+                                text: "设备ID"
+                            }
+                            Label {
+                                Layout.preferredWidth: 120
+                                color: root.isDark ? "#a6adc8" : "#666666"
+                                font.bold: true
+                                font.pixelSize: 11
+                                text: "名称"
+                            }
+                            Label {
+                                Layout.preferredWidth: 80
+                                color: root.isDark ? "#a6adc8" : "#666666"
+                                font.bold: true
+                                font.pixelSize: 11
+                                text: "分组"
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                color: root.isDark ? "#a6adc8" : "#666666"
+                                font.bold: true
+                                font.pixelSize: 11
+                                text: "最后上报"
+                            }
+                            Label {
+                                Layout.preferredWidth: 56
+                                color: root.isDark ? "#a6adc8" : "#666666"
+                                font.bold: true
+                                font.pixelSize: 11
+                                text: "操作"
+                            }
                         }
                     }
 
                     // Table content
                     ListView {
                         id: deviceList
+
                         Layout.fillHeight: true
                         Layout.fillWidth: true
                         clip: true
@@ -110,7 +146,6 @@ Rectangle {
                             active: true
                             policy: ScrollBar.AsNeeded
                         }
-
                         delegate: Rectangle {
                             color: index % 2 === 0 ? (root.isDark ? "#313244" : "#ffffff") : (root.isDark ? "#2a2a3c" : "#f8f9fa")
                             height: 44
@@ -124,15 +159,16 @@ Rectangle {
 
                                 // Status dot
                                 Rectangle {
-                                    Layout.preferredWidth: 50
                                     Layout.preferredHeight: 32
+                                    Layout.preferredWidth: 50
                                     color: "transparent"
+
                                     Rectangle {
                                         anchors.centerIn: parent
-                                        width: 12
+                                        color: model.status === 1 ? "#4CAF50" : model.status === 2 ? "#FF5722" : "#9E9E9E"
                                         height: 12
                                         radius: 6
-                                        color: model.status === 1 ? "#4CAF50" : model.status === 2 ? "#FF5722" : "#9E9E9E"
+                                        width: 12
                                     }
                                 }
                                 Label {
@@ -180,11 +216,7 @@ Rectangle {
                                         verticalAlignment: Text.AlignVCenter
                                     }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.deviceSelected(model.deviceId || "")
-                                    }
+                                    onClicked: root.deviceSelected(model.deviceId || "")
                                 }
                             }
                         }
