@@ -33,21 +33,24 @@ ApplicationWindow {
     
     // ===== 登录对话框 =====
     Dialog {
-        id: loginDialog
-        title: "连接服务器"
-        anchors.centerIn: parent
+    id: loginDialog
+    title: "连接服务器"
+    width: 480
+    anchors.centerIn: parent
         modal: true
         closePolicy: Popup.NoAutoClose
-        width: 480
-        
         property bool connecting: false
         property string errorMsg: ""
         
-        ColumnLayout {
+        Column {
             spacing: 16
-            implicitWidth: 420
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 24
             
             Label {
+                width: parent.width
                 text: "请输入服务器信息"
                 font.pixelSize: 14
                 color: textColor
@@ -57,14 +60,14 @@ ApplicationWindow {
                 id: serverUrlField
                 placeholderText: "服务器地址"
                 text: "http://127.0.0.1:8080"
-                Layout.fillWidth: true
+                width: parent.width
             }
             
             TextField {
                 id: usernameField
                 placeholderText: "用户名"
                 text: "admin"
-                Layout.fillWidth: true
+                width: parent.width
             }
             
             TextField {
@@ -72,7 +75,7 @@ ApplicationWindow {
                 placeholderText: "密码"
                 echoMode: TextInput.Password
                 text: "admin@123"
-                Layout.fillWidth: true
+                width: parent.width
             }
             
             Label {
@@ -83,10 +86,9 @@ ApplicationWindow {
             }
             
             RowLayout {
-                Layout.fillWidth: true
-                
+                width: parent.width
                 Item { Layout.fillWidth: true }
-                
+            
                 Button {
                     text: loginDialog.connecting ? "连接中..." : "连接"
                     enabled: !loginDialog.connecting

@@ -450,15 +450,17 @@ Rectangle {
 
     // Edit desired state dialog
     Dialog {
-        id: desiredDialog
-        title: "修改期望值"
-        anchors.centerIn: parent
-        width: 480
+    id: desiredDialog
+    title: "修改期望值"
+    width: 480
+    anchors.centerIn: parent
         modal: true
         closePolicy: Dialog.CloseOnEscape
 
-        contentItem: ColumnLayout {
+        ColumnLayout {
             spacing: 12
+            anchors.fill: parent
+            anchors.margins: 24
 
             Label {
                 text: "Desired JSON:"

@@ -15,31 +15,35 @@ Rectangle {
 
     // 新增分组对话框
     Dialog {
-        id: addGroupDialog
-        title: "新增分组"
-        anchors.centerIn: parent
+    id: addGroupDialog
+    title: "新增分组"
+    width: 380
+    anchors.centerIn: parent
         modal: true
-        width: 380
         standardButtons: Dialog.Ok | Dialog.Cancel
 
-        ColumnLayout {
+        Column {
             spacing: 12
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 24
             Label { text: "分组名称:" }
             TextField {
                 id: groupNameField
                 placeholderText: "请输入分组名称"
-                Layout.fillWidth: true
+                width: parent.width
             }
             Label { text: "描述:" }
             TextField {
                 id: groupDescField
                 placeholderText: "请输入描述"
-                Layout.fillWidth: true
+                width: parent.width
             }
             Label { text: "上级分组:" }
             ComboBox {
                 id: parentGroupCombo
-                Layout.fillWidth: true
+                width: parent.width
                 model: groupData ? ["无 (顶级分组)"] : ["无 (顶级分组)"]
             }
         }
