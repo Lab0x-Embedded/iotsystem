@@ -150,7 +150,7 @@ Rectangle {
                 }
                 Switch {
                     checked: root.isDark
-                    scale: 0.8
+                    scale: 0.6
                     transformOrigin: Item.Center
 
                     onCheckedChanged: root.themeToggle()
