@@ -17,5 +17,6 @@
         <file>pages/DashboardPage.qml</file>
         <file>pages/DetailPage.qml</file>
         <file>pages/AlarmCenterPage.qml</file>
+        <file>pages/GroupDetailPage.qml</file>
     </qresource>
 </RCC>

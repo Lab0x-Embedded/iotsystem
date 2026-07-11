@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS devices (
     device_id VARCHAR(64) NOT NULL UNIQUE,
     device_name VARCHAR(128),
     device_type VARCHAR(64),
-    device_secret VARCHAR(255),
+    device_secret VARCHAR(512),
     status ENUM('registered', 'active', 'disabled', 'decommissioned') DEFAULT 'registered',
     online BOOLEAN DEFAULT FALSE,
     last_online DATETIME,
@@ -187,7 +187,6 @@ ON DUPLICATE KEY UPDATE username=username;
 
 -- 创建默认分组
 INSERT INTO device_groups (group_id, parent_id, group_name, description, sort_order) VALUES
-(1, NULL, '全部设备', '根节点', 0),
 (2, 1, '工厂A', '生产基地A', 1),
 (3, 2, '车间1', 'A厂一号车间', 1),
 (4, 2, '车间2', 'A厂二号车间', 2),
@@ -256,7 +255,7 @@ CREATE PROCEDURE sp_batch_register_devices(
 BEGIN
     DECLARE v_i INT DEFAULT 0;
     DECLARE v_device_id VARCHAR(32);
-    DECLARE v_secret VARCHAR(64);
+    DECLARE v_secret VARCHAR(512);
     
     WHILE v_i < p_count DO
         SET v_device_id = REPLACE(UUID(), '-', '');

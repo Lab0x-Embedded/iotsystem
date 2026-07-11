@@ -10,6 +10,7 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::groupsFetched, this, &DataManager::onGroupsFetched);
     connect(&m_http, &HttpClient::alarmsFetched, this, &DataManager::onAlarmsFetched);
     connect(&m_http, &HttpClient::deviceOperationError, this, &DataManager::onDeviceOperationError);
+    connect(&m_http, &HttpClient::deviceUpdated, this, &DataManager::onDeviceUpdated);
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
     connect(&m_http, &HttpClient::groupCreated, this, [this](int id)
             { Q_UNUSED(id); refreshGroups(); });
@@ -234,6 +235,35 @@ void DataManager::onAlarmsFetched(const QJsonArray &alarms)
 void DataManager::onDeviceOperationError(const QString &error)
 {
     emit errorOccurred("设备操作失败: " + error);
+}
+
+void DataManager::updateDeviceGroup(const QString &deviceId, int groupId)
+{
+    if (m_online) {
+        m_http.updateDevice(deviceId, QString(), groupId);
+    }
+}
+
+void DataManager::updateDeviceName(const QString &deviceId, const QString &name)
+{
+    if (m_online) {
+        m_http.updateDevice(deviceId, name, -1);
+    }
+}
+
+void DataManager::removeDeviceFromGroup(const QString &deviceId)
+{
+    if (m_online) {
+        m_http.updateDevice(deviceId, QString(), 0);
+    }
+}
+
+void DataManager::onDeviceUpdated(const QString &deviceId, int groupId)
+{
+    Q_UNUSED(deviceId);
+    Q_UNUSED(groupId);
+    refreshDevices();
+    refreshGroups();
 }
 
 void DataManager::onGroupOperationError(const QString &error)

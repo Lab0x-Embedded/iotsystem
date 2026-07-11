@@ -8,6 +8,8 @@ Rectangle {
 
 
     property var deviceData
+    property var dataManager: null
+    signal showGroupDetail(int groupId, string groupName)
     property var groupData
     property bool isDark: true
 
@@ -138,6 +140,98 @@ Rectangle {
             if (dataManager && deleteConfirmDialog.targetGroupId > 0) {
                 dataManager.httpClient.deleteGroup(deleteConfirmDialog.targetGroupId)
             }
+        }
+    }
+
+    // 设备管理对话框：把设备添加/移入当前组
+    Dialog {
+        id: assignDeviceDialog
+        title: "管理设备"
+        width: 480
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        property int targetGroupId: 0
+        property string targetGroupName: ""
+
+        Column {
+            spacing: 12
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 24
+
+            Label {
+                text: "将设备添加到分组: \"" + assignDeviceDialog.targetGroupName + "\""
+                font.pixelSize: 14
+                color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+            }
+
+            Label {
+                text: "选择设备:"
+                font.pixelSize: 12
+                color: root.isDark ? "#a6adc8" : "#666666"
+            }
+
+            ListView {
+                id: devicePicker
+                width: parent.width
+                height: 240
+                clip: true
+                model: deviceData
+                property var selectedIds: []
+
+                delegate: Rectangle {
+                    width: devicePicker.width
+                    height: 40
+                    color: index % 2 === 0 ? (root.isDark ? "#313244" : "#ffffff") : (root.isDark ? "#2a2a3c" : "#f8f9fa")
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
+
+                        CheckBox {
+                            checked: devicePicker.selectedIds.indexOf(model.deviceId) >= 0
+                            onCheckedChanged: {
+                                var idx = devicePicker.selectedIds.indexOf(model.deviceId)
+                                if (checked && idx < 0) {
+                                    devicePicker.selectedIds.push(model.deviceId)
+                                } else if (!checked && idx >= 0) {
+                                    devicePicker.selectedIds.splice(idx, 1)
+                                }
+                            }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: model.deviceName || model.deviceId
+                            color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                            font.pixelSize: 12
+                        }
+
+                        Label {
+                            text: model.group || "未分组"
+                            color: root.isDark ? "#a6adc8" : "#666666"
+                            font.pixelSize: 11
+                        }
+                    }
+                }
+            }
+        }
+
+        onAccepted: {
+            if (dataManager) {
+                for (var i = 0; i < devicePicker.selectedIds.length; i++) {
+                    dataManager.updateDeviceGroup(devicePicker.selectedIds[i], targetGroupId)
+                }
+                devicePicker.selectedIds = []
+            }
+        }
+        onRejected: {
+            devicePicker.selectedIds = []
         }
     }
 
@@ -315,6 +409,16 @@ Rectangle {
                             RowLayout {
                                 Layout.preferredWidth: 150
                                 spacing: 8
+
+                                Button {
+                                    text: "详情"
+                                    flat: true
+                                    font.pixelSize: 11
+                                    Material.foreground: "#a6e3a1"
+                                    onClicked: {
+                                        root.showGroupDetail(model.groupId, model.groupName)
+                                    }
+                                }
 
                                 Button {
                                     text: "编辑"

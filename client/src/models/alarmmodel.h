@@ -21,6 +21,7 @@ struct AlarmRecord {
     AlarmStatus status = AlarmStatus::Active;
     QDateTime createdAt;
     QDateTime resolvedAt;
+    bool acknowledged = false;
 
     QString severityText() const {
         switch (severity) {
@@ -52,6 +53,7 @@ class AlarmModel : public QAbstractTableModel {
     Q_OBJECT
     Q_PROPERTY(int activeCount READ activeCount NOTIFY countsChanged)
     Q_PROPERTY(int totalCount READ totalCount NOTIFY countsChanged)
+    Q_PROPERTY(int unacknowledledCount READ unacknowledledCount NOTIFY countsChanged)
 
 public:
     enum Column {
@@ -71,12 +73,18 @@ public:
     void clear();
     int activeCount() const;
     int totalCount() const { return m_records.size(); }
+    int unacknowledledCount() const;
+
+    Q_INVOKABLE void acknowledge(int row);
+    Q_INVOKABLE void setDeviceFilter(const QString &deviceId);
+    QString deviceFilter() const;
 
 signals:
     void countsChanged();
 
 private:
     QVector<AlarmRecord> m_records;
+    QString m_deviceFilter;
 };
 
 #endif // ALARMMODEL_H

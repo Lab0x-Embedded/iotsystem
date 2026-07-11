@@ -39,6 +39,9 @@ public:
     Q_INVOKABLE void refreshDevices();
     Q_INVOKABLE void refreshGroups();
     Q_INVOKABLE void refreshAlarms();
+    Q_INVOKABLE void updateDeviceGroup(const QString &deviceId, int groupId);
+    Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
+    Q_INVOKABLE void removeDeviceFromGroup(const QString &deviceId);
 
 signals:
     void onlineChanged();
@@ -57,6 +60,7 @@ private slots:
     void onGroupsFetched(const QJsonArray &groups);
     void onAlarmsFetched(const QJsonArray &alarms);
     void onDeviceOperationError(const QString &error);
+    void onDeviceUpdated(const QString &deviceId, int groupId);
     void onGroupOperationError(const QString &error);
 
 private:

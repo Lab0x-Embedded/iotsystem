@@ -14,7 +14,7 @@ db_init:
 
 # 注册测试设备
 register_devices:
-	@bash deploy/register_devices.sh
+	@python3 deploy/scripts/register_devices.py
 
 # 编译并启动 Qt 客户端
 client:

@@ -51,9 +51,11 @@ typedef struct {
     char           device_id[ALARM_DEV_LEN];
     char           metric[ALARM_METRIC_LEN];
     double         value;
+    double         threshold;
     alarm_severity_t severity;
     char           message[ALARM_MSG_LEN];
     uint64_t       triggered_at;
+    int            acknowledged;
 } alarm_record_t;
 
 int  alarm_service_init(void);
@@ -71,6 +73,9 @@ int  alarm_recent(alarm_record_t *out, int max_n);
 
 /** 当前告警总数. */
 int  alarm_count(void);
+
+/** 按 id 确认告警; 返回 0 成功. */
+int  alarm_acknowledge(uint64_t id);
 
 #ifdef __cplusplus
 }

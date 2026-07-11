@@ -1,35 +1,55 @@
 /**
  * @file alarm_service.c
  *
- * P4 告警处理 — 内存实现
+ * P4 alarm - MySQL-backed
  */
 #include "business/alarm_service.h"
+#include <mysql.h>
+#include "data/db_pool.h"
 #include "common/log.h"
 
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
+#include <time.h>
 
-static alarm_rule_t  g_rules[MAX_RULES];
-static int           g_rule_count = 0;
+static int op_from_str(const char *s) {
+    if (!s) return ALARM_OP_GT;
+    if (strcmp(s,"lt")==0) return ALARM_OP_LT;
+    if (strcmp(s,"eq")==0) return ALARM_OP_EQ;
+    if (strcmp(s,"gte")==0) return ALARM_OP_GTE;
+    if (strcmp(s,"lte")==0) return ALARM_OP_LTE;
+    return ALARM_OP_GT;
+}
 
-static alarm_record_t g_alarms[MAX_ALARMS];
-static int            g_alarm_head = 0;
-static int            g_alarm_count = 0;
-static uint64_t       g_alarm_seq = 0;
+static const char *severity_to_str(alarm_severity_t sev) {
+    switch (sev) {
+        case ALARM_SEVERITY_CRITICAL: return "critical";
+        case ALARM_SEVERITY_WARN: return "warning";
+        case ALARM_SEVERITY_INFO: return "info";
+    }
+    return "warning";
+}
 
-static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
+static alarm_severity_t severity_from_str(const char *s) {
+    if (!s) return ALARM_SEVERITY_WARN;
+    if (strcmp(s,"critical")==0) return ALARM_SEVERITY_CRITICAL;
+    if (strcmp(s,"info")==0) return ALARM_SEVERITY_INFO;
+    return ALARM_SEVERITY_WARN;
+}
+
+static int alarm_hit(alarm_compare_t op, double v, double t) {
+    switch (op) {
+        case ALARM_OP_GT: return v>t;
+        case ALARM_OP_LT: return v<t;
+        case ALARM_OP_EQ: return v==t;
+        case ALARM_OP_GTE: return v>=t;
+        case ALARM_OP_LTE: return v<=t;
+    }
+    return 0;
+}
 
 int alarm_service_init(void) {
-    pthread_mutex_lock(&g_lock);
-    memset(g_rules, 0, sizeof(g_rules));
-    g_rule_count = 0;
-    memset(g_alarms, 0, sizeof(g_alarms));
-    g_alarm_head = 0;
-    g_alarm_count = 0;
-    g_alarm_seq = 0;
-    pthread_mutex_unlock(&g_lock);
-    LOG_INFO("alarm_service initialized");
+    LOG_INFO("alarm_service initialized (MySQL)");
     return 0;
 }
 
@@ -37,74 +57,104 @@ int alarm_add_rule(const char *device_id, const char *metric,
                    alarm_compare_t op, double threshold,
                    alarm_severity_t severity) {
     if (!device_id || !metric) return -1;
-    pthread_mutex_lock(&g_lock);
-    if (g_rule_count >= MAX_RULES) { pthread_mutex_unlock(&g_lock); return -1; }
-    alarm_rule_t *r = &g_rules[g_rule_count];
-    r->enabled = 1;
-    strncpy(r->device_id, device_id, ALARM_DEV_LEN - 1);
-    strncpy(r->metric, metric, ALARM_METRIC_LEN - 1);
-    r->op = op;
-    r->threshold = threshold;
-    r->severity = severity;
-    int idx = g_rule_count++;
-    pthread_mutex_unlock(&g_lock);
-    LOG_INFO("alarm rule added: %s %s op=%.2f", device_id, metric, threshold);
-    return idx;
-}
-
-static int alarm_hit(alarm_compare_t op, double value, double threshold) {
-    switch (op) {
-        case ALARM_OP_GT:  return value > threshold;
-        case ALARM_OP_LT:  return value < threshold;
-        case ALARM_OP_EQ:  return value == threshold;
-        case ALARM_OP_GTE: return value >= threshold;
-        case ALARM_OP_LTE: return value <= threshold;
-    }
-    return 0;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return -1;
+    char sql[1024];
+    snprintf(sql,sizeof(sql),
+        "INSERT INTO alert_rules (rule_name,device_id,metric,condition_type,threshold,severity)"
+        "VALUES('\%s > %.2f','%s','%s','%s',%.2f,'%s')",
+        metric, threshold, device_id, metric,
+        op==ALARM_OP_GT?"gt":op==ALARM_OP_LT?"lt":op==ALARM_OP_GTE?"gte":op==ALARM_OP_LTE?"lte":"eq",
+        threshold, severity_to_str(severity));
+    int rc = db_pool_exec(conn, sql);
+    db_pool_put(conn);
+    if (rc) LOG_ERROR("alarm_add_rule failed");
+    return rc ? -1 : 0;
 }
 
 void alarm_evaluate(const char *device_id, const char *metric, double value) {
     if (!device_id || !metric) return;
-    pthread_mutex_lock(&g_lock);
-    for (int i = 0; i < g_rule_count; i++) {
-        alarm_rule_t *r = &g_rules[i];
-        if (!r->enabled) continue;
-        if (strcmp(r->device_id, device_id) != 0 && strcmp(r->device_id, "*") != 0) continue;
-        if (strcmp(r->metric, metric) != 0) continue;
-        if (!alarm_hit(r->op, value, r->threshold)) continue;
-        /* 生成告警 */
-        alarm_record_t *a = &g_alarms[g_alarm_head];
-        g_alarm_head = (g_alarm_head + 1) % MAX_ALARMS;
-        if (g_alarm_count < MAX_ALARMS) g_alarm_count++;
-        a->id = ++g_alarm_seq;
-        strncpy(a->device_id, device_id, ALARM_DEV_LEN - 1);
-        strncpy(a->metric, metric, ALARM_METRIC_LEN - 1);
-        a->value = value;
-        a->severity = r->severity;
-        snprintf(a->message, ALARM_MSG_LEN, "%s=%.2f hit rule (op=%d, threshold=%.2f)",
-                 metric, value, (int)r->op, r->threshold);
-        a->triggered_at = (uint64_t)time(NULL);
-        LOG_WARN("ALARM: %s", a->message);
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return;
+    void *res = db_pool_query(conn, "SELECT device_id,metric,condition_type,threshold,severity FROM alert_rules WHERE enabled=1");
+    if (!res) { db_pool_put(conn); return; }
+    MYSQL_ROW row;
+    MYSQL_RES *R = (MYSQL_RES*)res;
+    while ((row = mysql_fetch_row(R))) {
+        const char *rd = row[0]?row[0]:"";
+        const char *rm = row[1]?row[1]:"";
+        const char *rs = row[2]?row[2]:"gt";
+        const char *rt = row[3]?row[3]:"0";
+        const char *rv = row[4]?row[4]:"warning";
+        if (strlen(rd)>0 && strcmp(rd,device_id)!=0) continue;
+        if (strcmp(rm,metric)!=0) continue;
+        double t = atof(rt);
+        if (!alarm_hit(op_from_str(rs), value, t)) continue;
+        char sql[512];
+        snprintf(sql,sizeof(sql),
+            "INSERT INTO alerts (device_id,metric,current_value,threshold,severity,status)"
+            "VALUES('%s','%s',%.2f,%.2f,'%s','active')",
+            device_id, metric, value, t, rv);
+        db_pool_exec(conn, sql);
+        LOG_WARN("ALERT: %s %s=%.2f > %.2f", device_id, metric, value, t);
     }
-    pthread_mutex_unlock(&g_lock);
+    db_pool_free_result(res);
+    db_pool_put(conn);
 }
 
 int alarm_recent(alarm_record_t *out, int max_n) {
-    if (!out || max_n <= 0) return 0;
-    pthread_mutex_lock(&g_lock);
-    int n = g_alarm_count < max_n ? g_alarm_count : max_n;
-    for (int i = 0; i < n; i++) {
-        int idx = (g_alarm_head - 1 - i + MAX_ALARMS) % MAX_ALARMS;
-        out[i] = g_alarms[idx];
+    if (!out || max_n<=0) return 0;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return 0;
+    char sql[256];
+    snprintf(sql,sizeof(sql),
+        "SELECT id,device_id,metric,current_value,threshold,severity,status"
+        " FROM alerts ORDER BY id DESC LIMIT %d", max_n);
+    void *res = db_pool_query(conn, sql);
+    if (!res) { db_pool_put(conn); return 0; }
+    int n=0; MYSQL_ROW row; MYSQL_RES *R=(MYSQL_RES*)res;
+    while ((row=mysql_fetch_row(R)) && n<max_n) {
+        alarm_record_t *a=&out[n];
+        memset(a,0,sizeof(*a));
+        a->id = row[0]?strtoull(row[0],NULL,10):0;
+        strncpy(a->device_id, row[1]?row[1]:"", ALARM_DEV_LEN-1);
+        strncpy(a->metric, row[2]?row[2]:"", ALARM_METRIC_LEN-1);
+        a->value = row[3]?atof(row[3]):0.0;
+        a->threshold = row[4]?atof(row[4]):0.0;
+        a->severity = severity_from_str(row[5]);
+        a->acknowledged = (row[6] && (strcmp(row[6],"acknowledged")==0||strcmp(row[6],"resolved")==0)) ? 1 : 0;
+        a->triggered_at = time(NULL);
+        n++;
     }
-    pthread_mutex_unlock(&g_lock);
+    db_pool_free_result(res); db_pool_put(conn);
     return n;
 }
 
 int alarm_count(void) {
-    int n;
-    pthread_mutex_lock(&g_lock);
-    n = g_alarm_count;
-    pthread_mutex_unlock(&g_lock);
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return 0;
+    void *res = db_pool_query(conn,"SELECT COUNT(*) FROM alerts");
+    int n=0;
+    if (res) {
+        MYSQL_ROW row = mysql_fetch_row((MYSQL_RES*)res);
+        if (row && row[0]) n = atoi(row[0]);
+        db_pool_free_result(res);
+    }
+    db_pool_put(conn);
     return n;
+}
+
+int alarm_acknowledge(uint64_t id) {
+    if (id==0) return -1;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return -1;
+    char sql[256];
+    snprintf(sql,sizeof(sql),
+        "UPDATE alerts SET status='acknowledged',acknowledged_at=NOW()"
+        " WHERE id=%llu AND status='active'", (unsigned long long)id);
+    int rc = db_pool_exec(conn, sql);
+    db_pool_put(conn);
+    if (rc) return -1;
+    LOG_INFO("alarm acknowledged id=%llu", (unsigned long long)id);
+    return 0;
 }

@@ -155,6 +155,11 @@ ApplicationWindow {
                 isDark: root.isDark
                 deviceData: deviceModel
                 groupData: groupModel
+
+                onShowGroupDetail: function(groupId, groupName) {
+                    groupDetailPage.showGroup(groupId, groupName)
+                    stackView.currentIndex = 5
+                }
             }
             
             // 2: 设备详情
@@ -174,6 +179,14 @@ ApplicationWindow {
                 id: alarmCenterPage
                 isDark: root.isDark
                 alarmModel: alarmModel
+            }
+
+            // 5: 分组详情
+            GroupDetailPage {
+                id: groupDetailPage
+                isDark: root.isDark
+                deviceData: deviceModel
+                dataManager: dataManager
             }
         }
     }

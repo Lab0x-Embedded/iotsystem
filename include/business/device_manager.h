@@ -98,3 +98,12 @@ int device_manager_get_all(const device_info_t **devices, int *count);
 
 /** 获取设备总数. */
 int device_manager_total_count(void);
+
+/**
+ * 按 group_id 获取设备列表 (内存过滤).
+ * @param group_id  目标分组 id
+ * @param devices   [out] 设备数组指针 (指向内部静态数组, 不可修改)
+ * @param count     [out] 匹配的设备数量
+ * @return 0 成功, -1 参数错误
+ */
+int device_manager_get_by_group(int group_id, const device_info_t **devices, int *count);

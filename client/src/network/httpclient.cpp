@@ -152,6 +152,29 @@ void HttpClient::queryDevice(const QString &deviceId) {
     );
 }
 
+void HttpClient::updateDevice(const QString &deviceId,
+                               const QString &name,
+                               int groupId) {
+    QJsonObject body;
+    body["action"] = "update";
+    body["device_id"] = deviceId;
+    if (!name.isEmpty()) body["name"] = name;
+    if (groupId >= 0)    body["group_id"] = groupId;
+
+    auto *reply = m_mgr.post(makeRequest("/api/device"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this, deviceId, groupId](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit deviceUpdated(deviceId, groupId);
+        },
+        [this](const QString &error) {
+            emit deviceOperationError(error);
+        }
+    );
+}
+
 // ==================== 分组管理 ====================
 
 void HttpClient::fetchGroups() {
@@ -321,6 +344,27 @@ void HttpClient::fetchAlarms(const QString &deviceId) {
         },
         [this](const QString &error) {
             emit alarmError(error);
+        }
+    );
+}
+void HttpClient::fetchDevicesByGroup(int groupId) {
+    QJsonObject body;
+    body["action"] = "query_by_group";
+    body["group_id"] = groupId;
+
+    auto *reply = m_mgr.post(makeRequest("/api/device"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this, groupId](const QJsonObject &obj) {
+            QJsonArray devices;
+            if (obj.contains("data")) {
+                devices = obj["data"].toArray();
+            }
+            emit groupDevicesFetched(groupId, devices);
+        },
+        [this](const QString &error) {
+            emit deviceOperationError(error);
         }
     );
 }

@@ -92,3 +92,31 @@ int AlarmModel::activeCount() const {
     }
     return count;
 }
+int AlarmModel::unacknowledledCount() const {
+    int count = 0;
+    for (const auto &rec : m_records) {
+        if (rec.status == AlarmStatus::Active && !rec.acknowledged)
+            count++;
+    }
+    return count;
+}
+
+void AlarmModel::acknowledge(int row) {
+    if (row < 0 || row >= m_records.size()) return;
+    if (m_records[row].status == AlarmStatus::Active) {
+        m_records[row].status = AlarmStatus::Acknowledged;
+        m_records[row].acknowledged = true;
+        emit dataChanged(index(row, 0), index(row, ColCount - 1));
+        emit countsChanged();
+    }
+}
+
+void AlarmModel::setDeviceFilter(const QString &deviceId) {
+    m_deviceFilter = deviceId;
+    emit layoutChanged();
+}
+
+QString AlarmModel::deviceFilter() const {
+    return m_deviceFilter;
+}
+
