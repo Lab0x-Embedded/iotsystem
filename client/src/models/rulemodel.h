@@ -1,7 +1,7 @@
 #ifndef RULEMODEL_H
 #define RULEMODEL_H
 
-#include <QAbstractTableModel>
+#include <QAbstractListModel>
 #include <QVector>
 #include <QString>
 
@@ -37,18 +37,23 @@ struct AlarmRule {
     }
 };
 
-class RuleModel : public QAbstractTableModel {
+class RuleModel : public QAbstractListModel {
     Q_OBJECT
 public:
-    enum Column {
-        ColDevice = 0, ColMetric, ColOp, ColThreshold, ColSeverity, ColEnabled, ColCount
+    enum Role {
+        DeviceRole = Qt::UserRole + 1,
+        MetricRole,
+        OpRole,
+        ThresholdRole,
+        SeverityRole,
+        EnabledRole
     };
+
     explicit RuleModel(QObject *parent = nullptr);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
 
     void setRules(const QVector<AlarmRule> &rules);
     void clear();
