@@ -134,6 +134,13 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
             currentIndex: 0
+
+            onCurrentIndexChanged: {
+                if (currentIndex === 0 && dataManager) {
+                    dataManager.refreshDevices()
+                    dataManager.refreshGroups()
+                }
+            }
             
             // 0: 设备总览
             OverviewPage {

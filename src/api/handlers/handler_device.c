@@ -83,6 +83,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
         char *txt = cJSON_PrintUnformatted(res);
         http_reply_json(req, 200, "OK", txt);
         free(txt); cJSON_Delete(res);
+        free((void*)devices);
     } else if (action && strcmp(action->valuestring, "decommission") == 0) {
         const cJSON *id = cJSON_GetObjectItem(root, "device_id");
         if (id && device_manager_decommission(id->valuestring) == 0) {
@@ -114,12 +115,6 @@ void handler_device(struct evhttp_request *req, void *ctx) {
                     sql[0] = '\0';
                 }
                 if (sql[0] && db_pool_exec(conn, sql) == 0) {
-                    /* 同步内存索引 */
-                    if (gid) {
-                        device_manager_update_group(id->valuestring, gid->valueint);
-                    } else if (nm) {
-                        device_manager_update_name(id->valuestring, nm->valuestring);
-                    }
                     http_reply_json(req, 200, "OK", "{\"status\":\"updated\"}");
                 } else if (sql[0] == '\0') {
                     http_reply_json(req, 400, "Bad Request", "{\"error\":\"nothing to update\"}");
@@ -159,6 +154,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
             char *txt = cJSON_PrintUnformatted(res);
             http_reply_json(req, 200, "OK", txt);
             free(txt); cJSON_Delete(res);
+            free((void*)devices);
         }
     } else {
         cJSON *res = cJSON_CreateObject();
