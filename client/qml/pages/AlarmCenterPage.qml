@@ -68,7 +68,10 @@ Rectangle {
                 Material.foreground: "#1e1e2e"
                 text: "添加规则"
 
-                onClicked: addRuleDialog.open()
+                onClicked: {
+                    addRuleDialog.editingRule = null;
+                    addRuleDialog.open();
+                }
             }
         }
 
@@ -315,18 +318,21 @@ Rectangle {
                                 anchors.rightMargin: 16
                                 spacing: 0
 
+                                // 设备
                                 Label {
-                                    Layout.preferredWidth: 120
+                                    Layout.preferredWidth: 140
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
                                     text: model.deviceId
                                 }
+                                // 指标
                                 Label {
                                     Layout.preferredWidth: 100
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
                                     text: model.metric
                                 }
+                                // 条件
                                 Label {
                                     Layout.preferredWidth: 60
                                     color: root.isDark ? "#89b4fa" : "#4a6fa5"
@@ -334,6 +340,7 @@ Rectangle {
                                     horizontalAlignment: Text.AlignHCenter
                                     text: model.op
                                 }
+                                // 阈值
                                 Label {
                                     Layout.preferredWidth: 80
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
@@ -341,6 +348,7 @@ Rectangle {
                                     horizontalAlignment: Text.AlignRight
                                     text: model.threshold
                                 }
+                                // 级别
                                 Label {
                                     Layout.preferredWidth: 60
                                     color: model.severity === "严重" ? "#f38ba8" : model.severity === "警告" ? "#fab387" : "#89b4fa"
@@ -349,12 +357,34 @@ Rectangle {
                                     horizontalAlignment: Text.AlignHCenter
                                     text: model.severity
                                 }
-                                Label {
-                                    Layout.fillWidth: true
-                                    color: model.enabled === "启用" ? "#a6e3a1" : "#6c7086"
-                                    font.pixelSize: 12
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: model.enabled
+                                // 启用开关
+                                Switch {
+                                    Layout.preferredWidth: 80
+                                    checked: model.enabled === "启用"
+
+                                    onToggled: {
+                                        dataManager.toggleRule(model.id, checked);
+                                    }
+                                }
+                                // 编辑按钮
+                                Button {
+                                    Layout.preferredWidth: 60
+                                    Material.background: "#89b4fa"
+                                    Material.foreground: "white"
+                                    font.pixelSize: 11
+                                    text: "编辑"
+
+                                    onClicked: {
+                                        addRuleDialog.editingRule = {
+                                            id: model.id,
+                                            deviceId: model.deviceId === "*" ? "" : model.deviceId,
+                                            metric: model.metric,
+                                            op: model.op,
+                                            threshold: model.threshold,
+                                            severity: model.severity
+                                        };
+                                        addRuleDialog.open();
+                                    }
                                 }
                             }
                         }
@@ -370,7 +400,7 @@ Rectangle {
                                 spacing: 0
 
                                 Label {
-                                    Layout.preferredWidth: 120
+                                    Layout.preferredWidth: 140
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
                                     font.pixelSize: 12
@@ -405,11 +435,18 @@ Rectangle {
                                     text: "级别"
                                 }
                                 Label {
-                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 80
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
                                     font.pixelSize: 12
-                                    text: "状态"
+                                    text: "启用"
+                                }
+                                Label {
+                                    Layout.preferredWidth: 60
+                                    color: root.isDark ? "#a6adc8" : "#666666"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                    text: "操作"
                                 }
                             }
                         }
@@ -423,9 +460,11 @@ Rectangle {
         }
     }
 
-    // Add Rule Dialog
+    // Add/Edit Rule Dialog
     AddAlarmRuleDialog {
         id: addRuleDialog
+
+        property var editingRule: null
 
         isDark: root.isDark
         width: 420

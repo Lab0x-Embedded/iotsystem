@@ -186,3 +186,47 @@ int alarm_query_rules(alarm_rule_config_t *out, int max_n) {
     db_pool_put(conn);
     return n;
 }
+
+int alarm_toggle_rule(uint64_t rule_id) {
+    if (rule_id == 0) return -1;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return -1;
+    char sql[256];
+    snprintf(sql, sizeof(sql),
+        "UPDATE alert_rules SET enabled = NOT enabled WHERE rule_id=%llu",
+        (unsigned long long)rule_id);
+    int rc = db_pool_exec(conn, sql);
+    db_pool_put(conn);
+    if (rc) {
+        LOG_ERROR("alarm_toggle_rule failed id=%llu", (unsigned long long)rule_id);
+        return -1;
+    }
+    LOG_INFO("alarm_toggle_rule id=%llu", (unsigned long long)rule_id);
+    return 0;
+}
+
+int alarm_edit_rule(uint64_t rule_id, const char *device_id, const char *metric,
+                    alarm_compare_t op, double threshold,
+                    alarm_severity_t severity) {
+    if (rule_id == 0 || !metric) return -1;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return -1;
+    const char *op_str = op == ALARM_OP_GT ? "gt" : op == ALARM_OP_LT ? "lt" :
+                         op == ALARM_OP_EQ ? "eq" : op == ALARM_OP_GTE ? "gte" : "lte";
+    char sql[1024];
+    snprintf(sql, sizeof(sql),
+        "UPDATE alert_rules SET device_id='%s', metric='%s', condition_type='%s', "
+        "threshold=%.2f, severity='%s' WHERE rule_id=%llu",
+        device_id ? device_id : "", metric, op_str, threshold,
+        severity == ALARM_SEVERITY_CRITICAL ? "critical" :
+        severity == ALARM_SEVERITY_INFO ? "info" : "warning",
+        (unsigned long long)rule_id);
+    int rc = db_pool_exec(conn, sql);
+    db_pool_put(conn);
+    if (rc) {
+        LOG_ERROR("alarm_edit_rule failed id=%llu", (unsigned long long)rule_id);
+        return -1;
+    }
+    LOG_INFO("alarm_edit_rule id=%llu", (unsigned long long)rule_id);
+    return 0;
+}

@@ -90,6 +90,14 @@ int  alarm_acknowledge(uint64_t id);
 /** 读取最近 N 条规则. */
 int  alarm_query_rules(alarm_rule_config_t *out, int max_n);
 
+/** 切换规则启用状态; 返回 0 成功. */
+int  alarm_toggle_rule(uint64_t rule_id);
+
+/** 编辑规则; 返回 0 成功. */
+int  alarm_edit_rule(uint64_t rule_id, const char *device_id, const char *metric,
+                    alarm_compare_t op, double threshold,
+                    alarm_severity_t severity);
+
 #ifdef __cplusplus
 }
 #endif
