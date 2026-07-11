@@ -114,6 +114,12 @@ void handler_device(struct evhttp_request *req, void *ctx) {
                     sql[0] = '\0';
                 }
                 if (sql[0] && db_pool_exec(conn, sql) == 0) {
+                    /* 同步内存索引 */
+                    if (gid) {
+                        device_manager_update_group(id->valuestring, gid->valueint);
+                    } else if (nm) {
+                        device_manager_update_name(id->valuestring, nm->valuestring);
+                    }
                     http_reply_json(req, 200, "OK", "{\"status\":\"updated\"}");
                 } else if (sql[0] == '\0') {
                     http_reply_json(req, 400, "Bad Request", "{\"error\":\"nothing to update\"}");
@@ -122,6 +128,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
                 }
                 db_pool_put(conn);
             }
+        }
     } else if (action && strcmp(action->valuestring, "query_by_group") == 0) {
         const cJSON *gid = cJSON_GetObjectItem(root, "group_id");
         if (!gid) {

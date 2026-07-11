@@ -6,76 +6,116 @@ import QtQuick.Controls.Material 2.15
 Rectangle {
     id: root
 
-    property var deviceData: null
     property var dataManager: null
-    property bool isDark: true
+    property var deviceData: null
+
+    // 本分组下的设备数量
+    property int groupDeviceCount: 0
     property int groupId: 0
     property string groupName: ""
 
-    // 本分组下的设备数量
-    property int groupDeviceCount: {
-        if (!deviceData) return 0
-        var count = 0
-        for (var i = 0; i < deviceData.rowCount(); i++) {
-            var dev = deviceData.deviceAt(i)
-            if (dev && String(dev.group) === String(root.groupId)) count++
-        }
-        return count
-    }
-
     // 本分组在线设备数量
-    property int groupOnlineCount: {
-        if (!deviceData) return 0
-        var count = 0
-        for (var i = 0; i < deviceData.rowCount(); i++) {
-            var dev = deviceData.deviceAt(i)
-            if (dev && String(dev.group) === String(root.groupId) && dev.status === 1) count++
-        }
-        return count
-    }
+    property int groupOnlineCount: 0
+    property bool isDark: true
 
+    // 刷新过滤后的设备列表
+    function refreshFilteredDevices() {
+        filteredDeviceModel.clear();
+        if (!deviceData) {
+            root.groupDeviceCount = 0;
+            root.groupOnlineCount = 0;
+            return;
+        }
+        var devices = deviceData.devicesByGroup(root.groupId);
+        var online = 0;
+        for (var i = 0; i < devices.length; i++) {
+            var d = devices[i];
+            if (d.status === 1)
+                online++;
+            filteredDeviceModel.append({
+                "deviceId": d.id || "",
+                "deviceName": d.name || "",
+                "productKey": d.productKey || "",
+                "statusValue": d.status,
+                "statusText": d.statusText || "离线"
+            });
+        }
+        root.groupDeviceCount = devices.length;
+        root.groupOnlineCount = online;
+    }
     function showGroup(gid, gname) {
-        root.groupId = gid
-        root.groupName = gname
+        root.groupId = gid;
+        root.groupName = gname;
     }
 
     color: root.isDark ? "#1e1e2e" : "#f5f5f5"
 
+    Component.onCompleted: refreshFilteredDevices()
+    onGroupIdChanged: refreshFilteredDevices()
+
     // ===== 添加设备对话框 =====
     Dialog {
         id: addDeviceDialog
-        title: "添加设备到分组"
-        width: 480
+
         anchors.centerIn: parent
         modal: true
         standardButtons: Dialog.Ok | Dialog.Cancel
+        title: "添加设备到分组"
+        width: 480
+
+        onAccepted: {
+            if (dataManager) {
+                for (var i = 0; i < ungroupedPicker.selectedIds.length; i++) {
+                    dataManager.updateDeviceGroup(ungroupedPicker.selectedIds[i], root.groupId);
+                }
+                ungroupedPicker.selectedIds = [];
+            }
+        }
+        onOpened: {
+            // 刷新未分组设备列表
+            ungroupedModel.clear();
+            ungroupedPicker.selectedIds = [];
+            if (deviceData) {
+                var allDevices = deviceData.devicesByGroup(-1);
+                for (var i = 0; i < allDevices.length; i++) {
+                    if (String(allDevices[i].group) === String(root.groupId))
+                        continue;
+                    ungroupedModel.append({
+                        "deviceId": allDevices[i].id,
+                        "deviceName": allDevices[i].name
+                    });
+                }
+            }
+        }
+        onRejected: {
+            ungroupedPicker.selectedIds = [];
+        }
 
         Column {
-            spacing: 12
-            anchors.top: parent.top
             anchors.left: parent.left
-            anchors.right: parent.right
             anchors.margins: 24
+            anchors.right: parent.right
+            anchors.top: parent.top
+            spacing: 12
 
             Label {
-                text: "选择未分组设备添加到 \"" + root.groupName + "\""
-                font.pixelSize: 14
                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                font.pixelSize: 14
+                text: "选择未分组设备添加到 \"" + root.groupName + "\""
             }
-
             ListView {
                 id: ungroupedPicker
-                width: parent.width
-                height: 280
-                clip: true
+
                 property var selectedIds: []
 
-                model: ListModel { id: ungroupedModel }
+                clip: true
+                height: 280
+                width: parent.width
 
                 delegate: Rectangle {
-                    width: ungroupedPicker.width
-                    height: 40
                     color: index % 2 === 0 ? (root.isDark ? "#313244" : "#ffffff") : (root.isDark ? "#2a2a3c" : "#f8f9fa")
+                    height: 40
+                    width: ungroupedPicker.width
 
                     RowLayout {
                         anchors.fill: parent
@@ -85,101 +125,75 @@ Rectangle {
 
                         CheckBox {
                             checked: ungroupedPicker.selectedIds.indexOf(model.deviceId) >= 0
+
                             onCheckedChanged: {
-                                var idx = ungroupedPicker.selectedIds.indexOf(model.deviceId)
+                                var idx = ungroupedPicker.selectedIds.indexOf(model.deviceId);
                                 if (checked && idx < 0) {
-                                    ungroupedPicker.selectedIds.push(model.deviceId)
+                                    ungroupedPicker.selectedIds.push(model.deviceId);
                                 } else if (!checked && idx >= 0) {
-                                    ungroupedPicker.selectedIds.splice(idx, 1)
+                                    ungroupedPicker.selectedIds.splice(idx, 1);
                                 }
                             }
                         }
-
                         Label {
                             Layout.fillWidth: true
-                            text: model.deviceName || model.deviceId
                             color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                             font.pixelSize: 12
+                            text: model.deviceName || model.deviceId
                         }
-
                         Label {
-                            text: model.deviceId
                             color: root.isDark ? "#a6adc8" : "#666666"
                             font.pixelSize: 11
+                            text: model.deviceId
                         }
                     }
                 }
-            }
-        }
-
-        onOpened: {
-            // 刷新未分组设备列表
-            ungroupedModel.clear()
-            ungroupedPicker.selectedIds = []
-            if (deviceData) {
-                for (var i = 0; i < deviceData.rowCount(); i++) {
-                    var dev = deviceData.deviceAt(i)
-                    if (dev && (dev.group === "0" || dev.group === "")) {
-                        ungroupedModel.append({
-                            "deviceId": dev.id,
-                            "deviceName": dev.name
-                        })
-                    }
+                model: ListModel {
+                    id: ungroupedModel
                 }
             }
-        }
-
-        onAccepted: {
-            if (dataManager) {
-                for (var i = 0; i < ungroupedPicker.selectedIds.length; i++) {
-                    dataManager.updateDeviceGroup(ungroupedPicker.selectedIds[i], root.groupId)
-                }
-                ungroupedPicker.selectedIds = []
-            }
-        }
-        onRejected: {
-            ungroupedPicker.selectedIds = []
         }
     }
 
     // ===== 移除确认对话框 =====
     Dialog {
         id: removeConfirmDialog
-        title: "确认移除"
-        width: 340
-        anchors.centerIn: parent
-        modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
 
         property string targetDeviceId: ""
         property string targetDeviceName: ""
 
-        Column {
-            spacing: 12
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.margins: 24
-            Label {
-                text: "确定要将 \"" + removeConfirmDialog.targetDeviceName + "\" 从分组中移除吗？"
-                wrapMode: Text.Wrap
-                width: parent.width
-                color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-            }
-            Label {
-                text: "移除后设备将变为未分组状态。"
-                font.pixelSize: 12
-                color: root.isDark ? "#a6adc8" : "#666666"
-            }
-        }
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        title: "确认移除"
+        width: 340
 
         onAccepted: {
             if (dataManager && removeConfirmDialog.targetDeviceId !== "") {
-                dataManager.removeDeviceFromGroup(removeConfirmDialog.targetDeviceId)
+                dataManager.removeDeviceFromGroup(removeConfirmDialog.targetDeviceId);
+            }
+        }
+
+        Column {
+            anchors.left: parent.left
+            anchors.margins: 24
+            anchors.right: parent.right
+            anchors.top: parent.top
+            spacing: 12
+
+            Label {
+                color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                text: "确定要将 \"" + removeConfirmDialog.targetDeviceName + "\" 从分组中移除吗？"
+                width: parent.width
+                wrapMode: Text.Wrap
+            }
+            Label {
+                color: root.isDark ? "#a6adc8" : "#666666"
+                font.pixelSize: 12
+                text: "移除后设备将变为未分组状态。"
             }
         }
     }
-
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
@@ -195,15 +209,16 @@ Rectangle {
                 flat: true
                 font.pixelSize: 13
                 text: "← 返回"
+
                 onClicked: {
-                    stackView.currentIndex = 1
-                    sidebar.currentIndex = 1
+                    stackView.currentIndex = 1;
+                    sidebar.currentIndex = 1;
                 }
             }
-
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 2
+
                 Label {
                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                     font.bold: true
@@ -216,11 +231,11 @@ Rectangle {
                     text: "共 " + root.groupDeviceCount + " 台设备 · 在线 " + root.groupOnlineCount
                 }
             }
-
             Button {
-                text: "+ 添加设备"
                 Material.background: "#89b4fa"
                 Material.foreground: "#1e1e2e"
+                text: "+ 添加设备"
+
                 onClicked: addDeviceDialog.open()
             }
         }
@@ -233,18 +248,19 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 80
-                color: root.isDark ? "#313244" : "#ffffff"
                 border.color: root.isDark ? "#45475a" : "#e0e0e0"
                 border.width: 1
+                color: root.isDark ? "#313244" : "#ffffff"
                 radius: 8
 
                 ColumnLayout {
                     anchors.centerIn: parent
+
                     Label {
                         Layout.alignment: Qt.AlignHCenter
                         color: root.isDark ? "#89b4fa" : "#3b82f6"
-                        font.pixelSize: 24
                         font.bold: true
+                        font.pixelSize: 24
                         text: root.groupDeviceCount.toString()
                     }
                     Label {
@@ -255,22 +271,22 @@ Rectangle {
                     }
                 }
             }
-
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 80
-                color: root.isDark ? "#313244" : "#ffffff"
                 border.color: root.isDark ? "#45475a" : "#e0e0e0"
                 border.width: 1
+                color: root.isDark ? "#313244" : "#ffffff"
                 radius: 8
 
                 ColumnLayout {
                     anchors.centerIn: parent
+
                     Label {
                         Layout.alignment: Qt.AlignHCenter
                         color: root.isDark ? "#a6e3a1" : "#16a34a"
-                        font.pixelSize: 24
                         font.bold: true
+                        font.pixelSize: 24
                         text: root.groupOnlineCount.toString()
                     }
                     Label {
@@ -281,22 +297,22 @@ Rectangle {
                     }
                 }
             }
-
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 80
-                color: root.isDark ? "#313244" : "#ffffff"
                 border.color: root.isDark ? "#45475a" : "#e0e0e0"
                 border.width: 1
+                color: root.isDark ? "#313244" : "#ffffff"
                 radius: 8
 
                 ColumnLayout {
                     anchors.centerIn: parent
+
                     Label {
                         Layout.alignment: Qt.AlignHCenter
                         color: root.isDark ? "#f38ba8" : "#dc2626"
-                        font.pixelSize: 24
                         font.bold: true
+                        font.pixelSize: 24
                         text: (root.groupDeviceCount - root.groupOnlineCount).toString()
                     }
                     Label {
@@ -335,38 +351,59 @@ Rectangle {
                         anchors.leftMargin: 16
                         anchors.rightMargin: 16
 
-                        Label { Layout.preferredWidth: 100; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "设备ID" }
-                        Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "设备名称" }
-                        Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "状态" }
-                        Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "产品Key" }
-                        Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 11; font.bold: true; text: "操作" }
+                        Label {
+                            Layout.preferredWidth: 100
+                            color: root.isDark ? "#a6adc8" : "#666666"
+                            font.bold: true
+                            font.pixelSize: 11
+                            text: "设备ID"
+                        }
+                        Label {
+                            Layout.preferredWidth: 120
+                            color: root.isDark ? "#a6adc8" : "#666666"
+                            font.bold: true
+                            font.pixelSize: 11
+                            text: "设备名称"
+                        }
+                        Label {
+                            Layout.preferredWidth: 80
+                            color: root.isDark ? "#a6adc8" : "#666666"
+                            font.bold: true
+                            font.pixelSize: 11
+                            text: "状态"
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            color: root.isDark ? "#a6adc8" : "#666666"
+                            font.bold: true
+                            font.pixelSize: 11
+                            text: "产品Key"
+                        }
+                        Label {
+                            Layout.preferredWidth: 80
+                            color: root.isDark ? "#a6adc8" : "#666666"
+                            font.bold: true
+                            font.pixelSize: 11
+                            text: "操作"
+                        }
                     }
                 }
 
                 // 设备列表 - 使用 Repeater 过滤本分组设备
                 ListView {
                     id: groupDeviceList
+
                     Layout.fillHeight: true
                     Layout.fillWidth: true
                     clip: true
-
-                    model: ListModel { id: filteredDeviceModel }
 
                     ScrollBar.vertical: ScrollBar {
                         active: true
                         policy: ScrollBar.AsNeeded
                     }
-
-                    // 空状态提示
-                    Label {
-                        anchors.centerIn: parent
-                        visible: filteredDeviceModel.count === 0
-                        color: root.isDark ? "#a6adc8" : "#666666"
-                        font.pixelSize: 14
-                        text: "该分组暂无设备，点击上方\"添加设备\"按钮"
-                    }
-
                     delegate: Rectangle {
+                        id: deviceDelegate
+
                         color: index % 2 === 0 ? (root.isDark ? "#313244" : "#ffffff") : (root.isDark ? "#2a2a3c" : "#f8f9fa")
                         height: 50
                         width: groupDeviceList.width
@@ -381,14 +418,13 @@ Rectangle {
                                 Layout.preferredWidth: 100
                                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                 font.pixelSize: 12
-                                text: model.deviceId
+                                text: deviceId
                             }
-
                             Label {
                                 Layout.preferredWidth: 120
                                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                 font.pixelSize: 12
-                                text: model.deviceName || "-"
+                                text: deviceName || "-"
                             }
 
                             // 状态指示
@@ -397,10 +433,10 @@ Rectangle {
                                 spacing: 6
 
                                 Rectangle {
-                                    width: 8
+                                    color: model.statusValue === 1 ? "#4CAF50" : model.statusValue === 2 ? "#FF5722" : model.statusValue === 3 ? "#FFC107" : "#9E9E9E"
                                     height: 8
                                     radius: 4
-                                    color: model.statusValue === 1 ? "#4CAF50" : model.statusValue === 2 ? "#FF5722" : model.statusValue === 3 ? "#FFC107" : "#9E9E9E"
+                                    width: 8
                                 }
                                 Label {
                                     color: root.isDark ? "#a6adc8" : "#666666"
@@ -408,58 +444,62 @@ Rectangle {
                                     text: model.statusText
                                 }
                             }
-
                             Label {
                                 Layout.fillWidth: true
                                 color: root.isDark ? "#a6adc8" : "#666666"
                                 font.pixelSize: 12
                                 text: model.productKey || "-"
                             }
-
                             Button {
-                                text: "移除"
+                                Material.foreground: "#f38ba8"
                                 flat: true
                                 font.pixelSize: 11
-                                Material.foreground: "#f38ba8"
+                                text: "移除"
+
                                 onClicked: {
-                                    removeConfirmDialog.targetDeviceId = model.deviceId
-                                    removeConfirmDialog.targetDeviceName = model.deviceName
-                                    removeConfirmDialog.open()
+                                    removeConfirmDialog.targetDeviceId = deviceId;
+                                    removeConfirmDialog.targetDeviceName = deviceName;
+                                    removeConfirmDialog.open();
                                 }
                             }
                         }
+                    }
+                    model: ListModel {
+                        id: filteredDeviceModel
+                    }
+
+                    // 空状态提示
+                    Label {
+                        anchors.centerIn: parent
+                        color: root.isDark ? "#a6adc8" : "#666666"
+                        font.pixelSize: 14
+                        text: "该分组暂无设备，点击上方\"添加设备\"按钮"
+                        visible: filteredDeviceModel.count === 0
                     }
                 }
             }
         }
     }
 
-    // 刷新过滤后的设备列表
-    function refreshFilteredDevices() {
-        filteredDeviceModel.clear()
-        if (!deviceData) return
-        for (var i = 0; i < deviceData.rowCount(); i++) {
-            var dev = deviceData.deviceAt(i)
-            if (dev && String(dev.group) === String(root.groupId)) {
-                filteredDeviceModel.append({
-                    "deviceId": dev.id,
-                    "deviceName": dev.name,
-                    "productKey": dev.productKey,
-                    "statusValue": dev.status,
-                    "statusText": dev.statusText ? dev.statusText() : (dev.status === 1 ? "在线" : dev.status === 2 ? "告警" : dev.status === 3 ? "维护" : "离线")
-                })
-            }
+    // 设备数据变化后也刷新
+    Connections {
+        function onConnectionStatusChanged(status) {
+            if (status === "connected")
+                Qt.callLater(refreshFilteredDevices);
         }
+        function onDeviceUpdated() {
+            Qt.callLater(refreshFilteredDevices);
+        }
+
+        target: dataManager
     }
 
     // 数据变化时自动刷新
     Connections {
-        target: deviceData
         function onCountsChanged() {
-            refreshFilteredDevices()
+            refreshFilteredDevices();
         }
-    }
 
-    onGroupIdChanged: refreshFilteredDevices()
-    Component.onCompleted: refreshFilteredDevices()
+        target: deviceData
+    }
 }

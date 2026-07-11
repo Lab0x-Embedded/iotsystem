@@ -292,30 +292,10 @@ int device_manager_total_count(void) {
     return n;
 }
 
+
 int device_manager_get_by_group(int group_id, const device_info_t **devices, int *count) {
     if (!devices || !count) return -1;
 
-    static const device_info_t *filtered[MAX_DEVICES];
-    int n = 0;
-
-    pthread_mutex_lock(&g_lock);
-    for (int i = 0; i < g_device_count && n < MAX_DEVICES; i++) {
-        if (g_devices[i].group_id == group_id) {
-            filtered[n++] = &g_devices[i];
-        }
-    }
-    pthread_mutex_unlock(&g_lock);
-
-    *devices = (n > 0) ? filtered[0] : NULL;
-    /* 返回的是指针数组的首元素地址, 调用方需要知道这是 filtered 指针数组 */
-    /* 为兼容 handler_device.c 的遍历模式, 这里直接写 count */
-    *count = n;
-    return 0;
-}
-int device_manager_get_by_group(int group_id, const device_info_t **devices, int *count) {
-    if (!devices || !count) return -1;
-
-    /* 使用静态缓冲区存放匹配设备的副本, 与 device_manager_get_all 的接口一致 */
     static device_info_t filtered[MAX_DEVICES];
     int n = 0;
 
@@ -330,4 +310,34 @@ int device_manager_get_by_group(int group_id, const device_info_t **devices, int
     *devices = filtered;
     *count = n;
     return 0;
+}
+
+int device_manager_update_group(const char *device_id, int group_id) {
+    if (!device_id) return -1;
+    pthread_mutex_lock(&g_lock);
+    for (int i = 0; i < g_device_count; i++) {
+        if (strcmp(g_devices[i].device_id, device_id) == 0) {
+            g_devices[i].group_id = group_id;
+            g_devices[i].updated_at = time(NULL);
+            pthread_mutex_unlock(&g_lock);
+            return 0;
+        }
+    }
+    pthread_mutex_unlock(&g_lock);
+    return -1;
+}
+
+int device_manager_update_name(const char *device_id, const char *name) {
+    if (!device_id || !name) return -1;
+    pthread_mutex_lock(&g_lock);
+    for (int i = 0; i < g_device_count; i++) {
+        if (strcmp(g_devices[i].device_id, device_id) == 0) {
+            strncpy(g_devices[i].name, name, DEV_NAME_LEN - 1);
+            g_devices[i].updated_at = time(NULL);
+            pthread_mutex_unlock(&g_lock);
+            return 0;
+        }
+    }
+    pthread_mutex_unlock(&g_lock);
+    return -1;
 }

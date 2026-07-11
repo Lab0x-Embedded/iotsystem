@@ -88,6 +88,7 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     Q_INVOKABLE QVariant deviceAt(int row) const { if (row < 0 || row >= m_devices.size()) return QVariant(); return QVariant::fromValue(m_devices[row]); }
+    Q_INVOKABLE QVariantList devicesByGroup(int groupId) const;
     void setDevices(const QVector<DeviceInfo> &devices);
     void updateDevice(const DeviceInfo &device);
     void clear();

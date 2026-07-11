@@ -106,3 +106,23 @@ int DeviceModel::alarmCount() const {
     for (const auto &d : m_devices) if (d.status == DeviceStatus::Alarm) ++n;
     return n;
 }
+
+QVariantList DeviceModel::devicesByGroup(int groupId) const {
+    QVariantList result;
+    const bool all = (groupId < 0);
+    const QString gidStr = QString::number(groupId);
+    for (const auto &d : m_devices) {
+        if (all || d.group == gidStr) {
+            QVariantMap m;
+            m["id"]          = d.id;
+            m["name"]        = d.name;
+            m["productKey"]  = d.productKey;
+            m["group"]       = d.group;
+            m["status"]      = static_cast<int>(d.status);
+            m["statusText"]  = d.statusText();
+            m["lastSeen"]    = d.lastSeen.isValid() ? d.lastSeen.toString("yyyy-MM-dd hh:mm:ss") : "-";
+            result.append(m);
+        }
+    }
+    return result;
+}

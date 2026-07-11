@@ -107,3 +107,9 @@ int device_manager_total_count(void);
  * @return 0 成功, -1 参数错误
  */
 int device_manager_get_by_group(int group_id, const device_info_t **devices, int *count);
+
+/** 更新设备分组 (同步内存). */
+int device_manager_update_group(const char *device_id, int group_id);
+
+/** 更新设备名称 (同步内存). */
+int device_manager_update_name(const char *device_id, const char *name);
