@@ -9,8 +9,8 @@ Rectangle {
     id: root
 
     property var alarmListModel: null
-    property var ruleListModel: null
     property bool isDark: true
+    property var ruleListModel: null
 
     color: isDark ? "#1e1e2e" : "#f5f5f5"
 
@@ -22,13 +22,16 @@ Rectangle {
         // Header
         RowLayout {
             Layout.fillWidth: true
+
             Label {
                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                 font.bold: true
                 font.pixelSize: 20
                 text: "告警中心"
             }
-            Item { Layout.fillWidth: true }
+            Item {
+                Layout.fillWidth: true
+            }
             Label {
                 color: "#f38ba8"
                 font.pixelSize: 13
@@ -43,38 +46,42 @@ Rectangle {
 
             TabBar {
                 id: tabBar
-                background: Rectangle { color: "transparent" }
+
+                background: Rectangle {
+                    color: "transparent"
+                }
 
                 TabButton {
-                    text: "告警记录"
                     Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                    text: "告警记录"
                 }
                 TabButton {
-                    text: "告警规则"
                     Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                    text: "告警规则"
                 }
             }
-
-            Item { Layout.fillWidth: true }
-
+            Item {
+                Layout.fillWidth: true
+            }
             Button {
                 Material.background: "#a6e3a1"
                 Material.foreground: "#1e1e2e"
                 text: "添加规则"
+
                 onClicked: addRuleDialog.open()
             }
         }
 
         // Content area
         StackLayout {
-            Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.fillWidth: true
             currentIndex: tabBar.currentIndex
 
             // ====== Tab 1: 告警记录 ======
             Rectangle {
-                Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.fillWidth: true
                 color: "transparent"
 
                 ColumnLayout {
@@ -93,17 +100,21 @@ Rectangle {
                         }
                         ComboBox {
                             id: severityFilter
-                            Layout.preferredWidth: 140
+
                             Layout.preferredHeight: 36
+                            Layout.preferredWidth: 140
                             Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
                             model: ["全部", "CRITICAL", "WARNING", "INFO"]
                         }
-                        Item { Layout.fillWidth: true }
+                        Item {
+                            Layout.fillWidth: true
+                        }
                         Button {
                             Material.background: "#89b4fa"
                             Material.foreground: "white"
                             enabled: alarmList.currentIndex >= 0
                             text: "确认选中"
+
                             onClicked: {
                                 if (alarmList.currentIndex >= 0) {
                                     alarmListModel.acknowledge(alarmList.currentIndex);
@@ -123,6 +134,7 @@ Rectangle {
 
                         ListView {
                             id: alarmList
+
                             anchors.fill: parent
                             anchors.margins: 1
                             clip: true
@@ -145,6 +157,7 @@ Rectangle {
                                         Layout.preferredWidth: 80
                                         color: model.severity === 0 ? "#2196F3" : model.severity === 1 ? "#FFC107" : "#FF5722"
                                         radius: 4
+
                                         Label {
                                             anchors.centerIn: parent
                                             color: "white"
@@ -195,6 +208,7 @@ Rectangle {
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
+
                                     onClicked: alarmList.currentIndex = index
                                 }
                             }
@@ -202,18 +216,62 @@ Rectangle {
                                 color: root.isDark ? "#181825" : "#f8f9fa"
                                 height: 48
                                 width: alarmList.width
+
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.leftMargin: 16
                                     anchors.rightMargin: 16
                                     spacing: 0
-                                    Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "级别" }
-                                    Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "设备" }
-                                    Label { Layout.preferredWidth: 100; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "指标" }
-                                    Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "值" }
-                                    Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "消息" }
-                                    Label { Layout.preferredWidth: 100; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "时间" }
-                                    Label { Layout.preferredWidth: 60; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "状态" }
+
+                                    Label {
+                                        Layout.preferredWidth: 80
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: "级别"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 120
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: "设备"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 100
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: "指标"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 80
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: "值"
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: "消息"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 100
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: "时间"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 60
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: "状态"
+                                    }
                                 }
                             }
                             highlight: Rectangle {
@@ -227,8 +285,8 @@ Rectangle {
 
             // ====== Tab 2: 告警规则 ======
             Rectangle {
-                Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.fillWidth: true
                 color: "transparent"
 
                 Rectangle {
@@ -240,6 +298,7 @@ Rectangle {
 
                     ListView {
                         id: ruleList
+
                         anchors.fill: parent
                         anchors.margins: 1
                         clip: true
@@ -303,17 +362,55 @@ Rectangle {
                             color: root.isDark ? "#181825" : "#f8f9fa"
                             height: 48
                             width: ruleList.width
+
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 16
                                 anchors.rightMargin: 16
                                 spacing: 0
-                                Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "设备" }
-                                Label { Layout.preferredWidth: 100; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "指标" }
-                                Label { Layout.preferredWidth: 60; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "条件" }
-                                Label { Layout.preferredWidth: 80; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "阈值" }
-                                Label { Layout.preferredWidth: 60; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "级别" }
-                                Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666666"; font.bold: true; font.pixelSize: 12; text: "状态" }
+
+                                Label {
+                                    Layout.preferredWidth: 120
+                                    color: root.isDark ? "#a6adc8" : "#666666"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                    text: "设备"
+                                }
+                                Label {
+                                    Layout.preferredWidth: 100
+                                    color: root.isDark ? "#a6adc8" : "#666666"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                    text: "指标"
+                                }
+                                Label {
+                                    Layout.preferredWidth: 60
+                                    color: root.isDark ? "#a6adc8" : "#666666"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                    text: "条件"
+                                }
+                                Label {
+                                    Layout.preferredWidth: 80
+                                    color: root.isDark ? "#a6adc8" : "#666666"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                    text: "阈值"
+                                }
+                                Label {
+                                    Layout.preferredWidth: 60
+                                    color: root.isDark ? "#a6adc8" : "#666666"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                    text: "级别"
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    color: root.isDark ? "#a6adc8" : "#666666"
+                                    font.bold: true
+                                    font.pixelSize: 12
+                                    text: "状态"
+                                }
                             }
                         }
                         highlight: Rectangle {
@@ -329,6 +426,7 @@ Rectangle {
     // Add Rule Dialog
     AddAlarmRuleDialog {
         id: addRuleDialog
+
         isDark: root.isDark
         width: 420
         x: (root.width - width) / 2
