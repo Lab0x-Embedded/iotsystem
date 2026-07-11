@@ -186,7 +186,7 @@ ApplicationWindow {
                 id: groupDetailPage
                 isDark: root.isDark
                 deviceData: deviceModel
-                dataManager: dataManager
+                groupDetailManager: dataManager
             }
         }
     }

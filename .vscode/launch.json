@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug IoTDeviceManager",
+            "program": "${workspaceFolder}/client/build/IoTDeviceManager.app/Contents/MacOS/IoTDeviceManager",
+            "cwd": "${workspaceFolder}",
+            "args": [],
+            "stopOnEntry": false
+        }
+    ]
+}

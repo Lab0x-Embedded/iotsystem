@@ -6,7 +6,7 @@ import QtQuick.Controls.Material 2.15
 Rectangle {
     id: root
 
-    property var dataManager: null
+    property var groupDetailManager: null
     property var deviceData: null
 
     // 本分组下的设备数量
@@ -64,9 +64,9 @@ Rectangle {
         width: 480
 
         onAccepted: {
-            if (dataManager) {
+            if (groupDetailManager) {
                 for (var i = 0; i < ungroupedPicker.selectedIds.length; i++) {
-                    dataManager.updateDeviceGroup(ungroupedPicker.selectedIds[i], root.groupId);
+                    groupDetailManager.updateDeviceGroup(ungroupedPicker.selectedIds[i], root.groupId);
                 }
                 ungroupedPicker.selectedIds = [];
             }
@@ -169,8 +169,16 @@ Rectangle {
         width: 340
 
         onAccepted: {
-            if (dataManager && removeConfirmDialog.targetDeviceId !== "") {
-                dataManager.removeDeviceFromGroup(removeConfirmDialog.targetDeviceId);
+            console.log("=== accepted ===");
+            console.log("groupDetailManager =", groupDetailManager);
+            console.log("targetDeviceId =", targetDeviceId);
+
+            try {
+                console.log("before call");
+                groupDetailManager.removeDeviceFromGroup(targetDeviceId);
+                console.log("after call");
+            } catch (e) {
+                console.log("exception:", e);
             }
         }
 
@@ -183,7 +191,7 @@ Rectangle {
 
             Label {
                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                text: "确定要将 \"" + removeConfirmDialog.targetDeviceName + "\" 从分组中移除吗？"
+                text: "确定要将 " + removeConfirmDialog.targetDeviceName || removeConfirmDialog.targetDeviceId + "从分组中移除吗？"
                 width: parent.width
                 wrapMode: Text.Wrap
             }
@@ -404,6 +412,13 @@ Rectangle {
                     delegate: Rectangle {
                         id: deviceDelegate
 
+                        required property string deviceId
+                        required property string deviceName
+                        required property int index
+                        required property string productKey
+                        required property string statusText
+                        required property int statusValue
+
                         color: index % 2 === 0 ? (root.isDark ? "#313244" : "#ffffff") : (root.isDark ? "#2a2a3c" : "#f8f9fa")
                         height: 50
                         width: groupDeviceList.width
@@ -433,7 +448,7 @@ Rectangle {
                                 spacing: 6
 
                                 Rectangle {
-                                    color: model.statusValue === 1 ? "#4CAF50" : model.statusValue === 2 ? "#FF5722" : model.statusValue === 3 ? "#FFC107" : "#9E9E9E"
+                                    color: statusValue === 1 ? "#4CAF50" : statusValue === 2 ? "#FF5722" : statusValue === 3 ? "#FFC107" : "#9E9E9E"
                                     height: 8
                                     radius: 4
                                     width: 8
@@ -441,14 +456,14 @@ Rectangle {
                                 Label {
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.pixelSize: 11
-                                    text: model.statusText
+                                    text: statusText
                                 }
                             }
                             Label {
                                 Layout.fillWidth: true
                                 color: root.isDark ? "#a6adc8" : "#666666"
                                 font.pixelSize: 12
-                                text: model.productKey || "-"
+                                text: productKey || "-"
                             }
                             Button {
                                 Material.foreground: "#f38ba8"
@@ -491,7 +506,7 @@ Rectangle {
             Qt.callLater(refreshFilteredDevices);
         }
 
-        target: dataManager
+        target: groupDetailManager
     }
 
     // 数据变化时自动刷新
