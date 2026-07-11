@@ -7,7 +7,7 @@ import "../components"
 Rectangle {
     id: root
 
-    property var dataManager: null
+    property var overPageManager: null
     property var deviceData: null
     property bool isDark: true
 
