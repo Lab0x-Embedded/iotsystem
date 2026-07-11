@@ -4,6 +4,7 @@
 #include <QAbstractListModel>
 #include <QVector>
 #include <QString>
+#include <QMap>
 
 struct GroupInfo {
     int groupId;
@@ -49,6 +50,7 @@ signals:
 
 private:
     QVector<GroupInfo> m_groups;
+    QMap<int, QString> m_groupNameCache;
 };
 
 #endif // GROUPMODEL_H

@@ -169,14 +169,9 @@ Rectangle {
         width: 340
 
         onAccepted: {
-            console.log("=== accepted ===");
-            console.log("groupDetailManager =", groupDetailManager);
-            console.log("targetDeviceId =", targetDeviceId);
 
             try {
-                console.log("before call");
                 groupDetailManager.removeDeviceFromGroup(targetDeviceId);
-                console.log("after call");
             } catch (e) {
                 console.log("exception:", e);
             }

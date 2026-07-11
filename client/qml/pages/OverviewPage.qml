@@ -96,14 +96,14 @@ Rectangle {
                                 text: "状态"
                             }
                             Label {
-                                Layout.preferredWidth: 100
+                                Layout.preferredWidth: 200
                                 color: root.isDark ? "#a6adc8" : "#666666"
                                 font.bold: true
                                 font.pixelSize: 11
                                 text: "设备ID"
                             }
                             Label {
-                                Layout.preferredWidth: 120
+                                Layout.preferredWidth: 200
                                 color: root.isDark ? "#a6adc8" : "#666666"
                                 font.bold: true
                                 font.pixelSize: 11
@@ -172,22 +172,22 @@ Rectangle {
                                     }
                                 }
                                 Label {
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 200
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
                                     text: model.deviceId || ""
                                 }
                                 Label {
-                                    Layout.preferredWidth: 120
+                                    Layout.preferredWidth: 200
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
-                                    text: model.deviceName || ""
+                                    text: model.deviceName || "-"
                                 }
                                 Label {
                                     Layout.preferredWidth: 80
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
-                                    text: model.group || ""
+                                    text: model.group ? groupModel.groupName(Number(model.group)) : "未分组"
                                 }
                                 Label {
                                     Layout.fillWidth: true

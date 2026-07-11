@@ -39,6 +39,9 @@ QHash<int, QByteArray> GroupModel::roleNames() const {
 void GroupModel::setGroups(const QVector<GroupInfo> &groups) {
     beginResetModel();
     m_groups = groups;
+    m_groupNameCache.clear();
+    for (const auto &g : groups)
+        m_groupNameCache[g.groupId] = g.name;
     endResetModel();
     emit countsChanged();
 }
@@ -46,6 +49,7 @@ void GroupModel::setGroups(const QVector<GroupInfo> &groups) {
 void GroupModel::addGroup(const GroupInfo &group) {
     beginInsertRows(QModelIndex(), m_groups.size(), m_groups.size());
     m_groups.append(group);
+    m_groupNameCache[group.groupId] = group.name;
     endInsertRows();
     emit countsChanged();
 }
@@ -54,6 +58,7 @@ void GroupModel::updateGroup(const GroupInfo &group) {
     for (int i = 0; i < m_groups.size(); ++i) {
         if (m_groups[i].groupId == group.groupId) {
             m_groups[i] = group;
+            m_groupNameCache[group.groupId] = group.name;
             emit dataChanged(index(i), index(i));
             return;
         }
@@ -65,6 +70,7 @@ void GroupModel::removeGroup(int groupId) {
         if (m_groups[i].groupId == groupId) {
             beginRemoveRows(QModelIndex(), i, i);
             m_groups.removeAt(i);
+            m_groupNameCache.remove(groupId);
             endRemoveRows();
             emit countsChanged();
             return;
@@ -75,6 +81,7 @@ void GroupModel::removeGroup(int groupId) {
 void GroupModel::clear() {
     beginResetModel();
     m_groups.clear();
+    m_groupNameCache.clear();
     endResetModel();
     emit countsChanged();
 }
@@ -88,9 +95,5 @@ int GroupModel::deviceCountForGroup(int groupId) const {
 }
 
 QString GroupModel::groupName(int groupId) const {
-    for (const auto &g : m_groups) {
-        if (g.groupId == groupId)
-            return g.name;
-    }
-    return QString();
+    return m_groupNameCache.value(groupId);
 }
