@@ -6,8 +6,8 @@ import QtQuick.Controls.Material 2.15
 Rectangle {
     id: root
 
-    property var groupDetailManager: null
     property var deviceData: null
+    property var groupDetailManager: null
 
     // 本分组下的设备数量
     property int groupDeviceCount: 0
@@ -191,7 +191,7 @@ Rectangle {
 
             Label {
                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                text: "确定要将 " + removeConfirmDialog.targetDeviceName || removeConfirmDialog.targetDeviceId + "从分组中移除吗？"
+                text: qsTr("确定要将 \"%1\" 从分组中移除吗？").arg(removeConfirmDialog.targetDeviceName || removeConfirmDialog.targetDeviceId)
                 width: parent.width
                 wrapMode: Text.Wrap
             }
@@ -360,14 +360,14 @@ Rectangle {
                         anchors.rightMargin: 16
 
                         Label {
-                            Layout.preferredWidth: 100
+                            Layout.preferredWidth: 200
                             color: root.isDark ? "#a6adc8" : "#666666"
                             font.bold: true
                             font.pixelSize: 11
                             text: "设备ID"
                         }
                         Label {
-                            Layout.preferredWidth: 120
+                            Layout.preferredWidth: 200
                             color: root.isDark ? "#a6adc8" : "#666666"
                             font.bold: true
                             font.pixelSize: 11
@@ -430,13 +430,13 @@ Rectangle {
                             spacing: 12
 
                             Label {
-                                Layout.preferredWidth: 100
+                                Layout.preferredWidth: 200
                                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                 font.pixelSize: 12
                                 text: deviceId
                             }
                             Label {
-                                Layout.preferredWidth: 120
+                                Layout.preferredWidth: 200
                                 color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                 font.pixelSize: 12
                                 text: deviceName || "-"
