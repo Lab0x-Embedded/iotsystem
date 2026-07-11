@@ -56,7 +56,8 @@ public:
 
     // 告警
     Q_INVOKABLE void fetchAlarms(const QString &deviceId = QString());
-
+    Q_INVOKABLE void addAlarmRule(const QString &deviceId, const QString &metric, int op, double threshold, int severity);
+    Q_INVOKABLE void queryRules();
 signals:
     void serverUrlChanged();
     void connectedChanged();
@@ -94,6 +95,8 @@ signals:
     // 告警
     void alarmsFetched(const QJsonArray &alarms);
     void alarmError(const QString &error);
+    void alarmRuleAdded();
+    void rulesFetched(const QJsonArray &rules);
 
 private:
     QNetworkRequest makeRequest(const QString &path);

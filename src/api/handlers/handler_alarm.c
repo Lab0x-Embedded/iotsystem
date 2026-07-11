@@ -21,9 +21,14 @@ void handler_alarm(struct evhttp_request *req, void *ctx) {
         const cJSON *met = cJSON_GetObjectItem(root, "metric");
         const cJSON *op = cJSON_GetObjectItem(root, "op");
         const cJSON *thr = cJSON_GetObjectItem(root, "threshold");
+        const cJSON *sev = cJSON_GetObjectItem(root, "severity");
         if (id && met && op && thr) {
+            alarm_severity_t severity = ALARM_SEVERITY_WARN;
+            if (sev) {
+                severity = (alarm_severity_t)sev->valueint;
+            }
             alarm_add_rule(id->valuestring, met->valuestring,
-                (alarm_compare_t)op->valueint, thr->valuedouble, ALARM_SEVERITY_WARN);
+                (alarm_compare_t)op->valueint, thr->valuedouble, severity);
             cJSON *res = cJSON_CreateObject();
             cJSON_AddStringToObject(res, "status", "added");
             char *txt = cJSON_PrintUnformatted(res);
@@ -61,6 +66,26 @@ void handler_alarm(struct evhttp_request *req, void *ctx) {
         } else {
             http_reply_json(req, 404, "Not Found", "{&quot;error&quot;:&quot;alarm not found&quot;}");
         }
+    } else if (action && strcmp(action->valuestring, "query_rules") == 0) {
+        alarm_rule_config_t rules[64];
+        int n = alarm_query_rules(rules, 64);
+        cJSON *res = cJSON_CreateObject();
+        cJSON *arr = cJSON_CreateArray();
+        for (int i = 0; i < n; i++) {
+            cJSON *r = cJSON_CreateObject();
+            cJSON_AddNumberToObject(r, "id", (double)rules[i].id);
+            cJSON_AddStringToObject(r, "deviceId", rules[i].device_id);
+            cJSON_AddStringToObject(r, "metric", rules[i].metric);
+            cJSON_AddNumberToObject(r, "op", (int)rules[i].op);
+            cJSON_AddNumberToObject(r, "threshold", rules[i].threshold);
+            cJSON_AddNumberToObject(r, "severity", (int)rules[i].severity);
+            cJSON_AddBoolToObject(r, "enabled", rules[i].enabled);
+            cJSON_AddItemToArray(arr, r);
+        }
+        cJSON_AddItemToObject(res, "data", arr);
+        char *txt = cJSON_PrintUnformatted(res);
+        http_reply_json(req, 200, "OK", txt);
+        free(txt); cJSON_Delete(res);
     } else {
         cJSON *res = cJSON_CreateObject();
         cJSON_AddNumberToObject(res, "total", alarm_count());

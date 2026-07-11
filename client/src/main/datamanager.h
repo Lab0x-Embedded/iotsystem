@@ -5,6 +5,7 @@
 #include <QTimer>
 #include "models/devicemodel.h"
 #include "models/alarmmodel.h"
+#include "models/rulemodel.h"
 #include "models/groupmodel.h"
 #include "network/httpclient.h"
 
@@ -23,6 +24,7 @@ public:
     DeviceModel *deviceModel() { return &m_devices; }
     AlarmModel *alarmModel() { return &m_alarms; }
     GroupModel *groupModel() { return &m_groups; }
+    RuleModel *ruleModel() { return &m_rules; }
     HttpClient *httpClient() { return &m_http; }
 
     bool isOnline() const { return m_online; }
@@ -39,6 +41,8 @@ public:
     Q_INVOKABLE void refreshDevices();
     Q_INVOKABLE void refreshGroups();
     Q_INVOKABLE void refreshAlarms();
+    Q_INVOKABLE void refreshRules();
+    Q_INVOKABLE void addAlarmRule(const QString &deviceId, const QString &metric, int op, double threshold, int severity);
     Q_INVOKABLE void updateDeviceGroup(const QString &deviceId, int groupId);
     Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
     Q_INVOKABLE void removeDeviceFromGroup(const QString &deviceId);
@@ -52,6 +56,7 @@ signals:
     void newAlarm(const AlarmRecord &alarm);
     void dataPointArrived(const QString &deviceId, const QString &metric, double value, qint64 ts);
     void errorOccurred(const QString &error);
+    void alarmRuleAdded();
 
 private slots:
     void onLoginSucceeded(const QString &token, const QString &role);
@@ -59,6 +64,7 @@ private slots:
     void onDevicesFetched(const QJsonArray &devices);
     void onGroupsFetched(const QJsonArray &groups);
     void onAlarmsFetched(const QJsonArray &alarms);
+    void onRulesFetched(const QJsonArray &rules);
     void onDeviceOperationError(const QString &error);
     void onDeviceUpdated(const QString &deviceId, int groupId);
     void onGroupOperationError(const QString &error);
@@ -69,6 +75,7 @@ private:
     DeviceModel m_devices;
     AlarmModel m_alarms;
     GroupModel m_groups;
+    RuleModel m_rules;
     HttpClient m_http;
     QTimer m_refreshTimer;
     bool m_online = false;

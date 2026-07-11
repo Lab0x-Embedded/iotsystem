@@ -9,8 +9,10 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::devicesFetched, this, &DataManager::onDevicesFetched);
     connect(&m_http, &HttpClient::groupsFetched, this, &DataManager::onGroupsFetched);
     connect(&m_http, &HttpClient::alarmsFetched, this, &DataManager::onAlarmsFetched);
+    connect(&m_http, &HttpClient::alarmRuleAdded, this, &DataManager::alarmRuleAdded);
     connect(&m_http, &HttpClient::deviceOperationError, this, &DataManager::onDeviceOperationError);
     connect(&m_http, &HttpClient::deviceUpdated, this, &DataManager::onDeviceUpdated);
+    connect(&m_http, &HttpClient::rulesFetched, this, &DataManager::onRulesFetched);
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
     connect(&m_http, &HttpClient::groupCreated, this, [this](int id)
             { Q_UNUSED(id); refreshGroups(); });
@@ -26,6 +28,7 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
             refreshDevices();
             refreshGroups();
             refreshAlarms();
+            refreshRules();
         } });
 }
 
@@ -86,6 +89,21 @@ void DataManager::refreshAlarms()
     }
 }
 
+void DataManager::refreshRules()
+{
+    if (m_online)
+    {
+        m_http.queryRules();
+    }
+}
+
+void DataManager::addAlarmRule(const QString &deviceId, const QString &metric, int op, double threshold, int severity)
+{
+    if (m_online) {
+        m_http.addAlarmRule(deviceId, metric, op, threshold, severity);
+    }
+}
+
 // ==================== 槽函数 ====================
 
 void DataManager::onLoginSucceeded(const QString &token, const QString &role)
@@ -100,6 +118,7 @@ void DataManager::onLoginSucceeded(const QString &token, const QString &role)
     refreshDevices();
     refreshGroups();
     refreshAlarms();
+    refreshRules();
 
     startAutoRefresh();
 }
@@ -270,6 +289,41 @@ void DataManager::onDeviceUpdated(const QString &deviceId, int groupId)
 void DataManager::onGroupOperationError(const QString &error)
 {
     emit errorOccurred("分组操作失败: " + error);
+}
+
+void DataManager::onRulesFetched(const QJsonArray &rules)
+{
+    QVector<AlarmRule> ruleList;
+
+    for (const auto &item : rules) {
+        QJsonObject obj = item.toObject();
+        AlarmRule r;
+
+        r.id = obj["id"].toInt();
+        r.deviceId = obj["device_id"].toString();
+        r.metric = obj["metric"].toString();
+
+        int op = obj["op"].toInt();
+        switch (op) {
+            case 1: r.op = RuleOp::Lt; break;
+            case 2: r.op = RuleOp::Eq; break;
+            case 3: r.op = RuleOp::Gte; break;
+            case 4: r.op = RuleOp::Lte; break;
+            default: r.op = RuleOp::Gt; break;
+        }
+
+        r.threshold = obj["threshold"].toDouble();
+
+        int sev = obj["severity"].toInt();
+        if (sev == 0) r.severity = RuleSeverity::Info;
+        else if (sev == 2) r.severity = RuleSeverity::Critical;
+        else r.severity = RuleSeverity::Warning;
+
+        r.enabled = obj["enabled"].toBool(true);
+        ruleList.append(r);
+    }
+
+    m_rules.setRules(ruleList);
 }
 
 void DataManager::startAutoRefresh()

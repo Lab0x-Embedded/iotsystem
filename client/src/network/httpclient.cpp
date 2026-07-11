@@ -347,6 +347,29 @@ void HttpClient::fetchAlarms(const QString &deviceId) {
         }
     );
 }
+
+void HttpClient::addAlarmRule(const QString &deviceId, const QString &metric, int op, double threshold, int severity) {
+    QJsonObject body;
+    body["action"] = "add_rule";
+    body["device_id"] = deviceId;
+    body["metric"] = metric;
+    body["op"] = op;
+    body["threshold"] = threshold;
+    body["severity"] = severity;
+
+    auto *reply = m_mgr.post(makeRequest("/api/alarm"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit alarmRuleAdded();
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
+        }
+    );
+}
 void HttpClient::fetchDevicesByGroup(int groupId) {
     QJsonObject body;
     body["action"] = "query_by_group";
@@ -365,6 +388,27 @@ void HttpClient::fetchDevicesByGroup(int groupId) {
         },
         [this](const QString &error) {
             emit deviceOperationError(error);
+        }
+    );
+}
+
+void HttpClient::queryRules() {
+    QJsonObject body;
+    body["action"] = "query_rules";
+
+    auto *reply = m_mgr.post(makeRequest("/api/alarm"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            QJsonArray rules;
+            if (obj.contains("data")) {
+                rules = obj["data"].toArray();
+            }
+            emit rulesFetched(rules);
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
         }
     );
 }

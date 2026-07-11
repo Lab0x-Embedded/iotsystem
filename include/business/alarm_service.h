@@ -38,6 +38,16 @@ typedef enum {
 } alarm_severity_t;
 
 typedef struct {
+    uint64_t       id;
+    char           device_id[ALARM_DEV_LEN];
+    char           metric[ALARM_METRIC_LEN];
+    alarm_compare_t op;
+    double         threshold;
+    alarm_severity_t severity;
+    int            enabled;
+} alarm_rule_config_t;
+
+typedef struct {
     int            enabled;
     char           device_id[ALARM_DEV_LEN];
     char           metric[ALARM_METRIC_LEN];
@@ -76,6 +86,9 @@ int  alarm_count(void);
 
 /** 按 id 确认告警; 返回 0 成功. */
 int  alarm_acknowledge(uint64_t id);
+
+/** 读取最近 N 条规则. */
+int  alarm_query_rules(alarm_rule_config_t *out, int max_n);
 
 #ifdef __cplusplus
 }

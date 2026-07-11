@@ -158,3 +158,31 @@ int alarm_acknowledge(uint64_t id) {
     LOG_INFO("alarm acknowledged id=%llu", (unsigned long long)id);
     return 0;
 }
+
+int alarm_query_rules(alarm_rule_config_t *out, int max_n) {
+    if (!out || max_n <= 0) return 0;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return 0;
+    void *res = db_pool_query(conn,
+        "SELECT rule_id,device_id,metric,condition_type,threshold,severity,enabled"
+        " FROM alert_rules ORDER BY rule_id DESC");
+    if (!res) { db_pool_put(conn); return 0; }
+    int n = 0;
+    MYSQL_ROW row;
+    MYSQL_RES *R = (MYSQL_RES*)res;
+    while ((row = mysql_fetch_row(R)) && n < max_n) {
+        alarm_rule_config_t *r = &out[n];
+        memset(r, 0, sizeof(*r));
+        r->id = row[0] ? strtoull(row[0], NULL, 10) : 0;
+        strncpy(r->device_id, row[1] ? row[1] : "", ALARM_DEV_LEN - 1);
+        strncpy(r->metric, row[2] ? row[2] : "", ALARM_METRIC_LEN - 1);
+        r->op = op_from_str(row[3]);
+        r->threshold = row[4] ? atof(row[4]) : 0.0;
+        r->severity = severity_from_str(row[5]);
+        r->enabled = row[6] ? atoi(row[6]) : 1;
+        n++;
+    }
+    db_pool_free_result(res);
+    db_pool_put(conn);
+    return n;
+}

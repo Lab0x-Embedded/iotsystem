@@ -185,7 +185,8 @@ ApplicationWindow {
             AlarmCenterPage {
                 id: alarmCenterPage
                 isDark: root.isDark
-                alarmModel: alarmModel
+                alarmListModel: alarmModel
+                ruleListModel: ruleModel
             }
 
             // 5: 分组详情

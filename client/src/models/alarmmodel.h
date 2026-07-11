@@ -53,7 +53,7 @@ class AlarmModel : public QAbstractTableModel {
     Q_OBJECT
     Q_PROPERTY(int activeCount READ activeCount NOTIFY countsChanged)
     Q_PROPERTY(int totalCount READ totalCount NOTIFY countsChanged)
-    Q_PROPERTY(int unacknowledledCount READ unacknowledledCount NOTIFY countsChanged)
+    Q_PROPERTY(int unacknowledgedCount READ unacknowledgedCount NOTIFY countsChanged)
 
 public:
     enum Column {
@@ -73,7 +73,7 @@ public:
     void clear();
     int activeCount() const;
     int totalCount() const { return m_records.size(); }
-    int unacknowledledCount() const;
+    int unacknowledgedCount() const;
 
     Q_INVOKABLE void acknowledge(int row);
     Q_INVOKABLE void setDeviceFilter(const QString &deviceId);

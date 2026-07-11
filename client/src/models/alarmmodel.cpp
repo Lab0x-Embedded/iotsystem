@@ -92,7 +92,7 @@ int AlarmModel::activeCount() const {
     }
     return count;
 }
-int AlarmModel::unacknowledledCount() const {
+int AlarmModel::unacknowledgedCount() const {
     int count = 0;
     for (const auto &rec : m_records) {
         if (rec.status == AlarmStatus::Active && !rec.acknowledged)

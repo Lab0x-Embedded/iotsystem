@@ -6,6 +6,7 @@
 
 #include "models/devicemodel.h"
 #include "models/alarmmodel.h"
+#include "models/rulemodel.h"
 #include "models/groupmodel.h"
 #include "main/datamanager.h"
 #include "theme/theme.h"
@@ -28,6 +29,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("deviceModel", dataManager.deviceModel());
     engine.rootContext()->setContextProperty("alarmModel", dataManager.alarmModel());
     engine.rootContext()->setContextProperty("groupModel", dataManager.groupModel());
+    engine.rootContext()->setContextProperty("ruleModel", dataManager.ruleModel());
     engine.rootContext()->setContextProperty("themeManager", themeManager);
 
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
