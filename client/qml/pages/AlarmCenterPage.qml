@@ -12,6 +12,12 @@ Rectangle {
     property bool isDark: true
     property var ruleListModel: null
     color: isDark ? "#1e1e2e" : "#f5f5f5"
+
+    onVisibleChanged: {
+        if (visible && alarmListModel) {
+            alarmListModel.setDeviceFilter("");
+        }
+    }
     property var selectedRows: ({})
 
     function toggleSelection(idx) {

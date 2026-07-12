@@ -3,3 +3,4 @@ __pycache__
 doc
 .DS_Store
 .cache
+.idea

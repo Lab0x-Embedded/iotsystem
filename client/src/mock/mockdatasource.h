@@ -11,6 +11,7 @@ class MockDataSource : public QObject {
     Q_OBJECT
 public:
     explicit MockDataSource(QObject *parent = nullptr);
+    void buildDevices();
 
 public slots:
     void start();
@@ -28,6 +29,5 @@ private:
     QTimer *m_timer;
     QVector<DeviceInfo> m_devices;
     uint64_t m_alarmSeq = 0;
-    void buildDevices();
 };
 #endif

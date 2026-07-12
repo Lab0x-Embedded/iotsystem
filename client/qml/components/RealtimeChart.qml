@@ -8,6 +8,7 @@ Rectangle {
     property var dataPoints: []
     property bool isDark: true
     property int maxPoints: 60
+    property bool hasData: false
 
     function addDataPoint(metric, value, timestamp) {
         var point = {
@@ -19,6 +20,7 @@ Rectangle {
         if (dataPoints.length > maxPoints) {
             dataPoints.shift();
         }
+        hasData = true;
         canvas.requestPaint();
     }
 
@@ -117,6 +119,6 @@ Rectangle {
         color: root.isDark ? "#585b70" : "#999999"
         font.pixelSize: 14
         text: "等待数据..."
-        visible: dataPoints.length === 0
+        visible: !hasData
     }
 }

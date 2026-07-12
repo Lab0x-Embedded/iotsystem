@@ -22,6 +22,7 @@ int http_server_start(int port);
 
 /** 停止 HTTP API 线程. */
 void http_server_stop(void);
+struct evhttp *http_server_get_evhttp(void);
 
 void http_reply_json(struct evhttp_request *req, int code, const char *text, const char *json);
 const char *http_method_str(enum evhttp_cmd_type method);

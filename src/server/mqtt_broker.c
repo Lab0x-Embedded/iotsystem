@@ -18,6 +18,7 @@
 #include "common/log.h"
 #include <cJSON.h>
 #include "business/alarm_service.h"
+#include "server/sse_handler.h"
 #include "data/db_pool.h"
 
 #include <stdlib.h>
@@ -551,6 +552,9 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
 
                                 /* ② 告警规则评估 */
                                 alarm_evaluate(id->valuestring, metric->valuestring, val);
+
+                                /* ③ 广播到 SSE 客户端 */
+                                sse_broadcast_datapoint(id->valuestring, metric->valuestring, val, ts_val);
 
                                 /* ③ 写入 MySQL data_records */
                                 if (db) {

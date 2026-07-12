@@ -172,3 +172,7 @@ void http_server_stop(void) {
         event_base_loopbreak(g_base);
     }
 }
+
+struct evhttp *http_server_get_evhttp(void) {
+    return g_http;
+}

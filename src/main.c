@@ -14,6 +14,7 @@
 #include "business/alarm_service.h"
 #include "data/db_pool.h"
 #include "data/data_writer.h"
+#include "server/sse_handler.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -149,6 +150,11 @@ int main(int argc, char **argv) {
 
     if (http_server_start(cfg.http_port) != 0) {
         LOG_WARN("HTTP API start failed, continuing without it");
+    }
+
+    /* -------- SSE 实时推送 -------- */
+    if (sse_handler_init() != 0) {
+        LOG_WARN("SSE handler init failed, continuing without it");
     }
 
     struct sigaction sa;

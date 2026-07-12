@@ -1,5 +1,6 @@
 #include "datamanager.h"
 #include <QDebug>
+#include "mock/mockdatasource.h"
 
 DataManager::DataManager(QObject *parent) : QObject(parent)
 {
@@ -18,6 +19,25 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::ruleToggled, this, &DataManager::refreshRules);
     connect(&m_http, &HttpClient::ruleEdited, this, &DataManager::refreshRules);
     connect(&m_http, &HttpClient::ruleDeleted, this, &DataManager::refreshRules);
+
+    /* Mock 数据源 — 生成模拟设备数据 */
+    connect(&m_mock, &MockDataSource::dataPoint, this,
+        [this](const QString &deviceId, const QString &metric, double value, qint64 ts) {
+            emit dataPointArrived(deviceId, metric, value, ts);
+        });
+    connect(&m_mock, &MockDataSource::deviceUpdated, this,
+        [this](const DeviceInfo &d) {
+            m_devices.updateDevice(d);
+        });
+    connect(&m_mock, &MockDataSource::newAlarm, this,
+        [this](const AlarmRecord &a) {
+            m_alarms.addRecord(a);
+        });
+
+    connect(&m_ws, &WsClient::datapointReceived, this,
+        [this](const QString &deviceId, const QString &metric, double value, quint64 ts) {
+            emit dataPointArrived(deviceId, metric, value, (qint64)ts);
+        });
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
     connect(&m_http, &HttpClient::groupCreated, this, [this](int id)
             { Q_UNUSED(id); refreshGroups(); });
@@ -36,8 +56,6 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
             refreshRules();
         } });
 }
-
-void DataManager::start() {}
 
 void DataManager::stop()
 {
@@ -141,6 +159,9 @@ void DataManager::onLoginSucceeded(const QString &token, const QString &role)
     m_online = true;
     emit onlineChanged();
     emit connectionStatusChanged("connected");
+
+    /* 连接 WebSocket */
+    m_ws.connectToServer(m_http.serverUrl());
 
     refreshDevices();
     refreshGroups();
@@ -387,7 +408,13 @@ void DataManager::deleteRule(ulong ruleId)
     }
 }
 
-void DataManager::startAutoRefresh()
-{
+void DataManager::startAutoRefresh() {
     m_refreshTimer.start(30000);
+}
+
+void DataManager::start() {
+    m_refreshTimer.start(5000);
+    /* 启动 Mock 数据源（生成模拟设备数据） */
+    m_mock.buildDevices();
+    m_mock.start();
 }

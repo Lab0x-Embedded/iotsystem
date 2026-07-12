@@ -8,6 +8,8 @@
 #include "models/rulemodel.h"
 #include "models/groupmodel.h"
 #include "network/httpclient.h"
+#include "network/wsclient.h"
+#include "mock/mockdatasource.h"
 
 class DataManager : public QObject {
     Q_OBJECT
@@ -17,6 +19,7 @@ class DataManager : public QObject {
     Q_PROPERTY(int onlineDeviceCount READ onlineDeviceCount NOTIFY countsChanged)
     Q_PROPERTY(int alarmCount READ alarmCount NOTIFY countsChanged)
     Q_PROPERTY(HttpClient *httpClient READ httpClient CONSTANT)
+    Q_PROPERTY(WsClient *wsClient READ wsClient CONSTANT)
 
 public:
     explicit DataManager(QObject *parent = nullptr);
@@ -26,6 +29,7 @@ public:
     GroupModel *groupModel() { return &m_groups; }
     RuleModel *ruleModel() { return &m_rules; }
     HttpClient *httpClient() { return &m_http; }
+    WsClient *wsClient() { return &m_ws; }
 
     bool isOnline() const { return m_online; }
     QString serverUrl() const { return m_http.serverUrl(); }
@@ -86,6 +90,8 @@ private:
     GroupModel m_groups;
     RuleModel m_rules;
     HttpClient m_http;
+    WsClient m_ws;
+    MockDataSource m_mock;
     QTimer m_refreshTimer;
     bool m_online = false;
 };
