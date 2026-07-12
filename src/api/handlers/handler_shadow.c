@@ -1,8 +1,10 @@
 #include "api/handlers.h"
 #include "api/http_server.h"
 #include "business/shadow_manager.h"
+#include "data/db_pool.h"
 #include "common/log.h"
 #include <cJSON.h>
+#include <mysql.h>
 #include <stdlib.h>
 #include <string.h>
 #include <event2/buffer.h>
@@ -68,17 +70,47 @@ void handler_shadow(struct evhttp_request *req, void *ctx) {
         http_reply_json(req, 200, "OK", txt);
         free(txt); cJSON_Delete(res);
     } else {
+        /* 查询: 先从内存取 shadow, 再从 DB 取 desired/reported JSON */
         const device_shadow_t *s = shadow_find(id->valuestring);
-        if (s) {
-            cJSON *res = cJSON_CreateObject();
-            cJSON_AddStringToObject(res, "device_id", s->device_id);
-            cJSON_AddNumberToObject(res, "version", (double)s->version);
-            char *txt = cJSON_PrintUnformatted(res);
-            http_reply_json(req, 200, "OK", txt);
-            free(txt); cJSON_Delete(res);
+        cJSON *res = cJSON_CreateObject();
+        cJSON_AddStringToObject(res, "device_id", id->valuestring);
+        if (s) cJSON_AddNumberToObject(res, "version", (double)s->version);
+
+        /* 从 DB 读取 desired/reported */
+        db_conn_t *conn = db_pool_get();
+        if (conn) {
+            char sql[256];
+            snprintf(sql, sizeof(sql),
+                "SELECT desired, reported FROM device_shadows WHERE device_id='%s' LIMIT 1",
+                id->valuestring);
+            void *qres = db_pool_query(conn, sql);
+            if (qres) {
+                MYSQL_ROW row = mysql_fetch_row((MYSQL_RES*)qres);
+                if (row) {
+                    const char *desired_str = row[0] ? row[0] : "{}";
+                    const char *reported_str = row[1] ? row[1] : "{}";
+                    cJSON *desired_json = cJSON_Parse(desired_str);
+                    cJSON *reported_json = cJSON_Parse(reported_str);
+                    cJSON_AddItemToObject(res, "desired", desired_json ? desired_json : cJSON_CreateObject());
+                    cJSON_AddItemToObject(res, "reported", reported_json ? reported_json : cJSON_CreateObject());
+                } else {
+                    cJSON_AddObjectToObject(res, "desired");
+                    cJSON_AddObjectToObject(res, "reported");
+                }
+                db_pool_free_result(qres);
+            } else {
+                cJSON_AddObjectToObject(res, "desired");
+                cJSON_AddObjectToObject(res, "reported");
+            }
+            db_pool_put(conn);
         } else {
-            http_reply_json(req, 404, "Not Found", "{\"error\":\"shadow not found\"}");
+            cJSON_AddObjectToObject(res, "desired");
+            cJSON_AddObjectToObject(res, "reported");
         }
+
+        char *txt = cJSON_PrintUnformatted(res);
+        http_reply_json(req, 200, "OK", txt);
+        free(txt); cJSON_Delete(res);
     }
     free(body); cJSON_Delete(root);
 }

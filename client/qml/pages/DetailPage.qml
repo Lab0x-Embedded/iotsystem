@@ -33,6 +33,16 @@ Rectangle {
 
     color: isDark ? "#1e1e2e" : "#f5f5f5"
 
+    // Toast notification
+    property string toastText: ""
+    property color toastColor: "#89b4fa"
+
+    function showToast(msg, color) {
+        toastText = msg;
+        toastColor = color || "#89b4fa";
+        toastTimer.restart();
+    }
+
     ScrollView {
         anchors.fill: parent
         clip: true
@@ -313,8 +323,9 @@ Rectangle {
                                                 try {
                                                     var obj = JSON.parse(desiredEditor.text);
                                                     dataManager.httpClient.updateShadow(currentDevice.id, obj);
+                                                    root.showToast("保存中...", "#89b4fa");
                                                 } catch(e) {
-                                                    console.log("Invalid JSON:", e);
+                                                    root.showToast("JSON 格式错误: " + e, "#f38ba8");
                                                 }
                                             }
                                         }
@@ -528,7 +539,52 @@ Rectangle {
         }
     }
 
-    // Shadow 文本 (简化，实际可从 C++ model 获取)
+    // Shadow 文本
     property string shadowDesiredText: '{\n  "temperature": 25,\n  "fan_speed": "high"\n}'
     property string shadowReportedText: '{\n  "temperature": 23.5,\n  "humidity": 65,\n  "fan_speed": "low",\n  "battery": 85\n}'
+
+    // Toast bar
+    Rectangle {
+        id: toastBar
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 20
+        width: toastLabel.implicitWidth + 32
+        height: 36
+        radius: 8
+        color: root.toastColor
+        opacity: root.toastText ? 1.0 : 0.0
+        visible: opacity > 0
+
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+
+        Label {
+            id: toastLabel
+            anchors.centerIn: parent
+            color: "white"
+            font.pixelSize: 12
+            font.bold: true
+            text: root.toastText
+        }
+
+        Timer {
+            id: toastTimer
+            interval: 2500
+            onTriggered: root.toastText = ""
+        }
+    }
+
+    // 监听 shadow 信号
+    Connections {
+        target: dataManager ? dataManager.httpClient : null
+
+        function onShadowUpdated(deviceId) {
+            if (currentDevice && currentDevice.id === deviceId)
+                root.showToast("保存成功", "#a6e3a1");
+        }
+
+        function onShadowError(error) {
+            root.showToast("保存失败: " + error, "#f38ba8");
+        }
+    }
 }

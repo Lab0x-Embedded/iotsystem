@@ -1,14 +1,17 @@
 /**
  * @file shadow_manager.c
  *
- * P4 设备影子 — 内存实现
+ * P4 设备影子 — 内存 + DB 持久化
  */
 #include "business/shadow_manager.h"
+#include "data/db_pool.h"
 #include "common/log.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <cJSON.h>
+#include <mysql.h>
 
 #define MAX_SHADOWS 512
 
@@ -57,7 +60,49 @@ int shadow_set_desired(const char *device_id, const char *key, const char *value
         kv->version = 1;
     }
     s->version++;
+
+    /* 构建完整 desired JSON 并同步到 DB */
+    cJSON *desired_json = cJSON_CreateObject();
+    for (int i = 0; i < s->desired_n; i++) {
+        cJSON *val = cJSON_Parse(s->desired[i].value);
+        if (val) {
+            cJSON_AddItemToObject(desired_json, s->desired[i].key, val);
+        } else {
+            cJSON_AddStringToObject(desired_json, s->desired[i].key, s->desired[i].value);
+        }
+    }
+    char *desired_str = cJSON_PrintUnformatted(desired_json);
+    cJSON_Delete(desired_json);
+
     pthread_mutex_unlock(&g_lock);
+
+    /* 写入 DB */
+    if (desired_str) {
+        db_conn_t *conn = db_pool_get();
+        if (conn) {
+            char *esc = calloc(strlen(desired_str) * 2 + 1, 1);
+            if (esc) {
+                MYSQL *mysql = (MYSQL*)db_pool_get_mysql(conn);
+                if (mysql) mysql_real_escape_string(mysql, esc, desired_str, strlen(desired_str));
+                char sql[2048];
+                /* 先尝试 UPDATE */
+                snprintf(sql, sizeof(sql),
+                    "UPDATE device_shadows SET desired='%s', version=version+1 WHERE device_id='%s'",
+                    esc, device_id);
+                if (db_pool_exec(conn, sql) != 0 || mysql_affected_rows(mysql) == 0) {
+                    /* UPDATE 失败或无匹配行，执行 INSERT */
+                    snprintf(sql, sizeof(sql),
+                        "INSERT INTO device_shadows (product_key, device_id, desired) "
+                        "SELECT product_key, device_id, '%s' FROM devices WHERE device_id='%s' LIMIT 1",
+                        esc, device_id);
+                    db_pool_exec(conn, sql);
+                }
+                free(esc);
+            }
+            db_pool_put(conn);
+        }
+        free(desired_str);
+    }
     return 0;
 }
 

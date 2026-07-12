@@ -290,5 +290,12 @@ ApplicationWindow {
                 })
             }
         }
+
+        function onShadowFetched(deviceId, shadow) {
+            if (detailPage.currentDevice && detailPage.currentDevice.id === deviceId) {
+                detailPage.shadowDesiredText = JSON.stringify(shadow.desired || {}, null, 2)
+                detailPage.shadowReportedText = JSON.stringify(shadow.reported || {}, null, 2)
+            }
+        }
     }
 }
