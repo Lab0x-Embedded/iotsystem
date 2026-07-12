@@ -123,6 +123,14 @@ void DataManager::resolveAlarm(ulong alarmId)
     }
 }
 
+void DataManager::fetchDataPointHistory(const QString &deviceId, const QString &metric,
+                                         quint64 startTs, quint64 endTs, int limit)
+{
+    if (m_online) {
+        m_http.fetchDataPointHistory(deviceId, metric, startTs, endTs, limit);
+    }
+}
+
 // ==================== 槽函数 ====================
 
 void DataManager::onLoginSucceeded(const QString &token, const QString &role)

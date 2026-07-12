@@ -131,6 +131,9 @@ ApplicationWindow {
         // Content area
         StackLayout {
             id: stackView
+
+            // History data model for detail page
+            ListModel { id: historyDataModel }
             Layout.fillWidth: true
             Layout.fillHeight: true
             currentIndex: 0
@@ -270,6 +273,18 @@ ApplicationWindow {
         function onDataPointArrived(deviceId, metric, value, timestamp) {
             dashboardPage.addDataPoint(metric, value, timestamp)
             detailPage.addDataPoint(metric, value, timestamp)
+        }
+
+        function onDataPointHistoryFetched(points) {
+            historyDataModel.clear()
+            for (var i = 0; i < points.length; i++) {
+                var p = points[i]
+                var dt = new Date(p.ts * 1000)
+                historyDataModel.append({
+                    time: Qt.formatDateTime(dt, "yyyy-MM-dd HH:mm:ss"),
+                    value: p.value
+                })
+            }
         }
     }
 }

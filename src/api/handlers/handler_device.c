@@ -1,5 +1,6 @@
 #include "api/handlers.h"
 #include "data/db_pool.h"
+#include "data/query_service.h"
 #include "api/http_server.h"
 #include "business/device_manager.h"
 #include "common/log.h"
@@ -155,6 +156,38 @@ void handler_device(struct evhttp_request *req, void *ctx) {
             http_reply_json(req, 200, "OK", txt);
             free(txt); cJSON_Delete(res);
             free((void*)devices);
+        }
+    } else if (action && strcmp(action->valuestring, "query_history") == 0) {
+        const cJSON *did = cJSON_GetObjectItem(root, "device_id");
+        const cJSON *met = cJSON_GetObjectItem(root, "metric");
+        const cJSON *start = cJSON_GetObjectItem(root, "start_ts");
+        const cJSON *end = cJSON_GetObjectItem(root, "end_ts");
+        const cJSON *lim = cJSON_GetObjectItem(root, "limit");
+        if (did && met && start && end) {
+            query_request_t req2;
+            memset(&req2, 0, sizeof(req2));
+            strncpy(req2.device_id, did->valuestring, 64);
+            strncpy(req2.metric, met->valuestring, 63);
+            req2.start_ts = (uint64_t)start->valuedouble;
+            req2.end_ts = (uint64_t)end->valuedouble;
+            req2.limit = lim ? lim->valueint : 200;
+            query_point_t points[QUERY_POINTS_MAX];
+            int n = query_history(&req2, points, QUERY_POINTS_MAX);
+            cJSON *res = cJSON_CreateObject();
+            cJSON *arr = cJSON_CreateArray();
+            for (int i = 0; i < n; i++) {
+                cJSON *p = cJSON_CreateObject();
+                cJSON_AddNumberToObject(p, "ts", (double)points[i].ts);
+                cJSON_AddNumberToObject(p, "value", points[i].value);
+                cJSON_AddItemToArray(arr, p);
+            }
+            cJSON_AddItemToObject(res, "data", arr);
+            cJSON_AddNumberToObject(res, "total", n);
+            char *txt = cJSON_PrintUnformatted(res);
+            http_reply_json(req, 200, "OK", txt);
+            free(txt); cJSON_Delete(res);
+        } else {
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"missing fields\"}");
         }
     } else {
         cJSON *res = cJSON_CreateObject();

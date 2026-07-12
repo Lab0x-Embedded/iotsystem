@@ -48,6 +48,7 @@ public:
     Q_INVOKABLE void addAlarmRule(const QString &deviceId, const QString &metric, int op, double threshold, int severity);
     Q_INVOKABLE void acknowledgeAlarm(ulong alarmId);
     Q_INVOKABLE void resolveAlarm(ulong alarmId);
+    Q_INVOKABLE void fetchDataPointHistory(const QString &deviceId, const QString &metric, quint64 startTs, quint64 endTs, int limit = 200);
     Q_INVOKABLE void updateDeviceGroup(const QString &deviceId, int groupId);
     Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
     Q_INVOKABLE void removeDeviceFromGroup(const QString &deviceId);

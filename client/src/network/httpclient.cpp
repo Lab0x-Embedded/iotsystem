@@ -524,3 +524,27 @@ void HttpClient::resolveAlarm(ulong alarmId) {
         }
     );
 }
+
+void HttpClient::fetchDataPointHistory(const QString &deviceId, const QString &metric,
+                                        quint64 startTs, quint64 endTs, int limit) {
+    QJsonObject body;
+    body["action"] = "query_history";
+    body["device_id"] = deviceId;
+    body["metric"] = metric;
+    body["start_ts"] = (double)startTs;
+    body["end_ts"] = (double)endTs;
+    body["limit"] = limit;
+
+    auto *reply = m_mgr.post(makeRequest("/api/device"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            QJsonArray points = obj["data"].toArray();
+            emit dataPointHistoryFetched(points);
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
+        }
+    );
+}

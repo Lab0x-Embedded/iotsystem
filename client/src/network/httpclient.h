@@ -66,6 +66,7 @@ public:
     Q_INVOKABLE void deleteRule(ulong ruleId);
     Q_INVOKABLE void acknowledgeAlarm(ulong alarmId, int userId = 0);
     Q_INVOKABLE void resolveAlarm(ulong alarmId);
+    Q_INVOKABLE void fetchDataPointHistory(const QString &deviceId, const QString &metric, quint64 startTs, quint64 endTs, int limit = 200);
 signals:
     void serverUrlChanged();
     void connectedChanged();
@@ -111,6 +112,7 @@ signals:
     void alarmAcknowledged(ulong alarmId);
     void alarmResolved(ulong alarmId);
     void userIdChanged();
+    void dataPointHistoryFetched(const QJsonArray &points);
 
 private:
     QNetworkRequest makeRequest(const QString &path);
