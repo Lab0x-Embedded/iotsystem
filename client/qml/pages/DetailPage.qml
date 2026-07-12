@@ -9,9 +9,11 @@ Rectangle {
 
     property var currentDevice: null
     property bool isDark: true
+    property int realtimeCount: 0
 
     function addDataPoint(metric, value, timestamp) {
         if (currentDevice) {
+            realtimeCount++;
             chart.addDataPoint(metric, value, timestamp);
         }
     }
@@ -21,7 +23,7 @@ Rectangle {
             var device = deviceModel.deviceAt(i);
             if (device.id === deviceId) {
                 currentDevice = device;
-                // 加载该设备的告警
+                realtimeCount = 0;
                 alarmModel.setDeviceFilter(deviceId);
                 // 加载影子数据
                 if (dataManager && dataManager.online)
@@ -108,7 +110,7 @@ Rectangle {
                 Label {
                     color: root.isDark ? "#a6adc8" : "#666666"
                     font.pixelSize: 12
-                    text: currentDevice ? "上报次数: " + currentDevice.reportCount + " · 最后: " + Qt.formatDateTime(currentDevice.lastSeen, "MM-dd HH:mm:ss") : ""
+                    text: currentDevice ? "上报次数: " + (currentDevice.reportCount + realtimeCount) + " · 最后: " + Qt.formatDateTime(currentDevice.lastSeen, "MM-dd HH:mm:ss") : ""
                 }
 
                 Item { Layout.fillWidth: true }
