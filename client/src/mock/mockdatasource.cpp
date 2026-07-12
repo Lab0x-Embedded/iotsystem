@@ -68,7 +68,8 @@ void MockDataSource::onTick() {
         a.threshold = 32.0;
         a.severity = d.temperature > 35.0 ? AlarmSeverity::Critical : AlarmSeverity::Warning;
         a.status = AlarmStatus::Active;
-        a.createdAt = QDateTime::currentDateTime();
+        a.triggeredAt = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+        a.message = QString("%1 温度超限 %2 > %3").arg(d.id).arg(d.temperature).arg(32.0);
         emit newAlarm(a);
     } else if (d.temperature < 30.0 && d.status == DeviceStatus::Alarm) {
         d.status = DeviceStatus::Online;

@@ -16,9 +16,13 @@
 #include "business/command_service.h"
 
 #include "common/log.h"
+#include <cJSON.h>
+#include "business/alarm_service.h"
+#include "data/db_pool.h"
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <errno.h>
@@ -503,6 +507,119 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
 
     LOG_INFO("PUBLISH from fd=%d topic=%s payload_len=%u",
              conn->fd, topic, len - 2 - tlen);
+
+    /* ── 解析 payload 并落库 + 告警评估 ── */
+    {
+        uint32_t payload_off = 2 + tlen;
+        uint32_t payload_len = len - payload_off;
+        if (payload_len > 0) {
+            char *json_str = (char *)malloc(payload_len + 1);
+            if (json_str) {
+                memcpy(json_str, data + payload_off, payload_len);
+                json_str[payload_len] = '\0';
+
+                cJSON *root = cJSON_Parse(json_str);
+                if (root) {
+                    const cJSON *id = cJSON_GetObjectItem(root, "device_id");
+                    const cJSON *dp = cJSON_GetObjectItem(root, "datapoints");
+                    if (id && id->valuestring && dp && cJSON_IsArray(dp)) {
+                        cJSON *item;
+                        cJSON_ArrayForEach(item, dp) {
+                            const cJSON *metric = cJSON_GetObjectItem(item, "metric");
+                            const cJSON *value = cJSON_GetObjectItem(item, "value");
+                            const cJSON *ts   = cJSON_GetObjectItem(item, "ts");
+                            if (metric && metric->valuestring && value) {
+                                double val = value->valuedouble;
+                                uint64_t ts_val = ts ? (uint64_t)ts->valuedouble : (uint64_t)time(NULL);
+
+                                /* ① 获取 DB 连接并自动注册设备 (解决外键约束) */
+                                db_conn_t *db = db_pool_get();
+                                if (db) {
+                                    char ensure_sql[512];
+                                    snprintf(ensure_sql, sizeof(ensure_sql),
+                                        "INSERT IGNORE INTO products (product_key, product_name) "
+                                        "VALUES ('pk_test','MQTT Auto Registered')");
+                                    db_pool_exec(db, ensure_sql);
+                                    snprintf(ensure_sql, sizeof(ensure_sql),
+                                        "INSERT IGNORE INTO devices (product_key, device_id, device_name, status, online) "
+                                        "VALUES ('pk_test','%s','%s','active',TRUE)",
+                                        id->valuestring, id->valuestring);
+                                    if (db_pool_exec(db, ensure_sql) != 0) {
+                                        LOG_WARN("auto-register device failed: %s", id->valuestring);
+                                    }
+                                }
+
+                                /* ② 告警规则评估 */
+                                alarm_evaluate(id->valuestring, metric->valuestring, val);
+
+                                /* ③ 写入 MySQL data_records */
+                                if (db) {
+                                    char tbl[64];
+                                    time_t now = time(NULL);
+                                    struct tm *tm_now = localtime(&now);
+                                    snprintf(tbl, sizeof(tbl), "data_records_%04d%02d",
+                                             tm_now->tm_year + 1900, tm_now->tm_mon + 1);
+
+                                    /* 确保当月表存在 */
+                                    char sql[512];
+                                    snprintf(sql, sizeof(sql),
+                                        "CREATE TABLE IF NOT EXISTS `%s` ("
+                                        "id BIGINT PRIMARY KEY AUTO_INCREMENT,"
+                                        "device_id VARCHAR(64) NOT NULL,"
+                                        "metric VARCHAR(64) NOT NULL,"
+                                        "value DOUBLE, ts BIGINT NOT NULL,"
+                                        "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                                        "INDEX idx_ts (device_id, ts),"
+                                        "INDEX idx_mt (metric)"
+                                        ") ENGINE=InnoDB", tbl);
+                                    if (db_pool_exec(db, sql) != 0) {
+                                        LOG_WARN("CREATE TABLE %s failed (may already exist)", tbl);
+                                    }
+
+                                    /* 插入数据 */
+                                    char *ins = malloc(512);
+                                    if (ins) {
+                                        snprintf(ins, 512,
+                                            "INSERT INTO `%s` (device_id, metric, value, ts) "
+                                            "VALUES ('%s','%s',%.2f,%llu)",
+                                            tbl, id->valuestring, metric->valuestring, val,
+                                            (unsigned long long)ts_val);
+                                        if (db_pool_exec(db, ins) == 0) {
+                                            LOG_INFO("DB insert %s %s=%.2f", id->valuestring, metric->valuestring, val);
+                                        } else {
+                                            LOG_WARN("DB insert failed: %s %s=%.2f", id->valuestring, metric->valuestring, val);
+                                        }
+                                        free(ins);
+                                    }
+
+                                    /* ④ 更新 device_latest_data */
+                                    char *upsert = malloc(512);
+                                    if (upsert) {
+                                        snprintf(upsert, 512,
+                                            "INSERT INTO device_latest_data (device_id, metric, value, ts, updated_at) "
+                                            "VALUES ('%s','%s',%.2f,%llu,NOW()) "
+                                            "ON DUPLICATE KEY UPDATE value=VALUES(value), ts=VALUES(ts), updated_at=NOW()",
+                                            id->valuestring, metric->valuestring, val,
+                                            (unsigned long long)ts_val);
+                                        db_pool_exec(db, upsert);
+                                        free(upsert);
+                                    }
+
+                                    db_pool_put(db);
+                                }
+                            }
+                        }
+                    } else {
+                        LOG_WARN("PUBLISH payload missing device_id or datapoints");
+                    }
+                    cJSON_Delete(root);
+                } else {
+                    LOG_WARN("PUBLISH payload JSON parse failed");
+                }
+                free(json_str);
+            }
+        }
+    }
 
     /* 遍历所有在线连接, 逐 subscription 匹配 */
     for (int ci = 0; ci < g_conn_count; ci++) {

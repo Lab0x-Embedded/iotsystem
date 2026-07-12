@@ -107,7 +107,7 @@ Rectangle {
                             Layout.preferredHeight: 36
                             Layout.preferredWidth: 140
                             Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                            model: ["INFO", "WARNING", "CRITICAL"]
+                            model: ["全部", "INFO", "WARNING", "CRITICAL"]
                         }
                         Item {
                             Layout.fillWidth: true
@@ -153,11 +153,13 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.leftMargin: 16
                                     anchors.rightMargin: 16
-                                    spacing: 0
+                                    spacing: 12
 
                                     Rectangle {
                                         Layout.preferredHeight: 24
-                                        Layout.preferredWidth: 80
+                                        Layout.preferredWidth: 88
+                                        Layout.minimumWidth: 88
+                                        Layout.maximumWidth: 88
                                         color: model.severity === 0 ? "#2196F3" : model.severity === 1 ? "#FFC107" : "#FF5722"
                                         radius: 4
 
@@ -170,38 +172,48 @@ Rectangle {
                                         }
                                     }
                                     Label {
-                                        Layout.preferredWidth: 120
+                                        Layout.preferredWidth: 140
+                                        Layout.minimumWidth: 140
                                         color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                                        elide: Text.ElideRight
                                         font.pixelSize: 12
                                         text: model.deviceId
                                     }
                                     Label {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 110
+                                        Layout.minimumWidth: 110
                                         color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                                        elide: Text.ElideRight
                                         font.pixelSize: 12
                                         text: model.metric
                                     }
                                     Label {
-                                        Layout.preferredWidth: 80
+                                        Layout.preferredWidth: 90
+                                        Layout.minimumWidth: 90
                                         color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                         font.pixelSize: 12
-                                        text: model.value.toFixed(1)
+                                        text: Number(model.value).toFixed(1)
                                     }
                                     Label {
                                         Layout.fillWidth: true
+                                        Layout.minimumWidth: 140
                                         color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                         elide: Text.ElideRight
                                         font.pixelSize: 12
                                         text: model.message
                                     }
                                     Label {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 150
+                                        Layout.minimumWidth: 150
                                         color: root.isDark ? "#a6adc8" : "#666666"
+                                        elide: Text.ElideRight
                                         font.pixelSize: 12
                                         text: model.triggeredAt
                                     }
                                     Label {
                                         Layout.preferredWidth: 60
+                                        Layout.minimumWidth: 60
+                                        Layout.maximumWidth: 60
                                         color: model.acknowledged ? "#a6e3a1" : "#f38ba8"
                                         font.pixelSize: 14
                                         horizontalAlignment: Text.AlignHCenter
@@ -224,31 +236,36 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.leftMargin: 16
                                     anchors.rightMargin: 16
-                                    spacing: 0
+                                    spacing: 12
 
                                     Label {
-                                        Layout.preferredWidth: 80
+                                        Layout.preferredWidth: 88
+                                        Layout.minimumWidth: 88
+                                        Layout.maximumWidth: 88
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 12
                                         text: "级别"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 120
+                                        Layout.preferredWidth: 140
+                                        Layout.minimumWidth: 140
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 12
                                         text: "设备"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 110
+                                        Layout.minimumWidth: 110
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 12
                                         text: "指标"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 80
+                                        Layout.preferredWidth: 90
+                                        Layout.minimumWidth: 90
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 12
@@ -256,13 +273,15 @@ Rectangle {
                                     }
                                     Label {
                                         Layout.fillWidth: true
+                                        Layout.minimumWidth: 140
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 12
                                         text: "消息"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 150
+                                        Layout.minimumWidth: 150
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 12
@@ -270,9 +289,12 @@ Rectangle {
                                     }
                                     Label {
                                         Layout.preferredWidth: 60
+                                        Layout.minimumWidth: 60
+                                        Layout.maximumWidth: 60
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 12
+                                        horizontalAlignment: Text.AlignHCenter
                                         text: "状态"
                                     }
                                 }
@@ -316,12 +338,14 @@ Rectangle {
                                 anchors.fill: parent
                                 anchors.leftMargin: 16
                                 anchors.rightMargin: 16
-                                spacing: 0
+                                spacing: 12
 
                                 // 设备
                                 Label {
-                                    Layout.preferredWidth: 160
+                                    Layout.preferredWidth: 180
+                                    Layout.minimumWidth: 180
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                                    elide: Text.ElideRight
                                     font.pixelSize: 12
                                     text: model.deviceId
                                 }
@@ -430,10 +454,11 @@ Rectangle {
                                 anchors.fill: parent
                                 anchors.leftMargin: 16
                                 anchors.rightMargin: 16
-                                spacing: 0
+                                spacing: 12
 
                                 Label {
-                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 180
+                                    Layout.minimumWidth: 180
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
                                     font.pixelSize: 13

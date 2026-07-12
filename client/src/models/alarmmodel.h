@@ -1,12 +1,9 @@
 #ifndef ALARMMODEL_H
 #define ALARMMODEL_H
 
-#include <QAbstractTableModel>
+#include <QAbstractListModel>
 #include <QVector>
 #include <QString>
-#include <QDateTime>
-#include <QColor>
-#include <QBrush>
 
 enum class AlarmSeverity { Info = 0, Warning = 1, Critical = 2 };
 enum class AlarmStatus { Active = 0, Acknowledged = 1, Resolved = 2 };
@@ -19,8 +16,8 @@ struct AlarmRecord {
     double threshold = 0.0;
     AlarmSeverity severity = AlarmSeverity::Info;
     AlarmStatus status = AlarmStatus::Active;
-    QDateTime createdAt;
-    QDateTime resolvedAt;
+    QString triggeredAt;
+    QString message;
     bool acknowledged = false;
 
     QString severityText() const {
@@ -30,14 +27,6 @@ struct AlarmRecord {
             case AlarmSeverity::Info:     return QStringLiteral("信息");
         }
         return QStringLiteral("?");
-    }
-    QColor severityColor() const {
-        switch (severity) {
-            case AlarmSeverity::Critical: return QColor("#FF5722");
-            case AlarmSeverity::Warning:  return QColor("#FFC107");
-            case AlarmSeverity::Info:     return QColor("#2196F3");
-        }
-        return QColor("#9E9E9E");
     }
     QString statusText() const {
         switch (status) {
@@ -49,23 +38,33 @@ struct AlarmRecord {
     }
 };
 
-class AlarmModel : public QAbstractTableModel {
+class AlarmModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(int activeCount READ activeCount NOTIFY countsChanged)
     Q_PROPERTY(int totalCount READ totalCount NOTIFY countsChanged)
     Q_PROPERTY(int unacknowledgedCount READ unacknowledgedCount NOTIFY countsChanged)
 
 public:
-    enum Column {
-        ColSeverity = 0, ColDevice, ColMetric, ColValue, ColThreshold,
-        ColStatus, ColTime, ColCount
+    enum Role {
+        SeverityRole = Qt::UserRole + 1,
+        SeverityTextRole,
+        DeviceRole,
+        MetricRole,
+        ValueRole,
+        ThresholdRole,
+        StatusRole,
+        StatusTextRole,
+        TimeRole,
+        AcknowledgedRole,
+        MessageRole,
+        IdRole,
     };
+
     explicit AlarmModel(QObject *parent = nullptr);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
 
     const AlarmRecord &at(int row) const { return m_records[row]; }
     void addRecord(const AlarmRecord &rec);
@@ -87,4 +86,4 @@ private:
     QString m_deviceFilter;
 };
 
-#endif // ALARMMODEL_H
+#endif
