@@ -19,6 +19,10 @@ struct AlarmRecord {
     QString triggeredAt;
     QString message;
     bool acknowledged = false;
+    int acknowledgedBy = 0;
+    QString acknowledgedAt;
+    int resolvedBy = 0;
+    QString resolvedAt;
 
     QString severityText() const {
         switch (severity) {
@@ -56,7 +60,11 @@ public:
         StatusTextRole,
         TimeRole,
         AcknowledgedRole,
-            IdRole,
+        IdRole,
+        AcknowledgedByRole,
+        AcknowledgedAtRole,
+        ResolvedByRole,
+        ResolvedAtRole,
     };
 
     explicit AlarmModel(QObject *parent = nullptr);
@@ -74,6 +82,7 @@ public:
     int unacknowledgedCount() const;
 
     Q_INVOKABLE void acknowledge(int row);
+    Q_INVOKABLE void resolve(int row);
     Q_INVOKABLE void setDeviceFilter(const QString &deviceId);
     QString deviceFilter() const;
     Q_INVOKABLE void setSeverityFilter(int severityIndex);
@@ -81,6 +90,8 @@ public:
 
 signals:
     void countsChanged();
+    void acknowledgeRequested(ulong alarmId);
+    void resolveRequested(ulong alarmId);
 
 private:
     void rebuildFilter();

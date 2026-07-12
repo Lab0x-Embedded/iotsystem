@@ -25,6 +25,7 @@ void handler_user(struct evhttp_request *req, void *ctx) {
             cJSON *res = cJSON_CreateObject();
             cJSON_AddStringToObject(res, "token", token);
             cJSON_AddStringToObject(res, "role", "admin");
+            cJSON_AddNumberToObject(res, "user_id", 1);
             char *txt = cJSON_PrintUnformatted(res);
             http_reply_json(req, 200, "OK", txt);
             free(txt); cJSON_Delete(res);

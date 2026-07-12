@@ -21,6 +21,13 @@ void HttpClient::setAuthToken(const QString &token) {
     }
 }
 
+void HttpClient::setUserId(int id) {
+    if (m_userId != id) {
+        m_userId = id;
+        emit userIdChanged();
+    }
+}
+
 QNetworkRequest HttpClient::makeRequest(const QString &path) {
     QNetworkRequest req(QUrl(m_baseUrl + path));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -73,8 +80,10 @@ void HttpClient::login(const QString &username, const QString &password) {
         [this](const QJsonObject &obj) {
             QString token = obj["token"].toString();
             QString role = obj["role"].toString();
+            int uid = obj["user_id"].toInt(0);
             if (!token.isEmpty()) {
                 setAuthToken(token);
+                setUserId(uid);
                 m_connected = true;
                 emit connectedChanged();
                 emit loginSucceeded(token, role);
@@ -469,6 +478,46 @@ void HttpClient::deleteRule(ulong ruleId) {
         [this](const QJsonObject &obj) {
             Q_UNUSED(obj);
             emit ruleDeleted();
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
+        }
+    );
+}
+
+void HttpClient::acknowledgeAlarm(ulong alarmId, int userId) {
+    QJsonObject body;
+    body["action"] = "acknowledge";
+    body["id"] = (double)alarmId;
+    body["user_id"] = (userId > 0) ? userId : m_userId;
+
+    auto *reply = m_mgr.post(makeRequest("/api/alarm"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this, alarmId](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit alarmAcknowledged(alarmId);
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
+        }
+    );
+}
+
+void HttpClient::resolveAlarm(ulong alarmId) {
+    QJsonObject body;
+    body["action"] = "resolve";
+    body["id"] = (double)alarmId;
+    body["user_id"] = m_userId;
+
+    auto *reply = m_mgr.post(makeRequest("/api/alarm"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this, alarmId](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit alarmResolved(alarmId);
         },
         [this](const QString &error) {
             emit alarmError(error);

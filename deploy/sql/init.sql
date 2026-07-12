@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     status ENUM('active', 'acknowledged', 'resolved') DEFAULT 'active',
     acknowledged_by INT,
     acknowledged_at DATETIME,
+    resolved_by INT,
     resolved_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_alerts_device (device_id),
@@ -177,7 +178,8 @@ CREATE TABLE IF NOT EXISTS alerts (
     INDEX idx_alerts_time (created_at),
     FOREIGN KEY (rule_id) REFERENCES alert_rules(rule_id) ON DELETE SET NULL,
     FOREIGN KEY (device_id) REFERENCES devices(device_id) ON DELETE CASCADE,
-    FOREIGN KEY (acknowledged_by) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (acknowledged_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- 创建默认管理员用户（密码: admin@123）

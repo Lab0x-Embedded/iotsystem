@@ -108,7 +108,8 @@ int alarm_recent(alarm_record_t *out, int max_n) {
     if (!conn) return 0;
     char sql[256];
     snprintf(sql,sizeof(sql),
-        "SELECT id,device_id,metric,current_value,threshold,severity,status"
+        "SELECT id,device_id,metric,current_value,threshold,severity,status,"
+        "acknowledged_by,acknowledged_at,resolved_by,resolved_at"
         " FROM alerts ORDER BY id DESC LIMIT %d", max_n);
     void *res = db_pool_query(conn, sql);
     if (!res) { db_pool_put(conn); return 0; }
@@ -123,6 +124,10 @@ int alarm_recent(alarm_record_t *out, int max_n) {
         a->threshold = row[4]?atof(row[4]):0.0;
         a->severity = severity_from_str(row[5]);
         a->acknowledged = (row[6] && (strcmp(row[6],"acknowledged")==0||strcmp(row[6],"resolved")==0)) ? 1 : 0;
+        a->acknowledged_by = row[7]?atoi(row[7]):0;
+        strncpy(a->acknowledged_at, row[8]?row[8]:"", 31);
+        a->resolved_by = row[9]?atoi(row[9]):0;
+        strncpy(a->resolved_at, row[10]?row[10]:"", 31);
         a->triggered_at = time(NULL);
         n++;
     }
@@ -144,18 +149,35 @@ int alarm_count(void) {
     return n;
 }
 
-int alarm_acknowledge(uint64_t id) {
+int alarm_acknowledge(uint64_t id, int user_id) {
     if (id==0) return -1;
     db_conn_t *conn = db_pool_get();
     if (!conn) return -1;
     char sql[256];
     snprintf(sql,sizeof(sql),
-        "UPDATE alerts SET status='acknowledged',acknowledged_at=NOW()"
-        " WHERE id=%llu AND status='active'", (unsigned long long)id);
+        "UPDATE alerts SET status='acknowledged',acknowledged_at=NOW(),"
+        "acknowledged_by=%d WHERE id=%llu AND status='active'",
+        user_id, (unsigned long long)id);
     int rc = db_pool_exec(conn, sql);
     db_pool_put(conn);
     if (rc) return -1;
-    LOG_INFO("alarm acknowledged id=%llu", (unsigned long long)id);
+    LOG_INFO("alarm acknowledged id=%llu by user=%d", (unsigned long long)id, user_id);
+    return 0;
+}
+
+int alarm_resolve(uint64_t id, int user_id) {
+    if (id==0) return -1;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return -1;
+    char sql[256];
+    snprintf(sql,sizeof(sql),
+        "UPDATE alerts SET status='resolved',resolved_at=NOW(),"
+        "resolved_by=%d WHERE id=%llu AND status IN ('active','acknowledged')",
+        user_id, (unsigned long long)id);
+    int rc = db_pool_exec(conn, sql);
+    db_pool_put(conn);
+    if (rc) return -1;
+    LOG_INFO("alarm resolved id=%llu by user=%d", (unsigned long long)id, user_id);
     return 0;
 }
 

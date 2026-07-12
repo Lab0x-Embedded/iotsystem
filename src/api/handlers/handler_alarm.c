@@ -52,6 +52,13 @@ void handler_alarm(struct evhttp_request *req, void *ctx) {
             cJSON_AddNumberToObject(r, "severity", (int)recs[i].severity);
             cJSON_AddNumberToObject(r, "triggeredAt", (double)recs[i].triggered_at);
             cJSON_AddBoolToObject(r, "acknowledged", recs[i].acknowledged);
+            cJSON_AddStringToObject(r, "status",
+                strcmp(recs[i].resolved_at, "") != 0 ? "resolved" :
+                recs[i].acknowledged ? "acknowledged" : "active");
+            cJSON_AddNumberToObject(r, "acknowledgedBy", recs[i].acknowledged_by);
+            cJSON_AddStringToObject(r, "acknowledgedAt", recs[i].acknowledged_at);
+            cJSON_AddNumberToObject(r, "resolvedBy", recs[i].resolved_by);
+            cJSON_AddStringToObject(r, "resolvedAt", recs[i].resolved_at);
             cJSON_AddItemToArray(arr, r);
         }
         cJSON_AddItemToObject(res, "data", arr);
@@ -60,10 +67,21 @@ void handler_alarm(struct evhttp_request *req, void *ctx) {
         free(txt); cJSON_Delete(res);
     } else if (action && strcmp(action->valuestring, "acknowledge") == 0) {
         const cJSON *id = cJSON_GetObjectItem(root, "id");
-        if (id && alarm_acknowledge((uint64_t)id->valuedouble) == 0) {
-            http_reply_json(req, 200, "OK", "{&quot;status&quot;:&quot;acknowledged&quot;}");
+        const cJSON *uid = cJSON_GetObjectItem(root, "user_id");
+        int user_id = uid ? uid->valueint : 0;
+        if (id && alarm_acknowledge((uint64_t)id->valuedouble, user_id) == 0) {
+            http_reply_json(req, 200, "OK", "{\"status\":\"acknowledged\"}");
         } else {
-            http_reply_json(req, 404, "Not Found", "{&quot;error&quot;:&quot;alarm not found&quot;}");
+            http_reply_json(req, 404, "Not Found", "{\"error\":\"alarm not found\"}");
+        }
+    } else if (action && strcmp(action->valuestring, "resolve") == 0) {
+        const cJSON *id = cJSON_GetObjectItem(root, "id");
+        const cJSON *uid = cJSON_GetObjectItem(root, "user_id");
+        int user_id = uid ? uid->valueint : 0;
+        if (id && alarm_resolve((uint64_t)id->valuedouble, user_id) == 0) {
+            http_reply_json(req, 200, "OK", "{\"status\":\"resolved\"}");
+        } else {
+            http_reply_json(req, 404, "Not Found", "{\"error\":\"alarm not found\"}");
         }
     } else if (action && strcmp(action->valuestring, "query_rules") == 0) {
         alarm_rule_config_t rules[64];

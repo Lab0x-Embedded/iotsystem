@@ -66,6 +66,10 @@ typedef struct {
     char           message[ALARM_MSG_LEN];
     uint64_t       triggered_at;
     int            acknowledged;
+    int            acknowledged_by;
+    char           acknowledged_at[32];
+    int            resolved_by;
+    char           resolved_at[32];
 } alarm_record_t;
 
 int  alarm_service_init(void);
@@ -85,7 +89,10 @@ int  alarm_recent(alarm_record_t *out, int max_n);
 int  alarm_count(void);
 
 /** 按 id 确认告警; 返回 0 成功. */
-int  alarm_acknowledge(uint64_t id);
+int  alarm_acknowledge(uint64_t id, int user_id);
+
+/** 按 id 解决告警; 返回 0 成功. */
+int  alarm_resolve(uint64_t id, int user_id);
 
 /** 读取最近 N 条规则. */
 int  alarm_query_rules(alarm_rule_config_t *out, int max_n);

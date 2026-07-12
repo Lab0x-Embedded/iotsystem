@@ -14,6 +14,7 @@ class HttpClient : public QObject {
     Q_PROPERTY(QString serverUrl READ serverUrl WRITE setServerUrl NOTIFY serverUrlChanged)
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
     Q_PROPERTY(QString authToken READ authToken NOTIFY authTokenChanged)
+    Q_PROPERTY(int userId READ userId NOTIFY userIdChanged)
 
 public:
     explicit HttpClient(QObject *parent = nullptr);
@@ -21,9 +22,11 @@ public:
     QString serverUrl() const { return m_baseUrl; }
     bool connected() const { return m_connected; }
     QString authToken() const { return m_token; }
+    int userId() const { return m_userId; }
 
     Q_INVOKABLE void setServerUrl(const QString &url);
     Q_INVOKABLE void setAuthToken(const QString &token);
+    Q_INVOKABLE void setUserId(int id);
     Q_INVOKABLE void login(const QString &username, const QString &password);
 
     // 设备管理
@@ -61,6 +64,8 @@ public:
     Q_INVOKABLE void toggleRule(ulong ruleId, bool enabled);
     Q_INVOKABLE void editRule(ulong ruleId, const QString &deviceId, const QString &metric, int op, double threshold, int severity);
     Q_INVOKABLE void deleteRule(ulong ruleId);
+    Q_INVOKABLE void acknowledgeAlarm(ulong alarmId, int userId = 0);
+    Q_INVOKABLE void resolveAlarm(ulong alarmId);
 signals:
     void serverUrlChanged();
     void connectedChanged();
@@ -103,6 +108,9 @@ signals:
     void ruleToggled();
     void ruleEdited();
     void ruleDeleted();
+    void alarmAcknowledged(ulong alarmId);
+    void alarmResolved(ulong alarmId);
+    void userIdChanged();
 
 private:
     QNetworkRequest makeRequest(const QString &path);
@@ -112,6 +120,7 @@ private:
     QNetworkAccessManager m_mgr;
     QString m_baseUrl;
     QString m_token;
+    int m_userId = 0;
     bool m_connected = false;
 };
 

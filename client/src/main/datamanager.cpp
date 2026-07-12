@@ -10,6 +10,8 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::groupsFetched, this, &DataManager::onGroupsFetched);
     connect(&m_http, &HttpClient::alarmsFetched, this, &DataManager::onAlarmsFetched);
     connect(&m_http, &HttpClient::alarmRuleAdded, this, &DataManager::alarmRuleAdded);
+    connect(&m_alarms, &AlarmModel::acknowledgeRequested, this, &DataManager::acknowledgeAlarm);
+    connect(&m_alarms, &AlarmModel::resolveRequested, this, &DataManager::resolveAlarm);
     connect(&m_http, &HttpClient::deviceOperationError, this, &DataManager::onDeviceOperationError);
     connect(&m_http, &HttpClient::deviceUpdated, this, &DataManager::onDeviceUpdated);
     connect(&m_http, &HttpClient::rulesFetched, this, &DataManager::onRulesFetched);
@@ -104,6 +106,20 @@ void DataManager::addAlarmRule(const QString &deviceId, const QString &metric, i
 {
     if (m_online) {
         m_http.addAlarmRule(deviceId, metric, op, threshold, severity);
+    }
+}
+
+void DataManager::acknowledgeAlarm(ulong alarmId)
+{
+    if (m_online) {
+        m_http.acknowledgeAlarm(alarmId);
+    }
+}
+
+void DataManager::resolveAlarm(ulong alarmId)
+{
+    if (m_online) {
+        m_http.resolveAlarm(alarmId);
     }
 }
 
@@ -248,6 +264,10 @@ void DataManager::onAlarmsFetched(const QJsonArray &alarms)
             record.status = AlarmStatus::Resolved;
 
         record.acknowledged = obj["acknowledged"].toBool(false);
+        record.acknowledgedBy = obj["acknowledgedBy"].toInt(0);
+        record.acknowledgedAt = obj["acknowledgedAt"].toString();
+        record.resolvedBy = obj["resolvedBy"].toInt(0);
+        record.resolvedAt = obj["resolvedAt"].toString();
         {
             double ts = obj["triggeredAt"].toDouble();
             if (ts > 0) {

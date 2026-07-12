@@ -37,6 +37,10 @@ QVariant AlarmModel::data(const QModelIndex &index, int role) const {
         case TimeRole:          return rec.triggeredAt;
         case AcknowledgedRole:  return rec.acknowledged;
         case IdRole:            return static_cast<qint64>(rec.id);
+        case AcknowledgedByRole: return rec.acknowledgedBy;
+        case AcknowledgedAtRole: return rec.acknowledgedAt;
+        case ResolvedByRole:    return rec.resolvedBy;
+        case ResolvedAtRole:    return rec.resolvedAt;
         default:                return QVariant();
     }
 }
@@ -54,6 +58,10 @@ QHash<int, QByteArray> AlarmModel::roleNames() const {
     roles[TimeRole]         = "triggeredAt";
     roles[AcknowledgedRole] = "acknowledged";
     roles[IdRole]           = "id";
+    roles[AcknowledgedByRole] = "acknowledgedBy";
+    roles[AcknowledgedAtRole] = "acknowledgedAt";
+    roles[ResolvedByRole]   = "resolvedBy";
+    roles[ResolvedAtRole]   = "resolvedAt";
     return roles;
 }
 
@@ -108,6 +116,19 @@ void AlarmModel::acknowledge(int row) {
         QModelIndex idx = index(row, 0);
         emit dataChanged(idx, idx, {StatusRole, StatusTextRole, AcknowledgedRole});
         emit countsChanged();
+        emit acknowledgeRequested(m_records[realRow].id);
+    }
+}
+
+void AlarmModel::resolve(int row) {
+    if (row < 0 || row >= m_filteredIndices.size()) return;
+    int realRow = m_filteredIndices[row];
+    if (m_records[realRow].status != AlarmStatus::Resolved) {
+        m_records[realRow].status = AlarmStatus::Resolved;
+        QModelIndex idx = index(row, 0);
+        emit dataChanged(idx, idx, {StatusRole, StatusTextRole});
+        emit countsChanged();
+        emit resolveRequested(m_records[realRow].id);
     }
 }
 

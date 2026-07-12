@@ -11,9 +11,42 @@ Rectangle {
     property var alarmListModel: null
     property bool isDark: true
     property var ruleListModel: null
-
     color: isDark ? "#1e1e2e" : "#f5f5f5"
+    property var selectedRows: ({})
 
+    function toggleSelection(idx) {
+        var rows = Object.assign({}, selectedRows);
+        if (rows[idx]) {
+            delete rows[idx];
+        } else {
+            rows[idx] = true;
+        }
+        selectedRows = rows;
+    }
+
+    function clearSelection() {
+        selectedRows = ({});
+    }
+
+    function selectedCount() {
+        return Object.keys(selectedRows).length;
+    }
+
+    function acknowledgeSelected() {
+        var indices = Object.keys(selectedRows).map(Number).sort(function(a, b) { return b - a; });
+        for (var i = 0; i < indices.length; i++) {
+            alarmListModel.acknowledge(indices[i]);
+        }
+        clearSelection();
+    }
+
+    function resolveSelected() {
+        var indices = Object.keys(selectedRows).map(Number).sort(function(a, b) { return b - a; });
+        for (var i = 0; i < indices.length; i++) {
+            alarmListModel.resolve(indices[i]);
+        }
+        clearSelection();
+    }
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 16
@@ -99,27 +132,37 @@ Rectangle {
                             Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
                             model: ["全部", "INFO", "WARNING", "CRITICAL"]
 
-                            onCurrentIndexChanged: {
-                                if (alarmListModel) {
-                                    // "全部"=0 → -1, "INFO"=1 → 0, "WARNING"=2 → 1, "CRITICAL"=3 → 2
+                           onCurrentIndexChanged: {
+                               if (alarmListModel) {
                                     alarmListModel.setSeverityFilter(currentIndex - 1);
+                                    root.clearSelection();
                                 }
                             }
                         }
                         Item {
                             Layout.fillWidth: true
                         }
+                        Label {
+                            color: root.isDark ? "#a6adc8" : "#666666"
+                            font.pixelSize: 12
+                            text: "已选 " + root.selectedCount() + " 条"
+                            visible: root.selectedCount() > 0
+                        }
                         Button {
                             Material.background: "#89b4fa"
                             Material.foreground: "white"
-                            enabled: alarmList.currentIndex >= 0
+                            enabled: root.selectedCount() > 0
                             text: "确认选中"
 
-                            onClicked: {
-                                if (alarmList.currentIndex >= 0) {
-                                    alarmListModel.acknowledge(alarmList.currentIndex);
-                                }
-                            }
+                            onClicked: root.acknowledgeSelected()
+                        }
+                        Button {
+                            Material.background: "#a6e3a1"
+                            Material.foreground: "white"
+                            enabled: root.selectedCount() > 0
+                            text: "解决选中"
+
+                            onClicked: root.resolveSelected()
                         }
                     }
 
@@ -152,6 +195,15 @@ Rectangle {
                                     anchors.rightMargin: 16
                                     spacing: 12
 
+                                    CheckBox {
+                                        Layout.preferredWidth: 32
+                                        Layout.preferredHeight: 32
+                                        checked: model.status !== 2 && !!selectedRows[index]
+                                        enabled: model.status !== 2
+                                        opacity: enabled ? 1.0 : 0.3
+
+                                        onToggled: root.toggleSelection(index)
+                                    }
                                     Rectangle {
                                         Layout.maximumWidth: 88
                                         Layout.minimumWidth: 88
@@ -210,12 +262,6 @@ Rectangle {
                                         text: model.acknowledged ? "✓" : "●"
                                     }
                                 }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-
-                                    onClicked: alarmList.currentIndex = index
-                                }
                             }
                             header: Rectangle {
                                 color: root.isDark ? "#181825" : "#f8f9fa"
@@ -228,6 +274,22 @@ Rectangle {
                                     anchors.rightMargin: 16
                                     spacing: 12
 
+                                    CheckBox {
+                                        Layout.preferredWidth: 32
+                                        Layout.preferredHeight: 32
+
+                                        onToggled: {
+                                            if (checked) {
+                                                var rows = {};
+                                                for (var i = 0; i < alarmListModel.rowCount(); i++) {
+                                                    rows[i] = true;
+                                                }
+                                                selectedRows = rows;
+                                            } else {
+                                                root.clearSelection();
+                                            }
+                                        }
+                                    }
                                     Label {
                                         Layout.maximumWidth: 88
                                         Layout.minimumWidth: 88
