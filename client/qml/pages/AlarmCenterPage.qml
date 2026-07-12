@@ -70,6 +70,11 @@ Rectangle {
                 font.pixelSize: 13
                 text: "未确认: " + (alarmListModel ? alarmListModel.unacknowledgedCount : 0)
             }
+            Label {
+                color: "#fab387"
+                font.pixelSize: 13
+                text: "未解决: " + (alarmListModel ? alarmListModel.unresolvedCount : 0)
+            }
         }
 
         // Tab bar + Add Rule button

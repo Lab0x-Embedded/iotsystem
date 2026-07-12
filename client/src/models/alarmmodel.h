@@ -47,6 +47,7 @@ class AlarmModel : public QAbstractListModel {
     Q_PROPERTY(int activeCount READ activeCount NOTIFY countsChanged)
     Q_PROPERTY(int totalCount READ totalCount NOTIFY countsChanged)
     Q_PROPERTY(int unacknowledgedCount READ unacknowledgedCount NOTIFY countsChanged)
+    Q_PROPERTY(int unresolvedCount READ unresolvedCount NOTIFY countsChanged)
 
 public:
     enum Role {
@@ -80,6 +81,7 @@ public:
     int activeCount() const;
     int totalCount() const { return m_records.size(); }
     int unacknowledgedCount() const;
+    int unresolvedCount() const;
 
     Q_INVOKABLE void acknowledge(int row);
     Q_INVOKABLE void resolve(int row);

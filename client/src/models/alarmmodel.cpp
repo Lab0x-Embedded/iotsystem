@@ -107,6 +107,15 @@ int AlarmModel::unacknowledgedCount() const {
     return count;
 }
 
+int AlarmModel::unresolvedCount() const {
+    int count = 0;
+    for (const auto &rec : m_records) {
+        if (rec.status != AlarmStatus::Resolved)
+            count++;
+    }
+    return count;
+}
+
 void AlarmModel::acknowledge(int row) {
     if (row < 0 || row >= m_filteredIndices.size()) return;
     int realRow = m_filteredIndices[row];
