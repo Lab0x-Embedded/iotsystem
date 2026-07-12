@@ -30,7 +30,10 @@ report:
 	@python3 deploy/scripts/mqtt_ss_report.py
 
 report-fast:
-	@python3 deploy/scripts/mqtt_ss_report.py 0.5
+	@python3 deploy/scripts/mqtt_ss_report.py -i 0.5
+
+report-dev:
+	@python3 deploy/scripts/mqtt_ss_report.py -d $(DEV) -i 3
 
 # 启动 MQTT 模拟器
 simulator:
@@ -52,6 +55,7 @@ help:
 	@echo "  make register_devices   - 注册测试设备"
 	@echo "  make report             - 启动 MQTT 模拟上报 (2秒/条)"
 	@echo "  make report-fast        - 启动 MQTT 模拟上报 (0.5秒/条)"
+	@echo "  make report-dev DEV=x   - 指定设备上报 (如: make report-dev DEV=dev_001)"
 	@echo "  make simulator          - 启动 MQTT 设备模拟器"
 	@echo "  make clean              - 清理构建目录"
 	@echo "  make help               - 查看帮助"

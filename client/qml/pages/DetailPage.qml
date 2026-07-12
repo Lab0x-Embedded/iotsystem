@@ -11,8 +11,8 @@ Rectangle {
     property bool isDark: true
     property int realtimeCount: 0
 
-    function addDataPoint(metric, value, timestamp) {
-        if (currentDevice) {
+    function addDataPoint(deviceId, metric, value, timestamp) {
+        if (currentDevice && currentDevice.id === deviceId) {
             realtimeCount++;
             chart.addDataPoint(metric, value, timestamp);
         }
@@ -24,6 +24,7 @@ Rectangle {
             if (device.id === deviceId) {
                 currentDevice = device;
                 realtimeCount = 0;
+                chart.clearData();
                 alarmModel.setDeviceFilter(deviceId);
                 // 加载影子数据
                 if (dataManager && dataManager.online)

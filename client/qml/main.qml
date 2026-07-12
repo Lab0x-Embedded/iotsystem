@@ -272,7 +272,7 @@ ApplicationWindow {
         
         function onDataPointArrived(deviceId, metric, value, timestamp) {
             dashboardPage.addDataPoint(metric, value, timestamp)
-            detailPage.addDataPoint(metric, value, timestamp)
+            detailPage.addDataPoint(deviceId, metric, value, timestamp)
         }
     }
 

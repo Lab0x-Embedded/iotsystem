@@ -2,8 +2,8 @@
 #define WSCLIENT_H
 
 #include <QObject>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
+#include <QTcpSocket>
+#include <QTimer>
 
 class WsClient : public QObject {
     Q_OBJECT
@@ -26,14 +26,21 @@ signals:
     void alarmReceived(const QString &deviceId, const QString &metric, double value, double threshold, int severity);
 
 private slots:
+    void onConnected();
     void onReadyRead();
     void onDisconnected();
+    void tryReconnect();
 
 private:
-    QNetworkAccessManager m_nam;
-    QNetworkReply *m_reply = nullptr;
+    void sendHttpRequest();
+
+    QTcpSocket m_socket;
+    QTimer m_reconnectTimer;
     bool m_connected = false;
+    bool m_shouldConnect = false;
     QString m_url;
+    QString m_host;
+    quint16 m_port = 8080;
     QByteArray m_buffer;
 };
 

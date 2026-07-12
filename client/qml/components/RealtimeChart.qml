@@ -24,6 +24,12 @@ Rectangle {
         canvas.requestPaint();
     }
 
+    function clearData() {
+        dataPoints = [];
+        hasData = false;
+        canvas.requestPaint();
+    }
+
     color: "transparent"
 
     Canvas {

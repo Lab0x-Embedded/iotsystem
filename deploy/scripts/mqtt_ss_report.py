@@ -77,10 +77,29 @@ def generate_datapoints(device):
 
 
 def main():
-    interval = float(sys.argv[1]) if len(sys.argv) > 1 else 2.0
+    import argparse
+    p = argparse.ArgumentParser(description="MQTT 模拟上报脚本")
+    p.add_argument("--device", "-d", help="指定设备 ID (如 dev_001)")
+    p.add_argument("--interval", "-i", type=float, default=2.0, help="上报间隔秒数 (默认 2.0)")
+    args = p.parse_args()
+
+    interval = args.interval
+    target_device = None
+    if args.device:
+        for d in DEVICES:
+            if d["id"] == args.device:
+                target_device = d
+                break
+        if not target_device:
+            # 自动创建指定的设备
+            target_device = {"id": args.device, "name": f"设备{args.device}"}
+
     print(f"MQTT 模拟上报脚本")
     print(f"目标: {MQTT_HOST}:{MQTT_PORT}")
-    print(f"设备数: {len(DEVICES)}")
+    if target_device:
+        print(f"设备: {target_device['id']} ({target_device['name']})")
+    else:
+        print(f"设备数: {len(DEVICES)} (随机)")
     print(f"上报间隔: {interval}秒")
     print("---")
 
@@ -99,7 +118,7 @@ def main():
             print("MQTT 已连接")
 
             while True:
-                device = random.choice(DEVICES)
+                device = target_device if target_device else random.choice(DEVICES)
                 data = generate_datapoints(device)
                 topic = f"devices/{device['id']}/data"
                 payload = json.dumps(data, ensure_ascii=False)

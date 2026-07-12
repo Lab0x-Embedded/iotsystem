@@ -1,7 +1,7 @@
 /**
  * @file sse_handler.c
  *
- * SSE (Server-Sent Events) — 基于 libevent evhttp 的实时推送
+ * SSE (Server-Sent Events) — 基于 libevent evhttp
  * 挂载到现有 HTTP 服务器的 /api/sse 路径
  */
 #include "server/sse_handler.h"
@@ -10,11 +10,14 @@
 
 #include <event2/http.h>
 #include <event2/buffer.h>
+#include <event2/bufferevent.h>
 #include <event2/keyvalq_struct.h>
 
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
 
 #define SSE_MAX_CLIENTS 64
 
@@ -37,6 +40,19 @@ static void sse_send_to_client(sse_client_t *c, const char *event, const char *d
     evbuffer_add_printf(buf, "data: %s\n\n", data);
     evhttp_send_reply_chunk(c->req, buf);
     evbuffer_free(buf);
+
+    /* TCP_NODELAY 减少延迟 */
+    struct evhttp_connection *conn = evhttp_request_get_connection(c->req);
+    if (conn) {
+        struct bufferevent *bev = evhttp_connection_get_bufferevent(conn);
+        if (bev) {
+            evutil_socket_t fd = bufferevent_getfd(bev);
+            if (fd >= 0) {
+                int flag = 1;
+                setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+            }
+        }
+    }
 }
 
 static void sse_broadcast_all(const char *event, const char *data) {
@@ -67,20 +83,17 @@ static void sse_close_cb(struct evhttp_connection *conn, void *arg) {
 static void sse_handler(struct evhttp_request *req, void *ctx) {
     (void)ctx;
 
-    /* 只接受 GET */
     if (evhttp_request_get_command(req) != EVHTTP_REQ_GET) {
         evhttp_send_error(req, 405, "Method Not Allowed");
         return;
     }
 
-    /* 设置 CORS */
     struct evkeyvalq *out_hdrs = evhttp_request_get_output_headers(req);
     evhttp_add_header(out_hdrs, "Content-Type", "text/event-stream");
     evhttp_add_header(out_hdrs, "Cache-Control", "no-cache");
     evhttp_add_header(out_hdrs, "Connection", "keep-alive");
     evhttp_add_header(out_hdrs, "Access-Control-Allow-Origin", "*");
 
-    /* 找空位 */
     pthread_mutex_lock(&g_lock);
     int slot = -1;
     for (int i = 0; i < SSE_MAX_CLIENTS; i++) {
@@ -97,16 +110,13 @@ static void sse_handler(struct evhttp_request *req, void *ctx) {
     g_client_count++;
     pthread_mutex_unlock(&g_lock);
 
-    /* 发送初始响应头（不分块，保持连接） */
     evhttp_send_reply_start(req, 200, "OK");
 
-    /* 注册连接关闭回调 */
     struct evhttp_connection *conn = evhttp_request_get_connection(req);
     if (conn) {
         evhttp_connection_set_closecb(conn, sse_close_cb, &g_clients[slot]);
     }
 
-    /* 发送初始注释（保持连接活跃） */
     struct evbuffer *buf = evbuffer_new();
     evbuffer_add_printf(buf, ": connected\n\n");
     evhttp_send_reply_chunk(req, buf);
@@ -136,6 +146,7 @@ void sse_broadcast_datapoint(const char *device_id, const char *metric,
         "{\"type\":\"datapoint\",\"device_id\":\"%s\",\"metric\":\"%s\","
         "\"value\":%.2f,\"ts\":%llu}",
         device_id, metric, value, (unsigned long long)ts);
+    LOG_INFO("SSE broadcast: %s %s=%.2f", device_id, metric, value);
     sse_broadcast_all("datapoint", json);
 }
 

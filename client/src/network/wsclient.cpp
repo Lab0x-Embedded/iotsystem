@@ -5,45 +5,63 @@
 #include <QUrl>
 
 WsClient::WsClient(QObject *parent) : QObject(parent) {
+    m_reconnectTimer.setSingleShot(true);
+    m_reconnectTimer.setInterval(3000);
+    connect(&m_reconnectTimer, &QTimer::timeout, this, &WsClient::tryReconnect);
+
+    connect(&m_socket, &QTcpSocket::connected, this, &WsClient::onConnected);
+    connect(&m_socket, &QTcpSocket::readyRead, this, &WsClient::onReadyRead);
+    connect(&m_socket, &QTcpSocket::disconnected, this, &WsClient::onDisconnected);
 }
 
 void WsClient::connectToServer(const QString &url) {
-    if (m_reply) {
-        disconnect();
-    }
     m_url = url;
+    m_shouldConnect = true;
     emit serverUrlChanged();
 
-    /* SSE 端点和 HTTP API 同端口 */
-    QString sseUrl = url + "/api/sse";
-    qDebug() << "[WsClient] connecting to SSE:" << sseUrl;
+    QUrl qurl(url);
+    m_host = qurl.host();
+    m_port = qurl.port(8080);
 
-    QNetworkRequest request;
-    request.setUrl(QUrl(sseUrl));
-    request.setRawHeader("Accept", "text/event-stream");
-    request.setRawHeader("Cache-Control", "no-cache");
-
-    m_reply = m_nam.get(request);
-    connect(m_reply, &QNetworkReply::readyRead, this, &WsClient::onReadyRead);
-    connect(m_reply, &QNetworkReply::finished, this, &WsClient::onDisconnected);
-
-    m_connected = true;
-    emit connectedChanged();
+    tryReconnect();
 }
 
 void WsClient::disconnect() {
-    if (m_reply) {
-        m_reply->abort();
-        m_reply->deleteLater();
-        m_reply = nullptr;
-    }
+    m_shouldConnect = false;
+    m_reconnectTimer.stop();
+    m_socket.abort();
     m_connected = false;
     emit connectedChanged();
 }
 
+void WsClient::tryReconnect() {
+    if (!m_shouldConnect || m_host.isEmpty()) return;
+    if (m_socket.state() != QAbstractSocket::UnconnectedState) {
+        m_socket.abort();
+    }
+    /* SSE 和 HTTP 同端口 */
+    qDebug() << "[WsClient] connecting to SSE" << m_host << ":" << m_port;
+    m_socket.connectToHost(m_host, m_port);
+}
+
+void WsClient::onConnected() {
+    qDebug() << "[WsClient] TCP connected, sending SSE request";
+    sendHttpRequest();
+}
+
+void WsClient::sendHttpRequest() {
+    QString request = QString("GET /api/sse HTTP/1.1\r\n"
+                              "Host: %1:%2\r\n"
+                              "Accept: text/event-stream\r\n"
+                              "Cache-Control: no-cache\r\n"
+                              "Connection: keep-alive\r\n\r\n")
+                              .arg(m_host).arg(m_port);
+    m_socket.write(request.toUtf8());
+    m_socket.flush();
+}
+
 void WsClient::onReadyRead() {
-    if (!m_reply) return;
-    m_buffer.append(m_reply->readAll());
+    m_buffer.append(m_socket.readAll());
 
     /* 解析 SSE 格式: "data: {...}\n\n" */
     while (true) {
@@ -52,6 +70,21 @@ void WsClient::onReadyRead() {
 
         QByteArray event = m_buffer.left(idx);
         m_buffer = m_buffer.mid(idx + 2);
+
+        /* 跳过 HTTP 头和注释 */
+        if (event.startsWith("HTTP/") || event.startsWith(":")) {
+            if (!m_connected && !event.startsWith(":")) {
+                m_connected = true;
+                emit connectedChanged();
+            }
+            continue;
+        }
+
+        /* 标记已连接 */
+        if (!m_connected) {
+            m_connected = true;
+            emit connectedChanged();
+        }
 
         /* 提取 data 行 */
         QList<QByteArray> lines = event.split('\n');
@@ -85,8 +118,16 @@ void WsClient::onReadyRead() {
 }
 
 void WsClient::onDisconnected() {
-    qDebug() << "[WsClient] SSE disconnected";
+    bool wasConnected = m_connected;
     m_connected = false;
-    m_reply = nullptr;
+    m_buffer.clear();
     emit connectedChanged();
+
+    if (wasConnected) {
+        qDebug() << "[WsClient] SSE disconnected, will reconnect in 3s";
+    }
+
+    if (m_shouldConnect) {
+        m_reconnectTimer.start();
+    }
 }
