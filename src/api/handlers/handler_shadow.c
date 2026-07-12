@@ -25,6 +25,33 @@ void handler_shadow(struct evhttp_request *req, void *ctx) {
         } else {
             http_reply_json(req, 400, "Bad Request", "{\"error\":\"set_desired failed\"}");
         }
+    } else if (action && strcmp(action->valuestring, "update") == 0) {
+        const cJSON *desired = cJSON_GetObjectItem(root, "desired");
+        if (desired && cJSON_IsObject(desired)) {
+            int ok = 0;
+            cJSON *child = NULL;
+            cJSON_ArrayForEach(child, desired) {
+                if (child->string && cJSON_IsString(child)) {
+                    if (shadow_set_desired(id->valuestring, child->string, child->valuestring) == 0)
+                        ok++;
+                } else if (child->string) {
+                    char *val = cJSON_PrintUnformatted(child);
+                    if (val) {
+                        shadow_set_desired(id->valuestring, child->string, val);
+                        free(val);
+                        ok++;
+                    }
+                }
+            }
+            cJSON *res = cJSON_CreateObject();
+            cJSON_AddStringToObject(res, "status", "updated");
+            cJSON_AddNumberToObject(res, "updated_keys", ok);
+            char *txt = cJSON_PrintUnformatted(res);
+            http_reply_json(req, 200, "OK", txt);
+            free(txt); cJSON_Delete(res);
+        } else {
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"missing desired object\"}");
+        }
     } else if (action && strcmp(action->valuestring, "delta") == 0) {
         shadow_kv_t delta[SHADOW_MAX_KVS];
         int n = shadow_compute_delta(id->valuestring, delta, SHADOW_MAX_KVS);

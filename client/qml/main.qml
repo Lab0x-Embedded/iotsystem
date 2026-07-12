@@ -274,6 +274,10 @@ ApplicationWindow {
             dashboardPage.addDataPoint(metric, value, timestamp)
             detailPage.addDataPoint(metric, value, timestamp)
         }
+    }
+
+    Connections {
+        target: dataManager ? dataManager.httpClient : null
 
         function onDataPointHistoryFetched(points) {
             historyDataModel.clear()

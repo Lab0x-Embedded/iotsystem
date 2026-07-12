@@ -100,6 +100,28 @@ Rectangle {
                     font.pixelSize: 12
                     text: currentDevice ? "上报次数: " + currentDevice.reportCount + " · 最后: " + Qt.formatDateTime(currentDevice.lastSeen, "MM-dd HH:mm:ss") : ""
                 }
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    visible: currentDevice && currentDevice.status === 1
+                    Material.foreground: "#f38ba8"
+                    flat: true
+                    font.pixelSize: 12
+                    text: "⟳ 重启设备"
+
+                    background: Rectangle {
+                        border.color: "#f38ba8"
+                        border.width: 1
+                        color: parent.hovered ? (root.isDark ? "#3b3b4f" : "#fef2f2") : "transparent"
+                        implicitHeight: 30; radius: 6
+                    }
+
+                    onClicked: {
+                        if (currentDevice)
+                            dataManager.httpClient.sendCommand(currentDevice.id, "reboot")
+                    }
+                }
             }
 
             // ===== 基础信息卡片 =====
@@ -230,6 +252,7 @@ Rectangle {
                                 anchors.fill: parent
                                 spacing: 12
 
+                                // ---- Reported (left) ----
                                 ColumnLayout {
                                     Layout.fillWidth: true; Layout.fillHeight: true
                                     spacing: 6
@@ -237,34 +260,7 @@ Rectangle {
                                     Label {
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true; font.pixelSize: 11
-                                        text: "Desired"
-                                    }
-                                    Rectangle {
-                                        Layout.fillHeight: true; Layout.fillWidth: true
-                                        border.color: root.isDark ? "#45475a" : "#e0e0e0"
-                                        border.width: 1
-                                        color: root.isDark ? "#1e1e2e" : "#f8f9fa"
-                                        radius: 8
-
-                                        ScrollView {
-                                            anchors.fill: parent; anchors.margins: 10; clip: true
-                                            Label {
-                                                color: root.isDark ? "#a6e3a1" : "#2e7d32"
-                                                font.family: "Monaco"; font.pixelSize: 12
-                                                text: shadowDesiredText
-                                                wrapMode: Text.Wrap
-                                            }
-                                        }
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true; Layout.fillHeight: true
-                                    spacing: 6
-
-                                    Label {
-                                        color: root.isDark ? "#a6adc8" : "#666666"
-                                        font.bold: true; font.pixelSize: 11
-                                        text: "Reported"
+                                        text: "Reported（报告状态）"
                                     }
                                     Rectangle {
                                         Layout.fillHeight: true; Layout.fillWidth: true
@@ -284,6 +280,66 @@ Rectangle {
                                         }
                                     }
                                 }
+
+                                // ---- Desired (right) ----
+                                ColumnLayout {
+                                    Layout.fillWidth: true; Layout.fillHeight: true
+                                    spacing: 6
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+
+                                        Label {
+                                            color: root.isDark ? "#a6adc8" : "#666666"
+                                            font.bold: true; font.pixelSize: 11
+                                            text: "Desired（期望状态）"
+                                        }
+                                        Item { Layout.fillWidth: true }
+                                        Button {
+                                            Material.foreground: "#a6e3a1"
+                                            flat: true
+                                            font.pixelSize: 11
+                                            text: "保存"
+                                            visible: currentDevice && currentDevice.status === 1
+
+                                            background: Rectangle {
+                                                border.color: "#a6e3a1"; border.width: 1
+                                                color: parent.hovered ? (root.isDark ? "#3b3b4f" : "#f0fdf4") : "transparent"
+                                                implicitHeight: 24; radius: 4
+                                            }
+
+                                            onClicked: {
+                                                if (!currentDevice) return;
+                                                try {
+                                                    var obj = JSON.parse(desiredEditor.text);
+                                                    dataManager.httpClient.updateShadow(currentDevice.id, obj);
+                                                } catch(e) {
+                                                    console.log("Invalid JSON:", e);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillHeight: true; Layout.fillWidth: true
+                                        border.color: root.isDark ? "#45475a" : "#e0e0e0"
+                                        border.width: 1
+                                        color: root.isDark ? "#1e1e2e" : "#f8f9fa"
+                                        radius: 8
+
+                                        ScrollView {
+                                            anchors.fill: parent; anchors.margins: 4; clip: true
+                                            TextArea {
+                                                id: desiredEditor
+                                                color: root.isDark ? "#a6e3a1" : "#2e7d32"
+                                                font.family: "Monaco"; font.pixelSize: 12
+                                                wrapMode: TextArea.Wrap
+                                                text: shadowDesiredText
+                                                background: Rectangle { color: "transparent" }
+                                                selectByMouse: true
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -292,10 +348,10 @@ Rectangle {
                             ListView {
                                 anchors.fill: parent
                                 clip: true
-                                model: alarmListModel
+                                model: alarmModel
 
                                 header: RowLayout {
-                                    width: parent.width
+                                    width: ListView.view ? ListView.view.width : 0
                                     height: 28
                                     spacing: 8
 
@@ -308,7 +364,7 @@ Rectangle {
                                 }
 
                                 delegate: Rectangle {
-                                    width: parent.width; height: 36
+                                    width: ListView.view.width; height: 36
                                     color: "transparent"
 
                                     RowLayout {
@@ -366,38 +422,6 @@ Rectangle {
                                                 var payload = {};
                                                 try { payload = JSON.parse(cmdPayloadField.text || "{}"); } catch(e) {}
                                                 dataManager.httpClient.sendCommand(currentDevice.id, cmdNameField.text, payload);
-                                            }
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true; spacing: 8
-                                    Repeater {
-                                        model: ListModel {
-                                            ListElement { cmd: "fan_on"; name: "开启风扇" }
-                                            ListElement { cmd: "fan_off"; name: "关闭风扇" }
-                                            ListElement { cmd: "set_temp"; name: "设置温度" }
-                                            ListElement { cmd: "reboot"; name: "重启设备"; danger: true }
-                                        }
-                                        Button {
-                                            Layout.fillWidth: true
-                                            text: model.name
-                                            background: Rectangle {
-                                                border.color: model.danger ? "#f38ba8" : (root.isDark ? "#45475a" : "#cbd5e1")
-                                                border.width: 1
-                                                color: parent.hovered ? (root.isDark ? "#3b3b4f" : "#e8edf5") : (root.isDark ? "#1e1e2e" : "#f8f9fa")
-                                                implicitHeight: 36; radius: 8
-                                            }
-                                            contentItem: Label {
-                                                color: model.danger ? "#f38ba8" : (root.isDark ? "#cdd6f4" : "#1e1e2e")
-                                                font.bold: model.danger; font.pixelSize: 12
-                                                horizontalAlignment: Text.AlignHCenter
-                                                text: parent.text
-                                            }
-                                            onClicked: {
-                                                if (currentDevice)
-                                                    dataManager.httpClient.sendCommand(currentDevice.id, model.cmd)
                                             }
                                         }
                                     }
@@ -471,13 +495,13 @@ Rectangle {
                                         model: historyDataModel
 
                                         header: RowLayout {
-                                            width: parent.width; height: 28; spacing: 8
+                                            width: ListView.view ? ListView.view.width : 0; height: 28; spacing: 8
                                             Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; font.bold: true; text: "时间" }
                                             Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; font.bold: true; text: "数值" }
                                         }
 
                                         delegate: Rectangle {
-                                            width: parent.width; height: 28
+                                            width: ListView.view.width; height: 28
                                             color: index % 2 === 0 ? "transparent" : (root.isDark ? "#ffffff08" : "#00000005")
 
                                             RowLayout {
