@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/qml">
         <file>main.qml</file>
+        <file>assets/logo.png</file>
         <file>theme/ThemeManager.qml</file>
         <file>theme/qmldir</file>
         <file>components/NavSidebar.qml</file>

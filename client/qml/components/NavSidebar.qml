@@ -23,25 +23,35 @@ Rectangle {
         // Logo/Title
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 60
+            Layout.preferredHeight: 72
             color: "transparent"
 
-            ColumnLayout {
+            RowLayout {
                 anchors.centerIn: parent
-                spacing: 4
+                spacing: 10
 
-                Label {
-                    Layout.alignment: Qt.AlignHCenter
-                    color: root.isDark ? "#89b4fa" : "#3b82f6"
-                    font.bold: true
-                    font.pixelSize: 24
-                    text: "IoT"
+                Image {
+                    source: "../assets/logo.png"
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 36
+                    fillMode: Image.PreserveAspectFit
+                    mipmap: true
                 }
-                Label {
-                    Layout.alignment: Qt.AlignHCenter
-                    color: root.isDark ? "#a6adc8" : "#666666"
-                    font.pixelSize: 11
-                    text: "Device Manager"
+
+                ColumnLayout {
+                    spacing: 0
+
+                    Label {
+                        color: root.isDark ? "#89b4fa" : "#3b82f6"
+                        font.bold: true
+                        font.pixelSize: 18
+                        text: "IoT Platform"
+                    }
+                    Label {
+                        color: root.isDark ? "#6c7086" : "#999999"
+                        font.pixelSize: 10
+                        text: "Device Manager v2.0"
+                    }
                 }
             }
         }
