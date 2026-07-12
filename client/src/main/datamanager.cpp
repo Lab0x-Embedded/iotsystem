@@ -414,7 +414,4 @@ void DataManager::startAutoRefresh() {
 
 void DataManager::start() {
     m_refreshTimer.start(5000);
-    /* 启动 Mock 数据源（生成模拟设备数据） */
-    m_mock.buildDevices();
-    m_mock.start();
 }

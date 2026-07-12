@@ -1,4 +1,4 @@
-.PHONY: build server db_init register_devices client client-dev simulator clean help
+.PHONY: build server db_init register_devices client client-dev report clean help
 
 # 编译服务端
 build:
@@ -25,9 +25,16 @@ client-dev:
 	@cd client && cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build
 	@client/build/IoTDeviceManager.app/Contents/MacOS/IoTDeviceManager
 
+# 启动 MQTT 模拟上报
+report:
+	@python3 deploy/scripts/mqtt_ss_report.py
+
+report-fast:
+	@python3 deploy/scripts/mqtt_ss_report.py 0.5
+
 # 启动 MQTT 模拟器
 simulator:
-	@python3 deploy/mqtt_simulator.py
+	@python3 deploy/scripts/mqtt_simulator.py
 
 # 清理构建文件
 clean:
@@ -43,6 +50,8 @@ help:
 	@echo "  make client-dev         - 启动 Qt 测试客户端"
 	@echo "  make db_init            - 初始化 MySQL 数据库"
 	@echo "  make register_devices   - 注册测试设备"
+	@echo "  make report             - 启动 MQTT 模拟上报 (2秒/条)"
+	@echo "  make report-fast        - 启动 MQTT 模拟上报 (0.5秒/条)"
 	@echo "  make simulator          - 启动 MQTT 设备模拟器"
 	@echo "  make clean              - 清理构建目录"
 	@echo "  make help               - 查看帮助"
