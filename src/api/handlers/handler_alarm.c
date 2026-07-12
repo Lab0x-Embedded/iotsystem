@@ -50,7 +50,6 @@ void handler_alarm(struct evhttp_request *req, void *ctx) {
             cJSON_AddNumberToObject(r, "currentValue", recs[i].value);
             cJSON_AddNumberToObject(r, "threshold", recs[i].threshold);
             cJSON_AddNumberToObject(r, "severity", (int)recs[i].severity);
-            cJSON_AddStringToObject(r, "message", recs[i].message);
             cJSON_AddNumberToObject(r, "triggeredAt", (double)recs[i].triggered_at);
             cJSON_AddBoolToObject(r, "acknowledged", recs[i].acknowledged);
             cJSON_AddItemToArray(arr, r);

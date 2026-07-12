@@ -56,8 +56,7 @@ public:
         StatusTextRole,
         TimeRole,
         AcknowledgedRole,
-        MessageRole,
-        IdRole,
+            IdRole,
     };
 
     explicit AlarmModel(QObject *parent = nullptr);
@@ -77,13 +76,19 @@ public:
     Q_INVOKABLE void acknowledge(int row);
     Q_INVOKABLE void setDeviceFilter(const QString &deviceId);
     QString deviceFilter() const;
+    Q_INVOKABLE void setSeverityFilter(int severityIndex);
+    int severityFilter() const { return m_severityFilter; }
 
 signals:
     void countsChanged();
 
 private:
+    void rebuildFilter();
+
     QVector<AlarmRecord> m_records;
     QString m_deviceFilter;
+    int m_severityFilter = -1; // -1 = 全部, 0 = Info, 1 = Warning, 2 = Critical
+    QVector<int> m_filteredIndices;
 };
 
 #endif

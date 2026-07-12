@@ -2,16 +2,28 @@
 
 AlarmModel::AlarmModel(QObject *parent) : QAbstractListModel(parent) {}
 
+void AlarmModel::rebuildFilter() {
+    m_filteredIndices.clear();
+    for (int i = 0; i < m_records.size(); ++i) {
+        const auto &rec = m_records[i];
+        if (m_severityFilter >= 0 && static_cast<int>(rec.severity) != m_severityFilter)
+            continue;
+        if (!m_deviceFilter.isEmpty() && rec.deviceId != m_deviceFilter)
+            continue;
+        m_filteredIndices.append(i);
+    }
+}
+
 int AlarmModel::rowCount(const QModelIndex &parent) const {
     Q_UNUSED(parent);
-    return m_records.size();
+    return m_filteredIndices.size();
 }
 
 QVariant AlarmModel::data(const QModelIndex &index, int role) const {
-    if (!index.isValid() || index.row() >= m_records.size())
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_filteredIndices.size())
         return QVariant();
 
-    const AlarmRecord &rec = m_records[index.row()];
+    const AlarmRecord &rec = m_records[m_filteredIndices[index.row()]];
 
     switch (role) {
         case SeverityRole:      return static_cast<int>(rec.severity);
@@ -24,7 +36,6 @@ QVariant AlarmModel::data(const QModelIndex &index, int role) const {
         case StatusTextRole:    return rec.statusText();
         case TimeRole:          return rec.triggeredAt;
         case AcknowledgedRole:  return rec.acknowledged;
-        case MessageRole:       return rec.message;
         case IdRole:            return static_cast<qint64>(rec.id);
         default:                return QVariant();
     }
@@ -42,7 +53,6 @@ QHash<int, QByteArray> AlarmModel::roleNames() const {
     roles[StatusTextRole]   = "statusText";
     roles[TimeRole]         = "triggeredAt";
     roles[AcknowledgedRole] = "acknowledged";
-    roles[MessageRole]      = "message";
     roles[IdRole]           = "id";
     return roles;
 }
@@ -51,12 +61,14 @@ void AlarmModel::addRecord(const AlarmRecord &rec) {
     beginInsertRows(QModelIndex(), m_records.size(), m_records.size());
     m_records.append(rec);
     endInsertRows();
+    rebuildFilter();
     emit countsChanged();
 }
 
 void AlarmModel::setAlarms(const QVector<AlarmRecord> &records) {
     beginResetModel();
     m_records = records;
+    rebuildFilter();
     endResetModel();
     emit countsChanged();
 }
@@ -64,6 +76,7 @@ void AlarmModel::setAlarms(const QVector<AlarmRecord> &records) {
 void AlarmModel::clear() {
     beginResetModel();
     m_records.clear();
+    m_filteredIndices.clear();
     endResetModel();
     emit countsChanged();
 }
@@ -87,10 +100,11 @@ int AlarmModel::unacknowledgedCount() const {
 }
 
 void AlarmModel::acknowledge(int row) {
-    if (row < 0 || row >= m_records.size()) return;
-    if (m_records[row].status == AlarmStatus::Active) {
-        m_records[row].status = AlarmStatus::Acknowledged;
-        m_records[row].acknowledged = true;
+    if (row < 0 || row >= m_filteredIndices.size()) return;
+    int realRow = m_filteredIndices[row];
+    if (m_records[realRow].status == AlarmStatus::Active) {
+        m_records[realRow].status = AlarmStatus::Acknowledged;
+        m_records[realRow].acknowledged = true;
         QModelIndex idx = index(row, 0);
         emit dataChanged(idx, idx, {StatusRole, StatusTextRole, AcknowledgedRole});
         emit countsChanged();
@@ -99,9 +113,20 @@ void AlarmModel::acknowledge(int row) {
 
 void AlarmModel::setDeviceFilter(const QString &deviceId) {
     m_deviceFilter = deviceId;
+    beginResetModel();
+    rebuildFilter();
+    endResetModel();
     emit layoutChanged();
 }
 
 QString AlarmModel::deviceFilter() const {
     return m_deviceFilter;
+}
+
+void AlarmModel::setSeverityFilter(int severityIndex) {
+    if (m_severityFilter == severityIndex) return;
+    m_severityFilter = severityIndex;
+    beginResetModel();
+    rebuildFilter();
+    endResetModel();
 }

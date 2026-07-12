@@ -228,9 +228,8 @@ void DataManager::onAlarmsFetched(const QJsonArray &alarms)
         record.id = obj["id"].toInt();
         record.deviceId = obj["deviceId"].toString();
         record.metric = obj["metric"].toString();
-        record.currentValue = obj["current_value"].toDouble();
+        record.currentValue = obj["currentValue"].toDouble();
         record.threshold = obj["threshold"].toDouble();
-        record.message = obj["message"].toString();
 
         int severity = obj["severity"].toInt(0);
         if (severity == 2)
@@ -249,7 +248,15 @@ void DataManager::onAlarmsFetched(const QJsonArray &alarms)
             record.status = AlarmStatus::Resolved;
 
         record.acknowledged = obj["acknowledged"].toBool(false);
-        record.triggeredAt = obj["triggeredAt"].toString();
+        {
+            double ts = obj["triggeredAt"].toDouble();
+            if (ts > 0) {
+                QDateTime dt = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(ts));
+                record.triggeredAt = dt.toString("yyyy-MM-dd HH:mm:ss");
+            } else {
+                record.triggeredAt = obj["triggeredAt"].toString();
+            }
+        }
         alarmList.append(record);
     }
 
