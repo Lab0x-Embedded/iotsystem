@@ -86,6 +86,36 @@ void handler_alarm(struct evhttp_request *req, void *ctx) {
         char *txt = cJSON_PrintUnformatted(res);
         http_reply_json(req, 200, "OK", txt);
         free(txt); cJSON_Delete(res);
+    } else if (action && strcmp(action->valuestring, "toggle_rule") == 0) {
+        const cJSON *id = cJSON_GetObjectItem(root, "id");
+        if (id) {
+            alarm_toggle_rule((uint64_t)id->valuedouble);
+            http_reply_json(req, 200, "OK", "{\"status\":\"toggled\"}");
+        } else {
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"missing id\"}");
+        }
+    } else if (action && strcmp(action->valuestring, "edit_rule") == 0) {
+        const cJSON *id = cJSON_GetObjectItem(root, "id");
+        const cJSON *did = cJSON_GetObjectItem(root, "device_id");
+        const cJSON *met = cJSON_GetObjectItem(root, "metric");
+        const cJSON *op = cJSON_GetObjectItem(root, "op");
+        const cJSON *thr = cJSON_GetObjectItem(root, "threshold");
+        const cJSON *sev = cJSON_GetObjectItem(root, "severity");
+        if (id && did && met && op && thr && sev) {
+            alarm_edit_rule((uint64_t)id->valuedouble, did->valuestring, met->valuestring,
+                (alarm_compare_t)op->valueint, thr->valuedouble,
+                (alarm_severity_t)sev->valueint);
+            http_reply_json(req, 200, "OK", "{\"status\":\"updated\"}");
+        } else {
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"missing fields\"}");
+        }
+    } else if (action && strcmp(action->valuestring, "delete_rule") == 0) {
+        const cJSON *id = cJSON_GetObjectItem(root, "id");
+        if (id && alarm_delete_rule((uint64_t)id->valuedouble) == 0) {
+            http_reply_json(req, 200, "OK", "{\"status\":\"deleted\"}");
+        } else {
+            http_reply_json(req, 404, "Not Found", "{\"error\":\"rule not found\"}");
+        }
     } else {
         cJSON *res = cJSON_CreateObject();
         cJSON_AddNumberToObject(res, "total", alarm_count());

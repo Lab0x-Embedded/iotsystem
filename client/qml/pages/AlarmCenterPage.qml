@@ -107,7 +107,7 @@ Rectangle {
                             Layout.preferredHeight: 36
                             Layout.preferredWidth: 140
                             Material.foreground: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                            model: ["全部", "CRITICAL", "WARNING", "INFO"]
+                            model: ["INFO", "WARNING", "CRITICAL"]
                         }
                         Item {
                             Layout.fillWidth: true
@@ -320,21 +320,21 @@ Rectangle {
 
                                 // 设备
                                 Label {
-                                    Layout.preferredWidth: 140
+                                    Layout.preferredWidth: 160
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
                                     text: model.deviceId
                                 }
                                 // 指标
                                 Label {
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 120
                                     color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     font.pixelSize: 12
                                     text: model.metric
                                 }
                                 // 条件
                                 Label {
-                                    Layout.preferredWidth: 60
+                                    Layout.preferredWidth: 120
                                     color: root.isDark ? "#89b4fa" : "#4a6fa5"
                                     font.pixelSize: 12
                                     horizontalAlignment: Text.AlignHCenter
@@ -350,7 +350,7 @@ Rectangle {
                                 }
                                 // 级别
                                 Label {
-                                    Layout.preferredWidth: 60
+                                    Layout.preferredWidth: 120
                                     color: model.severity === "严重" ? "#f38ba8" : model.severity === "警告" ? "#fab387" : "#89b4fa"
                                     font.bold: true
                                     font.pixelSize: 12
@@ -359,31 +359,64 @@ Rectangle {
                                 }
                                 // 启用开关
                                 Switch {
-                                    Layout.preferredWidth: 80
+                                    Layout.preferredHeight: 36
+                                    Layout.preferredWidth: 120
                                     checked: model.enabled === "启用"
+                                    scale: 0.5
 
                                     onToggled: {
                                         dataManager.toggleRule(model.id, checked);
                                     }
                                 }
-                                // 编辑按钮
-                                Button {
-                                    Layout.preferredWidth: 60
-                                    Material.background: "#89b4fa"
-                                    Material.foreground: "white"
-                                    font.pixelSize: 11
-                                    text: "编辑"
+                                // 操作按钮
+                                RowLayout {
+                                    spacing: 4
 
-                                    onClicked: {
-                                        addRuleDialog.editingRule = {
-                                            id: model.id,
-                                            deviceId: model.deviceId === "*" ? "" : model.deviceId,
-                                            metric: model.metric,
-                                            op: model.op,
-                                            threshold: model.threshold,
-                                            severity: model.severity
-                                        };
-                                        addRuleDialog.open();
+                                    Button {
+                                        Layout.preferredHeight: 32
+                                        Layout.preferredWidth: 50
+                                        Material.foreground: root.isDark ? "#89b4fa" : "#4a6fa5"
+                                        flat: true
+                                        font.pixelSize: 12
+                                        text: "编辑"
+
+                                        onClicked: {
+                                            var opMap = {
+                                                ">": 0,
+                                                "<": 1,
+                                                "==": 2,
+                                                ">=": 3,
+                                                "<=": 4
+                                            };
+                                            var sevMap = {
+                                                "信息": 0,
+                                                "警告": 1,
+                                                "严重": 2
+                                            };
+                                            addRuleDialog.editingRule = {
+                                                id: model.id,
+                                                deviceId: model.deviceId === "*" ? "" : model.deviceId,
+                                                metric: model.metric,
+                                                opIndex: opMap[model.op] !== undefined ? opMap[model.op] : 0,
+                                                threshold: parseFloat(model.threshold),
+                                                severityIndex: sevMap[model.severity]
+                                            };
+                                            addRuleDialog.open();
+                                        }
+                                    }
+                                    Button {
+                                        Layout.preferredHeight: 32
+                                        Layout.preferredWidth: 50
+                                        Material.foreground: "#f38ba8"
+                                        flat: true
+                                        font.pixelSize: 12
+                                        text: "删除"
+
+                                        onClicked: {
+                                            deleteConfirmDialog.ruleId = model.id;
+                                            deleteConfirmDialog.ruleDesc = (model.deviceId === "*" ? "所有设备" : model.deviceId) + " " + model.metric + " " + model.op + " " + model.threshold;
+                                            deleteConfirmDialog.open();
+                                        }
                                     }
                                 }
                             }
@@ -400,52 +433,52 @@ Rectangle {
                                 spacing: 0
 
                                 Label {
-                                    Layout.preferredWidth: 140
+                                    Layout.fillWidth: true
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     text: "设备"
                                 }
                                 Label {
-                                    Layout.preferredWidth: 100
+                                    Layout.preferredWidth: 120
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     text: "指标"
                                 }
                                 Label {
-                                    Layout.preferredWidth: 60
+                                    Layout.preferredWidth: 120
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     text: "条件"
                                 }
                                 Label {
                                     Layout.preferredWidth: 80
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     text: "阈值"
                                 }
                                 Label {
-                                    Layout.preferredWidth: 60
+                                    Layout.preferredWidth: 120
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     text: "级别"
                                 }
                                 Label {
-                                    Layout.preferredWidth: 80
+                                    Layout.preferredWidth: 120
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     text: "启用"
                                 }
                                 Label {
-                                    Layout.preferredWidth: 60
+                                    Layout.preferredWidth: 140
                                     color: root.isDark ? "#a6adc8" : "#666666"
                                     font.bold: true
-                                    font.pixelSize: 12
+                                    font.pixelSize: 13
                                     text: "操作"
                                 }
                             }
@@ -464,11 +497,36 @@ Rectangle {
     AddAlarmRuleDialog {
         id: addRuleDialog
 
-        property var editingRule: null
-
         isDark: root.isDark
-        width: 420
+        width: 460
         x: (root.width - width) / 2
         y: (root.height - height) / 2
+    }
+
+    // Delete Confirmation Dialog
+    Dialog {
+        id: deleteConfirmDialog
+
+        property string ruleDesc: ""
+        property int ruleId: 0
+
+        closePolicy: Popup.NoAutoClose
+        modal: true
+        standardButtons: Dialog.Yes | Dialog.No
+        title: "确认删除"
+        x: (root.width - width) / 2
+        y: (root.height - height) / 2
+
+        onAccepted: {
+            dataManager.deleteRule(deleteConfirmDialog.ruleId);
+        }
+        onRejected: close()
+
+        Label {
+            color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+            text: "确定要删除规则【" + deleteConfirmDialog.ruleDesc + "】吗？此操作不可撤销。"
+            width: 300
+            wrapMode: Text.Wrap
+        }
     }
 }

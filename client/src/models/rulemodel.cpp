@@ -14,24 +14,26 @@ QVariant RuleModel::data(const QModelIndex &index, int role) const {
     const AlarmRule &r = m_rules[index.row()];
 
     switch (role) {
-        case DeviceRole:    return r.deviceId.isEmpty() ? QStringLiteral("*") : r.deviceId;
-        case MetricRole:    return r.metric;
-        case OpRole:        return r.opText();
-        case ThresholdRole: return QString::number(r.threshold, 'f', 2);
-        case SeverityRole:  return r.severityText();
-        case EnabledRole:   return r.enabled ? QStringLiteral("启用") : QStringLiteral("禁用");
-        default:            return QVariant();
+        case IdRole:       return static_cast<qint64>(r.id);
+        case DeviceRole:   return r.deviceId.isEmpty() ? QStringLiteral("*") : r.deviceId;
+        case MetricRole:   return r.metric;
+        case OpRole:       return r.opText();
+        case ThresholdRole:return QString::number(r.threshold, 'f', 2);
+        case SeverityRole: return r.severityText();
+        case EnabledRole:  return r.enabled ? QStringLiteral("启用") : QStringLiteral("禁用");
+        default:           return QVariant();
     }
 }
 
 QHash<int, QByteArray> RuleModel::roleNames() const {
     QHash<int, QByteArray> roles;
-    roles[DeviceRole]    = "deviceId";
-    roles[MetricRole]    = "metric";
-    roles[OpRole]        = "op";
-    roles[ThresholdRole] = "threshold";
-    roles[SeverityRole]  = "severity";
-    roles[EnabledRole]   = "enabled";
+    roles[IdRole]       = "id";
+    roles[DeviceRole]   = "deviceId";
+    roles[MetricRole]   = "metric";
+    roles[OpRole]       = "op";
+    roles[ThresholdRole]= "threshold";
+    roles[SeverityRole] = "severity";
+    roles[EnabledRole]  = "enabled";
     return roles;
 }
 

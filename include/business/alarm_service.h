@@ -98,6 +98,9 @@ int  alarm_edit_rule(uint64_t rule_id, const char *device_id, const char *metric
                     alarm_compare_t op, double threshold,
                     alarm_severity_t severity);
 
+/** 删除规则; 返回 0 成功. */
+int  alarm_delete_rule(uint64_t rule_id);
+
 #ifdef __cplusplus
 }
 #endif

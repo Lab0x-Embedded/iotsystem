@@ -41,7 +41,8 @@ class RuleModel : public QAbstractListModel {
     Q_OBJECT
 public:
     enum Role {
-        DeviceRole = Qt::UserRole + 1,
+        IdRole = Qt::UserRole + 1,
+        DeviceRole,
         MetricRole,
         OpRole,
         ThresholdRole,

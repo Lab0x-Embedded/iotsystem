@@ -230,3 +230,21 @@ int alarm_edit_rule(uint64_t rule_id, const char *device_id, const char *metric,
     LOG_INFO("alarm_edit_rule id=%llu", (unsigned long long)rule_id);
     return 0;
 }
+
+int alarm_delete_rule(uint64_t rule_id) {
+    if (rule_id == 0) return -1;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return -1;
+    char sql[256];
+    snprintf(sql, sizeof(sql),
+        "DELETE FROM alert_rules WHERE rule_id=%llu",
+        (unsigned long long)rule_id);
+    int rc = db_pool_exec(conn, sql);
+    db_pool_put(conn);
+    if (rc) {
+        LOG_ERROR("alarm_delete_rule failed id=%llu", (unsigned long long)rule_id);
+        return -1;
+    }
+    LOG_INFO("alarm_delete_rule id=%llu", (unsigned long long)rule_id);
+    return 0;
+}

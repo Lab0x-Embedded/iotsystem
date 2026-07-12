@@ -412,3 +412,66 @@ void HttpClient::queryRules() {
         }
     );
 }
+
+void HttpClient::toggleRule(ulong ruleId, bool enabled) {
+    QJsonObject body;
+    body["action"] = "toggle_rule";
+    body["id"] = (double)ruleId;
+    body["enabled"] = enabled ? 1 : 0;
+
+    auto *reply = m_mgr.post(makeRequest("/api/alarm"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit ruleToggled();
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
+        }
+    );
+}
+
+void HttpClient::editRule(ulong ruleId, const QString &deviceId, const QString &metric, int op, double threshold, int severity) {
+    QJsonObject body;
+    body["action"] = "edit_rule";
+    body["id"] = (double)ruleId;
+    body["device_id"] = deviceId;
+    body["metric"] = metric;
+    body["op"] = op;
+    body["threshold"] = threshold;
+    body["severity"] = severity;
+
+    auto *reply = m_mgr.post(makeRequest("/api/alarm"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit ruleEdited();
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
+        }
+    );
+}
+
+void HttpClient::deleteRule(ulong ruleId) {
+    QJsonObject body;
+    body["action"] = "delete_rule";
+    body["id"] = (double)ruleId;
+
+    auto *reply = m_mgr.post(makeRequest("/api/alarm"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit ruleDeleted();
+        },
+        [this](const QString &error) {
+            emit alarmError(error);
+        }
+    );
+}

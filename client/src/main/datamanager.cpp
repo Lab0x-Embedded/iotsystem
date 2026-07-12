@@ -13,6 +13,9 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::deviceOperationError, this, &DataManager::onDeviceOperationError);
     connect(&m_http, &HttpClient::deviceUpdated, this, &DataManager::onDeviceUpdated);
     connect(&m_http, &HttpClient::rulesFetched, this, &DataManager::onRulesFetched);
+    connect(&m_http, &HttpClient::ruleToggled, this, &DataManager::refreshRules);
+    connect(&m_http, &HttpClient::ruleEdited, this, &DataManager::refreshRules);
+    connect(&m_http, &HttpClient::ruleDeleted, this, &DataManager::refreshRules);
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
     connect(&m_http, &HttpClient::groupCreated, this, [this](int id)
             { Q_UNUSED(id); refreshGroups(); });
@@ -300,7 +303,7 @@ void DataManager::onRulesFetched(const QJsonArray &rules)
         AlarmRule r;
 
         r.id = obj["id"].toInt();
-        r.deviceId = obj["device_id"].toString();
+        r.deviceId = obj["deviceId"].toString();
         r.metric = obj["metric"].toString();
 
         int op = obj["op"].toInt();
@@ -324,6 +327,27 @@ void DataManager::onRulesFetched(const QJsonArray &rules)
     }
 
     m_rules.setRules(ruleList);
+}
+
+void DataManager::toggleRule(ulong ruleId, bool enabled)
+{
+    if (m_online) {
+        m_http.toggleRule(ruleId, enabled);
+    }
+}
+
+void DataManager::editRule(ulong ruleId, const QString &deviceId, const QString &metric, int op, double threshold, int severity)
+{
+    if (m_online) {
+        m_http.editRule(ruleId, deviceId, metric, op, threshold, severity);
+    }
+}
+
+void DataManager::deleteRule(ulong ruleId)
+{
+    if (m_online) {
+        m_http.deleteRule(ruleId);
+    }
 }
 
 void DataManager::startAutoRefresh()

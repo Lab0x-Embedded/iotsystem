@@ -42,6 +42,9 @@ public:
     Q_INVOKABLE void refreshGroups();
     Q_INVOKABLE void refreshAlarms();
     Q_INVOKABLE void refreshRules();
+    Q_INVOKABLE void toggleRule(ulong ruleId, bool enabled);
+    Q_INVOKABLE void editRule(ulong ruleId, const QString &deviceId, const QString &metric, int op, double threshold, int severity);
+    Q_INVOKABLE void deleteRule(ulong ruleId);
     Q_INVOKABLE void addAlarmRule(const QString &deviceId, const QString &metric, int op, double threshold, int severity);
     Q_INVOKABLE void updateDeviceGroup(const QString &deviceId, int groupId);
     Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
@@ -57,6 +60,9 @@ signals:
     void dataPointArrived(const QString &deviceId, const QString &metric, double value, qint64 ts);
     void errorOccurred(const QString &error);
     void alarmRuleAdded();
+    void ruleToggled();
+    void ruleEdited();
+    void ruleDeleted();
 
 private slots:
     void onLoginSucceeded(const QString &token, const QString &role);

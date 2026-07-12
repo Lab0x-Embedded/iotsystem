@@ -58,6 +58,9 @@ public:
     Q_INVOKABLE void fetchAlarms(const QString &deviceId = QString());
     Q_INVOKABLE void addAlarmRule(const QString &deviceId, const QString &metric, int op, double threshold, int severity);
     Q_INVOKABLE void queryRules();
+    Q_INVOKABLE void toggleRule(ulong ruleId, bool enabled);
+    Q_INVOKABLE void editRule(ulong ruleId, const QString &deviceId, const QString &metric, int op, double threshold, int severity);
+    Q_INVOKABLE void deleteRule(ulong ruleId);
 signals:
     void serverUrlChanged();
     void connectedChanged();
@@ -97,6 +100,9 @@ signals:
     void alarmError(const QString &error);
     void alarmRuleAdded();
     void rulesFetched(const QJsonArray &rules);
+    void ruleToggled();
+    void ruleEdited();
+    void ruleDeleted();
 
 private:
     QNetworkRequest makeRequest(const QString &path);
