@@ -561,21 +561,13 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                                     char tbl[64];
                                     time_t now = time(NULL);
                                     struct tm *tm_now = localtime(&now);
-                                    snprintf(tbl, sizeof(tbl), "data_records_%04d%02d",
+                                    snprintf(tbl, sizeof(tbl), "data_reports_%04d%02d",
                                              tm_now->tm_year + 1900, tm_now->tm_mon + 1);
 
                                     /* 确保当月表存在 */
                                     char sql[512];
                                     snprintf(sql, sizeof(sql),
-                                        "CREATE TABLE IF NOT EXISTS `%s` ("
-                                        "id BIGINT PRIMARY KEY AUTO_INCREMENT,"
-                                        "device_id VARCHAR(64) NOT NULL,"
-                                        "metric VARCHAR(64) NOT NULL,"
-                                        "value DOUBLE, ts BIGINT NOT NULL,"
-                                        "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-                                        "INDEX idx_ts (device_id, ts),"
-                                        "INDEX idx_mt (metric)"
-                                        ") ENGINE=InnoDB", tbl);
+                                        "CREATE TABLE IF NOT EXISTS `%s` LIKE data_records_template", tbl);
                                     if (db_pool_exec(db, sql) != 0) {
                                         LOG_WARN("CREATE TABLE %s failed (may already exist)", tbl);
                                     }

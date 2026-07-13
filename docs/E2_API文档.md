@@ -61,6 +61,22 @@
 
 ### POST /api/device
 
+#### action: activate — 设备激活（上线）
+
+**请求**:
+```json
+{"action": "activate", "device_id": "dev_001"}
+```
+
+**响应** `200 OK`:
+```json
+{"status": "activated"}
+```
+
+**说明**: 设备上线前需要先调用此接口激活，更新设备状态为在线。
+
+---
+
 #### action: register — 注册设备
 
 **请求**:

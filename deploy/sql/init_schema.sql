@@ -190,9 +190,9 @@ DELIMITER $$
 CREATE PROCEDURE sp_ensure_shard_tables()
 BEGIN
     SET @v_month = DATE_FORMAT(NOW(), '%Y%m');
-    SET @v_table_name = CONCAT('data_', @v_month);
+    SET @v_table_name = CONCAT('data_reports_', @v_month);
     SET @v_next_month = DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 1 MONTH), '%Y%m');
-    SET @v_next_table_name = CONCAT('data_', @v_next_month);
+    SET @v_next_table_name = CONCAT('data_reports_', @v_next_month);
     
     SET @v_sql = CONCAT('CREATE TABLE IF NOT EXISTS `', @v_table_name, 
                        '` LIKE data_records_template');

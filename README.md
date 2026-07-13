@@ -292,7 +292,7 @@ make client
 | 路径 | 操作 |
 |------|------|
 | `POST /api/user` | login |
-| `POST /api/device` | register, query, query_all, update, query_by_group, query_history |
+| `POST /api/device` | activate, register, query, query_all, update, query_by_group, query_history |
 | `POST /api/alarm` | query, acknowledge, resolve, add_rule, query_rules, toggle_rule, edit_rule, delete_rule |
 | `POST /api/shadow` | set_desired, update, delta, (查询) |
 | `POST /api/command` | (直接下发) |

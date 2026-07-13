@@ -12,7 +12,7 @@
 int shard_router_table_by_time(time_t ts, char *out, size_t cap) {
     struct tm tm;
     gmtime_r(&ts, &tm);
-    snprintf(out, cap, "data_%04d%02d", tm.tm_year + 1900, tm.tm_mon + 1);
+    snprintf(out, cap, "data_reports_%04d%02d", tm.tm_year + 1900, tm.tm_mon + 1);
     return 0;
 }
 

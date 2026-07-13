@@ -112,7 +112,7 @@ CALL sp_ensure_shard_tables();
 --    dev_004: 电压 + 电流（每2分钟一条，共30条）
 -- ========================================
 SET @v_month = DATE_FORMAT(NOW(), '%Y%m');
-SET @v_table = CONCAT('data_', @v_month);
+SET @v_table = CONCAT('data_reports_', @v_month);
 SET @v_ts = UNIX_TIMESTAMP() - 3600;
 
 -- dev_001 温度: 22°C → 28°C 缓慢上升

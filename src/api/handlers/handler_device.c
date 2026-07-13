@@ -5,6 +5,7 @@
 #include "business/device_manager.h"
 #include "common/log.h"
 #include <cJSON.h>
+#include <mysql.h>
 #include <stdlib.h>
 #include <string.h>
 #include <event2/buffer.h>
@@ -18,7 +19,59 @@ void handler_device(struct evhttp_request *req, void *ctx) {
     cJSON *root = cJSON_Parse(body);
     const cJSON *action = cJSON_GetObjectItem(root, "action");
 
-    if (action && strcmp(action->valuestring, "register") == 0) {
+    if (action && strcmp(action->valuestring, "activate") == 0) {
+        /* -------- 设备激活（上线) - 校验 device_secret -------- */
+        const cJSON *id = cJSON_GetObjectItem(root, "device_id");
+        const cJSON *secret = cJSON_GetObjectItem(root, "device_secret");
+        if (!id) {
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"missing device_id\"}");
+            free(body); cJSON_Delete(root);
+            return;
+        }
+
+        db_conn_t *conn = db_pool_get();
+        if (!conn) {
+            http_reply_json(req, 500, "Internal Error", "{\"error\":\"no db connection\"}");
+            free(body); cJSON_Delete(root);
+            return;
+        }
+
+        char sql[512];
+        if (secret) {
+            // 携带 device_secret — 验证设备ID和密钥是否匹配
+            snprintf(sql, sizeof(sql),
+                "UPDATE devices SET online=TRUE, last_online=NOW(), status='active' "
+                "WHERE device_id='%s' AND device_secret='%s'",
+                id->valuestring, secret->valuestring);
+        } else {
+            // 不携带 device_secret（兼容旧接口，仅验证设备ID）
+            snprintf(sql, sizeof(sql),
+                "UPDATE devices SET online=TRUE, last_online=NOW(), status='active' "
+                "WHERE device_id='%s'",
+                id->valuestring);
+        }
+
+        int rc = db_pool_exec(conn, sql);
+
+        if (rc == 0) {
+            // 检查是否真的有设备被更新（匹配到了设备ID）
+            MYSQL *mysql = db_pool_get_mysql(conn);
+            if (mysql_affected_rows(mysql) > 0) {
+                // 同步更新内存中的设备管理器
+                device_manager_online(id->valuestring, 60);
+                http_reply_json(req, 200, "OK", "{\"status\":\"activated\"}");
+                LOG_INFO("Device %s activated (secret=%s)", id->valuestring,
+                         secret ? "checked" : "skipped");
+            } else {
+                http_reply_json(req, 404, "Not Found", "{\"error\":\"device not found or secret mismatch\"}");
+                LOG_WARN("Activation failed for device %s: not found or secret mismatch", id->valuestring);
+            }
+        } else {
+            http_reply_json(req, 500, "Internal Error", "{\"error\":\"activate failed\"}");
+        }
+
+        db_pool_put(conn);
+    } else if (action && strcmp(action->valuestring, "register") == 0) {
         const cJSON *id = cJSON_GetObjectItem(root, "device_id");
         const cJSON *name = cJSON_GetObjectItem(root, "name");
         const cJSON *pk = cJSON_GetObjectItem(root, "product_key");
