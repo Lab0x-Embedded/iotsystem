@@ -16,7 +16,7 @@ db_init:
 # 仅建表（不含数据）
 db_schema:
 	@mysql -u root -p < deploy/sql/init_schema.sql
-
+	
 # 仅插入测试数据
 db_data:
 	@mysql -u root -p < deploy/sql/init_data.sql

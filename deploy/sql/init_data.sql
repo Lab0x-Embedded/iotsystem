@@ -27,7 +27,7 @@ ON DUPLICATE KEY UPDATE product_name=product_name;
 -- 3. 设备分组
 -- ========================================
 INSERT INTO device_groups (group_id, parent_id, group_name, description, sort_order) VALUES
-(1, NULL, '全部设备', '根分组', 0),
+(1, NULL, '未分组', '未分组设备', 0),
 (2, 1, '工厂A', '生产基地A', 1),
 (3, 2, '车间1', 'A厂一号车间', 1),
 (4, 2, '车间2', 'A厂二号车间', 2),
@@ -164,14 +164,15 @@ DEALLOCATE PREPARE stmt;
 
 -- ========================================
 -- 10. 插入一些告警记录（用于告警中心测试）
+-- rule_id 对应上面插入的告警规则
 -- ========================================
-INSERT INTO alerts (device_id, metric, current_value, threshold, severity, status) VALUES
-('dev_001', 'temperature', 33.5, 32.0, 'warning', 'active'),
-('dev_001', 'temperature', 39.2, 38.0, 'critical', 'active'),
-('dev_001', 'humidity', 87.3, 85.0, 'warning', 'acknowledged'),
-('dev_003', 'temperature', 31.5, 30.0, 'warning', 'active'),
-('dev_004', 'voltage', 195.2, 200.0, 'critical', 'resolved'),
-('dev_006', 'humidity', 92.1, 90.0, 'warning', 'active');
+INSERT INTO alerts (rule_id, device_id, metric, current_value, threshold, severity, status) VALUES
+(1, 'dev_001', 'temperature', 33.5, 32.0, 'warning', 'active'),
+(2, 'dev_001', 'temperature', 39.2, 38.0, 'critical', 'active'),
+(3, 'dev_001', 'humidity', 87.3, 85.0, 'warning', 'acknowledged'),
+(4, 'dev_003', 'temperature', 31.5, 30.0, 'warning', 'active'),
+(5, 'dev_004', 'voltage', 195.2, 200.0, 'critical', 'resolved'),
+(7, 'dev_006', 'humidity', 92.1, 90.0, 'warning', 'active');
 
 -- 设置已确认告警的确认信息
 UPDATE alerts SET acknowledged_by = 1, acknowledged_at = NOW() - INTERVAL 30 MINUTE 
