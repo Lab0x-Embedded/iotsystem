@@ -8,9 +8,18 @@ build:
 server: build
 	@./build/iot-broker --config deploy/config.json
 
-# 初始化数据库
+# 初始化数据库（表结构 + 测试数据）
 db_init:
-	@mysql -u root -p < deploy/sql/init.sql
+	@mysql -u root -p < deploy/sql/init_schema.sql
+	@mysql -u root -p < deploy/sql/init_data.sql
+
+# 仅建表（不含数据）
+db_schema:
+	@mysql -u root -p < deploy/sql/init_schema.sql
+
+# 仅插入测试数据
+db_data:
+	@mysql -u root -p < deploy/sql/init_data.sql
 
 # 注册测试设备
 register_devices:
@@ -51,7 +60,9 @@ help:
 	@echo "  make server             - 启动服务端"
 	@echo "  make client             - 编译并启动 Qt 客户端"
 	@echo "  make client-dev         - 启动 Qt 测试客户端"
-	@echo "  make db_init            - 初始化 MySQL 数据库"
+	@echo "  make db_init            - 初始化数据库 (表结构+测试数据)"
+	@echo "  make db_schema          - 仅建表 (不含数据)"
+	@echo "  make db_data            - 仅插入测试数据"
 	@echo "  make register_devices   - 注册测试设备"
 	@echo "  make report             - 启动 MQTT 模拟上报 (2秒/条)"
 	@echo "  make report-fast        - 启动 MQTT 模拟上报 (0.5秒/条)"
