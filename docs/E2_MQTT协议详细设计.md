@@ -112,7 +112,7 @@ PUBLISH 收到
   ↓
 ③ 广播到 SSE 客户端 (sse_broadcast_datapoint)
   ↓
-④ 写入 MySQL 分表 (INSERT INTO data_YYYYMM)
+④ 写入 MySQL 分表 (INSERT INTO data_reports_YYYYMM)
   ↓
 ⑤ 更新设备影子 (shadow_update_reported)
 ```

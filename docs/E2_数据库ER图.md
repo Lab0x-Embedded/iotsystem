@@ -260,7 +260,7 @@ INSERT INTO products (product_id, product_key, product_name) VALUES
 | ts | BIGINT | NOT NULL | 时间戳 (Unix) |
 | created_at | DATETIME | DEFAULT NOW() | 创建时间 |
 
-**分表命名**: `data_YYYYMM` (如 `data_202607`)
+**分表命名**: `data_reports_YYYYMM` (如 `data_reports_202607`)
 
 ### 2.9 device_latest_data — 设备最新数据表
 
@@ -296,7 +296,7 @@ INSERT INTO products (product_id, product_key, product_name) VALUES
 
 ```sql
 CALL sp_ensure_shard_tables();
--- 输出: Tables ensured: data_202607, data_202608
+-- 输出: Tables ensured: data_reports_202607, data_reports_202608
 ```
 
 ### 3.2 sp_batch_register_devices — 批量注册设备

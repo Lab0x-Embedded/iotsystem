@@ -4,7 +4,7 @@
  * P5 分表路由 — 按月分表 + device_id 哈希
  *
  * 设计:
- *   - 表名: data_YYYYMM (如 data_202607)
+ *   - 表名: data_reports_YYYYMM (如 data_reports_202607)
  *   - 路由: shard_router_table(device_id, timestamp) -> 表名
  *   - 支持自动建表 (存储过程)
  */
