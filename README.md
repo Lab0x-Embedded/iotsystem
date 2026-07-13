@@ -140,13 +140,11 @@ e2-iot-device-platform/
 ├── deploy/
 │   ├── config.json               # 服务端配置
 │   ├── sql/
-│   │   └── init.sql              # 数据库初始化
+│   │   ├── init_schema.sql       # 表结构 (DDL)
+│   │   ├── init_data.sql         # 测试数据 (DML)
+│   │   └── init.sql              # 入口 (调用上面两个)
 │   └── scripts/
-│       ├── mqtt_ss_report.py     # MQTT 模拟上报 (原生 socket)
-│       ├── mqtt_report.py        # MQTT 模拟上报 (paho-mqtt)
-│       ├── mqtt_simulator.py     # MQTT 设备模拟器
-│       ├── register_devices.py   # 批量注册设备
-│       └── requirements.txt      # Python 依赖
+│       └── e2_report.py          # MQTT 上报测试脚本
 │
 ├── docs/                         # 文档
 │   ├── E2_技术方案文档.md
@@ -224,21 +222,17 @@ make server
 # MQTT: 1883  HTTP: 8080
 ```
 
-### 4. 注册测试设备
-
-```bash
-make register_devices
-```
-
-### 5. 启动 MQTT 模拟上报
+### 4. 启动 MQTT 模拟上报
 
 ```bash
 make report                      # 随机设备，2秒/条
-make report-dev DEV=dev_001      # 指定设备，1秒/条
+make report-dev DEV=dev_001      # 指定设备，2秒/条
 make report-fast                 # 随机设备，0.5秒/条
+make report-alarm                # 触发告警（dev_001 高温）
+make report-scenario             # 全流程场景测试
 ```
 
-### 6. 启动 Qt 客户端
+### 5. 启动 Qt 客户端
 
 ```bash
 make client
@@ -255,12 +249,14 @@ make client
 | `make server` | 启动服务端 |
 | `make client` | 编译并启动 Qt 客户端 |
 | `make client-dev` | 启动 Qt 调试客户端 |
-| `make db_init` | 初始化 MySQL 数据库 |
-| `make register_devices` | 注册测试设备 |
-| `make report` | MQTT 模拟上报 (2秒/条) |
-| `make report-fast` | MQTT 模拟上报 (0.5秒/条) |
+| `make db_init` | 初始化数据库 (表结构+测试数据) |
+| `make db_schema` | 仅建表 (不含数据) |
+| `make db_data` | 仅插入测试数据 |
+| `make report` | MQTT 上报 (随机设备, 2秒/条) |
+| `make report-fast` | MQTT 上报 (随机设备, 0.5秒/条) |
 | `make report-dev DEV=x` | 指定设备上报 |
-| `make simulator` | 启动 MQTT 设备模拟器 |
+| `make report-alarm` | 触发告警 (dev_001 高温) |
+| `make report-scenario` | 全流程场景测试 |
 | `make clean` | 清理构建目录 |
 | `make help` | 查看帮助 |
 

@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+"""
+E2 IoT Platform — 全流程测试脚本
+
+功能:
+  1. MQTT 数据上报（模拟设备接入）
+  2. 多设备并发模拟
+  3. 支持随机上报和指定设备上报
+  4. 触发告警规则（用于演示告警流程）
+
+依赖: 纯 Python 标准库（socket + struct），无需 pip install
+
+用法:
+  python3 e2_report.py                    # 随机设备，2秒/条
+  python3 e2_report.py -d dev_001         # 指定设备
+  python3 e2_report.py -d dev_001 -i 0.5  # 指定设备，0.5秒/条
+  python3 e2_report.py --alarm            # 触发告警（上报异常高值）
+  python3 e2_report.py --scenario full    # 全流程场景测试
+"""
+import argparse
+import json
+import random
+import socket
+import struct
+import sys
+import time
+
+# ────────────────────────────────────────────────────────────────
+# 配置（与 config.json 和 init_data.sql 保持一致）
+# ────────────────────────────────────────────────────────────────
+MQTT_HOST = "127.0.0.1"
+MQTT_PORT = 1883
+MQTT_USER = "pk_test"
+MQTT_PASS = "secret_001"
+
+# 设备列表（与 init_data.sql 保持一致，product_key 用于确定设备类型）
+DEVICES = [
+    {"id": "dev_001", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
+    {"id": "dev_002", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
+    {"id": "dev_003", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
+    {"id": "dev_004", "pk": "smart_meter",    "metrics": ["voltage", "current", "power"]},
+    {"id": "dev_005", "pk": "smart_meter",    "metrics": ["voltage", "current", "power"]},
+    {"id": "dev_006", "pk": "env_monitor",    "metrics": ["temperature", "humidity", "pressure"]},
+    {"id": "dev_007", "pk": "env_monitor",    "metrics": ["temperature", "humidity", "pressure"]},
+    {"id": "dev_008", "pk": "factory_sensor", "metrics": ["temperature"]},
+    {"id": "dev_009", "pk": "smart_meter",    "metrics": ["voltage", "current", "power"]},
+    {"id": "dev_010", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
+]
+
+# 指标基础值和波动范围（用于生成模拟数据）
+METRIC_PROFILES = {
+    "temperature": {"base": 24.0, "range": (-2, 8),  "unit": "°C"},
+    "humidity":    {"base": 60.0, "range": (-10, 20), "unit": "%"},
+    "pressure":    {"base": 101325, "range": (-50, 50), "unit": "Pa"},
+    "voltage":     {"base": 220.0, "range": (-3, 3),  "unit": "V"},
+    "current":     {"base": 10.0,  "range": (-2, 2),  "unit": "A"},
+    "power":       {"base": 2200,  "range": (-50, 50), "unit": "W"},
+}
+
+# ────────────────────────────────────────────────────────────────
+# MQTT 协议实现（原生 socket）
+# ────────────────────────────────────────────────────────────────
+
+def mqtt_connect(sock, client_id, username=MQTT_USER, password=MQTT_PASS):
+    """发送 MQTT CONNECT 包（带认证）"""
+    # Variable header: Protocol Name + Level + Connect Flags + Keep Alive
+    # Protocol Name: MQTT (4 bytes)
+    # Protocol Level: 4 (MQTT 3.1.1)
+    # Connect Flags: 0xC0 = CleanSession + Username + Password
+    # Keep Alive: 60 seconds
+    vh = b"\x00\x04MQTT\x04\xc0\x00\x3C"
+
+    # Payload: Client ID + Username + Password
+    cid = client_id.encode("utf-8")
+    user = username.encode("utf-8")
+    pwd = password.encode("utf-8")
+
+    payload = struct.pack("!H", len(cid)) + cid
+    payload += struct.pack("!H", len(user)) + user
+    payload += struct.pack("!H", len(pwd)) + pwd
+
+    # Fixed Header: Type=1 (CONNECT) + Remaining Length
+    remaining = len(vh) + len(payload)
+    pkt = b"\x10" + _encode_remaining_length(remaining) + vh + payload
+
+    sock.sendall(pkt)
+
+    # 读取 CONNACK (4 bytes)
+    resp = sock.recv(4)
+    if len(resp) >= 4 and resp[1] == 0x02 and resp[3] == 0x00:
+        return True
+    return False
+
+
+def mqtt_publish(sock, topic, payload):
+    """发送 MQTT PUBLISH 包 (QoS 0)"""
+    topic_b = topic.encode("utf-8")
+    data_b = payload.encode("utf-8")
+    remaining = 2 + len(topic_b) + len(data_b)
+
+    # Fixed Header: Type=3 (PUBLISH) + Flags (QoS 0 = 0x00)
+    hdr = b"\x30" + _encode_remaining_length(remaining)
+    pkt = hdr + struct.pack("!H", len(topic_b)) + topic_b + data_b
+    sock.sendall(pkt)
+
+
+def _encode_remaining_length(length):
+    """编码变长剩余长度（1-4 bytes）"""
+    result = bytearray()
+    while True:
+        byte = length % 128
+        length //= 128
+        if length > 0:
+            byte |= 0x80
+        result.append(byte)
+        if length == 0:
+            break
+    return bytes(result)
+
+
+# ────────────────────────────────────────────────────────────────
+# 数据生成
+# ────────────────────────────────────────────────────────────────
+
+def generate_datapoints(device, alarm_mode=False):
+    """
+    生成设备数据点
+    alarm_mode=True 时生成异常值（触发告警）
+    """
+    datapoints = []
+    ts = int(time.time())
+
+    for metric in device["metrics"]:
+        profile = METRIC_PROFILES.get(metric, {"base": 0, "range": (0, 1)})
+
+        if alarm_mode:
+            # 告警模式：生成超过阈值的异常数据
+            if metric == "temperature":
+                value = round(35.0 + random.uniform(0, 5), 1)  # 超过 32°C 阈值
+            elif metric == "humidity":
+                value = round(88.0 + random.uniform(0, 5), 1)  # 超过 85% 阈值
+            elif metric == "voltage":
+                value = round(195.0 + random.uniform(-5, 0), 1)  # 低于 200V 阈值
+            else:
+                value = round(profile["base"] + random.uniform(*profile["range"]), 1)
+        else:
+            value = round(profile["base"] + random.uniform(*profile["range"]), 1)
+
+        datapoints.append({
+            "metric": metric,
+            "value": value,
+            "ts": ts
+        })
+
+    return {"device_id": device["id"], "datapoints": datapoints}
+
+
+# ────────────────────────────────────────────────────────────────
+# 上报循环
+# ────────────────────────────────────────────────────────────────
+
+def run_reporter(device, interval, alarm_mode=False, label=""):
+    """单设备上报循环"""
+    client_id = f"e2_report_{device['id']}"
+
+    while True:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(10)
+            sock.connect((MQTT_HOST, MQTT_PORT))
+
+            if not mqtt_connect(sock, client_id):
+                print(f"  [{label}] MQTT 连接失败，3秒后重连...")
+                sock.close()
+                time.sleep(3)
+                continue
+
+            # print(f"  [{label}] MQTT 已连接")
+
+            while True:
+                data = generate_datapoints(device, alarm_mode)
+                topic = f"devices/{device['id']}/data"
+                payload = json.dumps(data, ensure_ascii=False)
+
+                mqtt_publish(sock, topic, payload)
+
+                # 打印上报信息
+                metrics_str = "  ".join(
+                    f"{dp['metric']}={dp['value']:.1f}"
+                    for dp in data["datapoints"]
+                )
+                alarm_flag = " ⚠️ALARM" if alarm_mode else ""
+                print(f"  [{label}]{alarm_flag} {metrics_str}")
+
+                time.sleep(interval)
+
+        except (ConnectionError, OSError) as e:
+            print(f"  [{label}] 连接断开: {e}，3秒后重连...")
+            time.sleep(3)
+        except KeyboardInterrupt:
+            print(f"\n  [{label}] 已停止")
+            break
+
+
+# ────────────────────────────────────────────────────────────────
+# 场景测试
+# ────────────────────────────────────────────────────────────────
+
+def scenario_full():
+    """
+    全流程场景测试：
+    1. 先随机上报 5 条（正常数据）
+    2. 然后指定 dev_001 触发高温告警
+    3. 最后恢复随机上报
+    """
+    print("=" * 60)
+    print("全流程场景测试")
+    print("=" * 60)
+
+    # Phase 1: 随机上报（正常数据）
+    print("\n📊 Phase 1: 随机上报（正常数据）")
+    print("-" * 40)
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(10)
+    sock.connect((MQTT_HOST, MQTT_PORT))
+
+    if not mqtt_connect(sock, "e2_scenario"):
+        print("MQTT 连接失败")
+        return
+
+    for i in range(5):
+        dev = random.choice(DEVICES)
+        data = generate_datapoints(dev)
+        topic = f"devices/{dev['id']}/data"
+        payload = json.dumps(data, ensure_ascii=False)
+        mqtt_publish(sock, topic, payload)
+        metrics_str = "  ".join(
+            f"{dp['metric']}={dp['value']:.1f}" for dp in data["datapoints"]
+        )
+        print(f"  [{i+1}/5] {dev['id']} {metrics_str}")
+        time.sleep(1)
+    sock.close()
+
+    # Phase 2: 触发告警
+    print("\n🚨 Phase 2: 触发告警（dev_001 高温）")
+    print("-" * 40)
+
+    time.sleep(1)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(10)
+    sock.connect((MQTT_HOST, MQTT_PORT))
+    mqtt_connect(sock, "e2_alarm")
+
+    alarm_dev = next(d for d in DEVICES if d["id"] == "dev_001")
+    for i in range(3):
+        data = generate_datapoints(alarm_dev, alarm_mode=True)
+        topic = f"devices/{alarm_dev['id']}/data"
+        payload = json.dumps(data, ensure_ascii=False)
+        mqtt_publish(sock, topic, payload)
+        temp = next(dp["value"] for dp in data["datapoints"] if dp["metric"] == "temperature")
+        print(f"  [{i+1}/3] dev_001 temperature={temp:.1f}°C ⚠️ALARM")
+        time.sleep(1)
+    sock.close()
+
+    # Phase 3: 恢复随机
+    print("\n✅ Phase 3: 恢复随机上报")
+    print("-" * 40)
+
+    time.sleep(1)
+    try:
+        while True:
+            dev = random.choice(DEVICES)
+            data = generate_datapoints(dev)
+            topic = f"devices/{dev['id']}/data"
+            payload = json.dumps(data, ensure_ascii=False)
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(10)
+            sock.connect((MQTT_HOST, MQTT_PORT))
+            mqtt_connect(sock, "e2_resume")
+            mqtt_publish(sock, topic, payload)
+            sock.close()
+
+            metrics_str = "  ".join(
+                f"{dp['metric']}={dp['value']:.1f}" for dp in data["datapoints"]
+            )
+            print(f"  {dev['id']} {metrics_str}")
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("\n场景测试结束")
+
+
+# ────────────────────────────────────────────────────────────────
+# 主函数
+# ────────────────────────────────────────────────────────────────
+
+def main():
+    p = argparse.ArgumentParser(
+        description="E2 IoT Platform — MQTT 上报测试脚本",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  python3 e2_report.py                        # 随机设备上报
+  python3 e2_report.py -d dev_001              # 指定设备上报
+  python3 e2_report.py -d dev_001 -i 0.5       # 指定设备，0.5秒/条
+  python3 e2_report.py --alarm                 # 触发告警（dev_001 高温）
+  python3 e2_report.py --scenario full         # 全流程场景测试
+        """
+    )
+    p.add_argument("-d", "--device", help="指定设备 ID (如 dev_001)")
+    p.add_argument("-i", "--interval", type=float, default=2.0, help="上报间隔秒数 (默认 2.0)")
+    p.add_argument("--alarm", action="store_true", help="触发告警（上报异常高值）")
+    p.add_argument("--scenario", choices=["full"], help="运行场景测试")
+    args = p.parse_args()
+
+    # 场景模式
+    if args.scenario == "full":
+        scenario_full()
+        return
+
+    # 确定目标设备
+    target_device = None
+    if args.device:
+        for d in DEVICES:
+            if d["id"] == args.device:
+                target_device = d
+                break
+        if not target_device:
+            # 自动创建（用于临时测试）
+            target_device = {"id": args.device, "pk": "factory_sensor", "metrics": ["temperature", "humidity"]}
+            print(f"⚠️  设备 {args.device} 不在 init_data.sql 中，将自动创建")
+
+    print("=" * 50)
+    print("E2 IoT Platform — MQTT 上报测试")
+    print("=" * 50)
+    print(f"  Broker:  {MQTT_HOST}:{MQTT_PORT}")
+    print(f"  认证:    {MQTT_USER}/{MQTT_PASS}")
+
+    if target_device:
+        print(f"  设备:    {target_device['id']} ({target_device['pk']})")
+        print(f"  指标:    {', '.join(target_device['metrics'])}")
+        print(f"  模式:    {'告警' if args.alarm else '正常'}")
+        print(f"  间隔:    {args.interval}秒")
+        print("-" * 50)
+        run_reporter(target_device, args.interval, args.alarm, label=target_device["id"])
+    else:
+        print(f"  设备数:  {len(DEVICES)} (随机)")
+        print(f"  间隔:    {args.interval}秒")
+        print("-" * 50)
+
+        # 随机模式下每个设备一个连接（更真实）
+        import threading
+        threads = []
+        for dev in DEVICES:
+            t = threading.Thread(
+                target=run_reporter,
+                args=(dev, args.interval, False, dev["id"]),
+                daemon=True
+            )
+            t.start()
+            threads.append(t)
+            time.sleep(0.1)  # 错开连接时间
+
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n已停止")
+
+
+if __name__ == "__main__":
+    main()
