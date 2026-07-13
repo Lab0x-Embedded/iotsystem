@@ -3,7 +3,7 @@
 -- 
 -- 数据设计：
 --   产品线: 工厂传感器(factory_sensor) / 智能电表(smart_meter) / 环境监测站(env_monitor)
---   分组: 工厂A(车间1/车间2/车间3) / 工厂B(车间1/仓库) / 研发实验室
+--   分组: 未分组 / 工厂A / 工厂B / 研发实验室（仅一级，无层级）
 --   设备: 10台，每台有唯一 device_id + device_secret，用于 MQTT 认证
 --   告警规则: 绑定到具体设备，触发阈值合理
 --   历史数据: 最近1小时的温度/湿度/电压数据，用于图表展示
@@ -28,18 +28,13 @@ INSERT INTO products (product_id, product_key, product_name, description) VALUES
 ON DUPLICATE KEY UPDATE product_name=product_name;
 
 -- ========================================
--- 3. 设备分组
+-- 3. 设备分组（仅一级分组，无层级结构）
 -- ========================================
 INSERT INTO device_groups (group_id, parent_id, group_name, description, sort_order) VALUES
 (1, NULL, '未分组', '新接入或未分配的设备', 0),
 (2, NULL, '工厂A', '主生产基地', 1),
-(3, 2, '车间1', 'A厂一号车间，温湿度传感器+电表', 1),
-(4, 2, '车间2', 'A厂二号车间，温湿度传感器+电表', 2),
-(5, 2, '车间3', 'A厂三号车间，温湿度传感器', 3),
-(6, NULL, '工厂B', '副生产基地', 2),
-(7, 6, '车间1', 'B厂一号车间', 1),
-(8, 6, '仓库', 'B厂原料仓库，环境监测', 2),
-(9, NULL, '研发实验室', '新设备测试区域', 3)
+(3, NULL, '工厂B', '副生产基地', 2),
+(4, NULL, '研发实验室', '新设备测试区域', 3)
 ON DUPLICATE KEY UPDATE group_name=group_name;
 
 -- ========================================
@@ -61,16 +56,16 @@ ON DUPLICATE KEY UPDATE type_name=type_name;
 --    device_secret 对应 MQTT Broker 硬编码值
 -- ========================================
 INSERT INTO devices (product_key, device_id, device_name, device_type, device_secret, status, online, group_id) VALUES
-('factory_sensor', 'dev_001', '车间1-温湿度-01', 'sensor', 'secret_001', 'active', FALSE, 3),
-('factory_sensor', 'dev_002', '车间1-温湿度-02', 'sensor', 'secret_002', 'active', FALSE, 3),
-('factory_sensor', 'dev_003', '车间2-温湿度-01', 'sensor', 'secret_003', 'active', FALSE, 4),
-('smart_meter',    'dev_004', '车间1-电表-01',   'meter',  'secret_004', 'active', FALSE, 3),
-('smart_meter',    'dev_005', '车间2-电表-01',   'meter',  'secret_005', 'active', FALSE, 4),
-('env_monitor',    'dev_006', '仓库-环境监测-01', 'monitor','secret_006', 'active', FALSE, 8),
-('env_monitor',    'dev_007', '实验室-环境监测-01','monitor','secret_007', 'active', FALSE, 9),
-('factory_sensor', 'dev_008', '车间3-温湿度-01', 'sensor', 'secret_008', 'active', FALSE, 5),
-('smart_meter',    'dev_009', '仓库-电表-01',    'meter',  'secret_009', 'active', FALSE, 8),
-('factory_sensor', 'dev_010', '实验室-温湿度-01', 'sensor', 'secret_010', 'registered', FALSE, 9)
+('factory_sensor', 'dev_001', '工厂A-温湿度-01', 'sensor', 'secret_001', 'active', FALSE, 2),
+('factory_sensor', 'dev_002', '工厂A-温湿度-02', 'sensor', 'secret_002', 'active', FALSE, 2),
+('factory_sensor', 'dev_003', '工厂A-温湿度-03', 'sensor', 'secret_003', 'active', FALSE, 2),
+('smart_meter',    'dev_004', '工厂A-电表-01',   'meter',  'secret_004', 'active', FALSE, 2),
+('smart_meter',    'dev_005', '工厂A-电表-02',   'meter',  'secret_005', 'active', FALSE, 2),
+('env_monitor',    'dev_006', '工厂B-环境监测-01', 'monitor','secret_006', 'active', FALSE, 3),
+('env_monitor',    'dev_007', '实验室-环境监测-01','monitor','secret_007', 'active', FALSE, 4),
+('factory_sensor', 'dev_008', '工厂B-温湿度-01', 'sensor', 'secret_008', 'active', FALSE, 3),
+('smart_meter',    'dev_009', '工厂B-电表-01',    'meter',  'secret_009', 'active', FALSE, 3),
+('factory_sensor', 'dev_010', '实验室-温湿度-01', 'sensor', 'secret_010', 'registered', FALSE, 4)
 ON DUPLICATE KEY UPDATE device_name=device_name;
 
 -- ========================================

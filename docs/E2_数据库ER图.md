@@ -172,7 +172,7 @@ INSERT INTO products (product_id, product_key, product_name) VALUES
 ('PROD003', 'env_monitor', '环境监测站');
 ```
 
-### 2.3 device_groups — 设备分组表
+### 2.3 device_groups — 设备分组表（仅一级，无层级）
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|

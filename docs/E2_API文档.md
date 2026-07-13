@@ -486,11 +486,11 @@
 }
 ```
 
-#### action: create — 创建分组
-
+| action: create | 创建分组（仅一级） |
+| POST `{"action":"create","name":"新分组","description":"描述"}` | `200 {"status":"created","group_id":5}` |
 **请求**:
 ```json
-{"action": "create", "group_name": "新分组", "parent_id": 0, "description": "描述"}
+{"action": "create", "name": "新分组", "description": "描述"}
 ```
 
 **响应** `200 OK`:

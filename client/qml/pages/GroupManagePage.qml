@@ -27,7 +27,7 @@ Rectangle {
 
         onAccepted: {
             if (groupNameField.text && dataManager) {
-                dataManager.httpClient.createGroup(groupNameField.text, 0, groupDescField.text);
+                dataManager.httpClient.createGroup(groupNameField.text, groupDescField.text);
                 groupNameField.text = "";
                 groupDescField.text = "";
             }
@@ -56,15 +56,6 @@ Rectangle {
                 id: groupDescField
 
                 placeholderText: "请输入描述"
-                width: parent.width
-            }
-            Label {
-                text: "上级分组:"
-            }
-            ComboBox {
-                id: parentGroupCombo
-
-                model: groupData ? ["无 (顶级分组)"] : ["无 (顶级分组)"]
                 width: parent.width
             }
         }

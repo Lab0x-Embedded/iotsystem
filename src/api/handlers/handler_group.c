@@ -26,10 +26,10 @@ void handler_group(struct evhttp_request *req, void *ctx) {
             return;
         }
 
-        const char *sql = "SELECT g.group_id, g.parent_id, g.group_name, g.description, "
+        const char *sql = "SELECT g.group_id, g.group_name, g.description, "
                           "(SELECT COUNT(*) FROM devices d WHERE d.group_id = g.group_id) as device_count, "
                           "g.sort_order "
-                          "FROM device_groups g ORDER BY g.sort_order, g.group_id";
+                          "FROM device_groups g WHERE g.parent_id IS NULL ORDER BY g.sort_order, g.group_id";
         
         void *result = db_pool_query(conn, sql);
         if (!result) {
@@ -46,11 +46,10 @@ void handler_group(struct evhttp_request *req, void *ctx) {
         while ((row = mysql_fetch_row(res))) {
             cJSON *item = cJSON_CreateObject();
             cJSON_AddNumberToObject(item, "group_id", atoi(row[0]));
-            cJSON_AddNumberToObject(item, "parent_id", row[1] ? atoi(row[1]) : 0);
-            cJSON_AddStringToObject(item, "group_name", row[2] ? row[2] : "");
-            cJSON_AddStringToObject(item, "description", row[3] ? row[3] : "");
-            cJSON_AddNumberToObject(item, "device_count", row[4] ? atoi(row[4]) : 0);
-            cJSON_AddNumberToObject(item, "sort_order", row[5] ? atoi(row[5]) : 0);
+            cJSON_AddStringToObject(item, "group_name", row[1] ? row[1] : "");
+            cJSON_AddStringToObject(item, "description", row[2] ? row[2] : "");
+            cJSON_AddNumberToObject(item, "device_count", row[3] ? atoi(row[3]) : 0);
+            cJSON_AddNumberToObject(item, "sort_order", row[4] ? atoi(row[4]) : 0);
             cJSON_AddItemToArray(arr, item);
         }
 
@@ -65,9 +64,8 @@ void handler_group(struct evhttp_request *req, void *ctx) {
         free(txt); cJSON_Delete(res_obj);
     }
     else if (action && strcmp(action->valuestring, "create") == 0) {
-        /* -------- 创建分组 -------- */
+        /* -------- 创建分组（仅一级） -------- */
         const cJSON *name = cJSON_GetObjectItem(root, "name");
-        const cJSON *parentId = cJSON_GetObjectItem(root, "parent_id");
         const cJSON *desc = cJSON_GetObjectItem(root, "description");
 
         if (!name) {
@@ -85,9 +83,8 @@ void handler_group(struct evhttp_request *req, void *ctx) {
 
         char sql[512];
         snprintf(sql, sizeof(sql),
-            "INSERT INTO device_groups (group_name, parent_id, description) VALUES ('%s', %d, '%s')",
+            "INSERT INTO device_groups (group_name, description) VALUES ('%s', '%s')",
             name->valuestring,
-            parentId ? parentId->valueint : 0,
             desc ? desc->valuestring : "");
 
         if (db_pool_exec(conn, sql) != 0) {
