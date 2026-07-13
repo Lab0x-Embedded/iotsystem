@@ -25,7 +25,7 @@ int query_history(const query_request_t *req, query_point_t *out, int max_n) {
     // 构建查询SQL
     char sql[512];
     char table_name[64];
-    shard_router_table(req->device_id, (time_t)(req->start_ts / 1000), table_name, sizeof(table_name));
+    shard_router_table(req->device_id, (time_t)req->start_ts, table_name, sizeof(table_name));
     
     snprintf(sql, sizeof(sql),
         "SELECT ts, value FROM %s "
@@ -112,7 +112,7 @@ int query_aggregate(const char *device_id, const char *metric,
     // 构建聚合查询
     char sql[512];
     char table_name[64];
-    shard_router_table(device_id, (time_t)(start_ts / 1000), table_name, sizeof(table_name));
+    shard_router_table(device_id, (time_t)start_ts, table_name, sizeof(table_name));
     
     snprintf(sql, sizeof(sql),
         "SELECT MIN(value), AVG(value), MAX(value) FROM %s "
