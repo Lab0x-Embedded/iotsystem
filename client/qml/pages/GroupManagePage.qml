@@ -6,7 +6,7 @@ import QtQuick.Controls.Material 2.15
 Rectangle {
     id: root
 
-    property var dataManager: null
+    property var groupPageManager: null
     property var deviceData
     property var groupData
     property bool isDark: true
@@ -26,8 +26,8 @@ Rectangle {
         width: 380
 
         onAccepted: {
-            if (groupNameField.text && dataManager) {
-                dataManager.httpClient.createGroup(groupNameField.text, groupDescField.text);
+            if (groupNameField.text && groupPageManager) {
+                groupPageManager.httpClient.createGroup(groupNameField.text, groupDescField.text);
                 groupNameField.text = "";
                 groupDescField.text = "";
             }
@@ -74,8 +74,8 @@ Rectangle {
         width: 380
 
         onAccepted: {
-            if (editGroupNameField.text && dataManager) {
-                dataManager.httpClient.updateGroup(editGroupDialog.currentGroupId, editGroupNameField.text, editGroupDescField.text);
+            if (editGroupNameField.text && groupPageManager) {
+                groupPageManager.httpClient.updateGroup(editGroupDialog.currentGroupId, editGroupNameField.text, editGroupDescField.text);
             }
         }
 
@@ -121,8 +121,8 @@ Rectangle {
         width: 340
 
         onAccepted: {
-            if (dataManager && deleteConfirmDialog.targetGroupId > 0) {
-                dataManager.httpClient.deleteGroup(deleteConfirmDialog.targetGroupId);
+            if (groupPageManager && deleteConfirmDialog.targetGroupId > 0) {
+                groupPageManager.httpClient.deleteGroup(deleteConfirmDialog.targetGroupId);
             }
         }
 
@@ -161,9 +161,9 @@ Rectangle {
         width: 480
 
         onAccepted: {
-            if (dataManager) {
+            if (groupPageManager) {
                 for (var i = 0; i < devicePicker.selectedIds.length; i++) {
-                    dataManager.updateDeviceGroup(devicePicker.selectedIds[i], targetGroupId);
+                    groupPageManager.updateDeviceGroup(devicePicker.selectedIds[i], targetGroupId);
                 }
                 devicePicker.selectedIds = [];
             }
@@ -438,7 +438,8 @@ Rectangle {
                                 spacing: 8
 
                                 Button {
-                                    Material.foreground: "#a6e3a1"
+                                    Material.foreground: model.groupId !== 1 ? "#a6e3a1" : "#585b70"
+                                    enabled: model.groupId !== 1
                                     flat: true
                                     font.pixelSize: 11
                                     text: "详情"
@@ -448,8 +449,8 @@ Rectangle {
                                     }
                                 }
                                 Button {
-                                    Material.foreground: "#89b4fa"
-                                    enabled: true
+                                    Material.foreground: model.groupId !== 1 ? "#89b4fa" : "#585b70"
+                                    enabled: model.groupId !== 1
                                     flat: true
                                     font.pixelSize: 11
                                     text: "编辑"
@@ -462,8 +463,8 @@ Rectangle {
                                     }
                                 }
                                 Button {
-                                    Material.foreground: "#f38ba8"
-                                    enabled: model.deviceCount === 0
+                                    Material.foreground: model.groupId !== 1 ? "#f38ba8" : "#585b70"
+                                    enabled: model.groupId !== 1 && model.deviceCount === 0
                                     flat: true
                                     font.pixelSize: 11
                                     text: "删除"

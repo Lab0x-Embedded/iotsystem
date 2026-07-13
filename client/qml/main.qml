@@ -163,6 +163,7 @@ ApplicationWindow {
             GroupManagePage {
                 id: groupManagePage
                 isDark: root.isDark
+                groupPageManager: dataManager
                 deviceData: deviceModel
                 groupData: groupModel
 
@@ -296,6 +297,26 @@ ApplicationWindow {
                 detailPage.shadowDesiredText = JSON.stringify(shadow.desired || {}, null, 2)
                 detailPage.shadowReportedText = JSON.stringify(shadow.reported || {}, null, 2)
             }
+        }
+    }
+
+    Connections {
+        target: dataManager ? dataManager.httpClient : null
+
+        function onGroupCreated(groupId) {
+            console.log("[Group] created:", groupId)
+            dataManager.refreshGroups()
+        }
+        function onGroupUpdated(groupId) {
+            console.log("[Group] updated:", groupId)
+            dataManager.refreshGroups()
+        }
+        function onGroupDeleted(groupId) {
+            console.log("[Group] deleted:", groupId)
+            dataManager.refreshGroups()
+        }
+        function onGroupOperationError(error) {
+            console.log("[Group] error:", error)
         }
     }
 }

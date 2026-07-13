@@ -207,11 +207,10 @@ void HttpClient::fetchGroups() {
     );
 }
 
-void HttpClient::createGroup(const QString &name, int parentId, const QString &description) {
+void HttpClient::createGroup(const QString &name, const QString &description) {
     QJsonObject body;
     body["action"] = "create";
     body["name"] = name;
-    body["parent_id"] = parentId;
     body["description"] = description;
 
     auto *reply = m_mgr.post(makeRequest("/api/group"),

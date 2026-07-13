@@ -42,7 +42,7 @@ public:
 
     // 分组管理
     Q_INVOKABLE void fetchGroups();
-    Q_INVOKABLE void createGroup(const QString &name, int parentId, const QString &description);
+    Q_INVOKABLE void createGroup(const QString &name, const QString &description);
     Q_INVOKABLE void updateGroup(int groupId, const QString &name, const QString &description);
     Q_INVOKABLE void deleteGroup(int groupId);
 
