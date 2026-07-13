@@ -9,90 +9,124 @@
 
 ## 1. ER 图
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│    users     │     │   products   │     │ device_groups │
-├──────────────┤     ├──────────────┤     ├──────────────┤
-│ id (PK)      │     │ id (PK)      │     │ group_id (PK)│
-│ username      │     │ product_id   │     │ parent_id (FK)│
-│ password_hash │     │ product_key  │     │ group_name   │
-│ display_name  │     │ product_name │     │ description  │
-│ role          │     │ description  │     │ sort_order   │
-│ status        │     │ created_at   │     │ created_at   │
-└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
-       │                    │                     │
-       │                    │ FK: product_key      │ FK: group_id
-       │                    ▼                     ▼
-       │            ┌──────────────────────────────────┐
-       │            │            devices               │
-       │            ├──────────────────────────────────┤
-       │            │ id (PK)                          │
-       │            │ product_key (FK → products)      │
-       │            │ device_id (UNIQUE)               │
-       │            │ device_name                      │
-       │            │ device_type                      │
-       │            │ device_secret                    │
-       │            │ status                           │
-       │            │ online                           │
-       │            │ group_id (FK → device_groups)    │
-       │            │ last_online                      │
-       │            │ report_count                     │
-       │            └──────────────┬───────────────────┘
-       │                           │
-       │            ┌──────────────┼──────────────┐
-       │            │              │              │
-       │            ▼              ▼              ▼
-       │   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-       │   │device_shadows│ │  alerts      │ │ data_YYYYMM  │
-       │   ├──────────────┤ ├──────────────┤ ├──────────────┤
-       │   │ id (PK)      │ │ id (PK)      │ │ id (PK)      │
-       │   │ product_key  │ │ rule_id (FK) │ │ device_id    │
-       │   │ device_id(FK)│ │ device_id(FK)│ │ metric       │
-       │   │ desired (JSON)│ │ metric       │ │ value        │
-       │   │ reported(JSON)│ │ current_value│ │ ts           │
-       │   │ delta (JSON) │ │ threshold    │ │ created_at   │
-       │   │ version      │ │ severity     │ └──────────────┘
-       │   └──────────────┘ │ status       │
-       │                    │ acknowledged_by(FK→users)│
-       │                    │ acknowledged_at│
-       │                    │ resolved_by(FK→users)│
-       │                    │ resolved_at   │
-       │                    └──────────────┘
-       │
-       │   ┌──────────────┐
-       │   │ alert_rules  │
-       │   ├──────────────┤
-       │   │ rule_id (PK) │
-       │   │ rule_name    │
-       │   │ product_key  │
-       │   │ device_id    │
-       │   │ metric       │
-       │   │ condition_type│
-       │   │ threshold    │
-       │   │ severity     │
-       │   │ enabled      │
-       │   └──────────────┘
-       │
-       │   ┌──────────────┐
-       │   │ device_latest│
-       │   │    _data     │
-       │   ├──────────────┤
-       │   │ id (PK)      │
-       │   │ device_id(FK)│
-       │   │ metric       │
-       │   │ value        │
-       │   │ ts           │
-       │   └──────────────┘
-       │
-       │   ┌──────────────┐
-       │   │device_events │
-       │   ├──────────────┤
-       │   │ id (PK)      │
-       │   │ product_key  │
-       │   │ device_id(FK)│
-       │   │ event_type   │
-       │   │ event_data   │
-       │   └──────────────┘
+```mermaid
+erDiagram
+    users {
+        int id PK
+        varchar username UK
+        varchar password_hash
+        varchar display_name
+        enum role
+        enum status
+        datetime last_login
+    }
+
+    products {
+        int id PK
+        varchar product_id UK
+        varchar product_key UK
+        varchar product_name
+        text description
+    }
+
+    device_groups {
+        int group_id PK
+        int parent_id FK
+        varchar group_name
+        text description
+        int sort_order
+    }
+
+    devices {
+        int id PK
+        varchar product_key FK
+        varchar device_id UK
+        varchar device_name
+        varchar device_type
+        varchar device_secret
+        enum status
+        boolean online
+        int group_id FK
+        int report_count
+    }
+
+    device_shadows {
+        int id PK
+        varchar product_key
+        varchar device_id FK
+        json desired
+        json reported
+        json delta
+        int version
+    }
+
+    alert_rules {
+        int rule_id PK
+        varchar rule_name
+        varchar device_id
+        varchar metric
+        enum condition_type
+        double threshold
+        enum severity
+        boolean enabled
+    }
+
+    alerts {
+        int id PK
+        int rule_id FK
+        varchar device_id FK
+        varchar metric
+        double current_value
+        double threshold
+        enum severity
+        enum status
+        int acknowledged_by FK
+        datetime acknowledged_at
+        int resolved_by FK
+        datetime resolved_at
+    }
+
+    data_records_template {
+        bigint id PK
+        varchar device_id
+        varchar metric
+        double value
+        bigint ts
+    }
+
+    device_latest_data {
+        int id PK
+        varchar device_id FK
+        varchar metric
+        double value
+        bigint ts
+    }
+
+    device_events {
+        bigint id PK
+        varchar product_key
+        varchar device_id FK
+        varchar event_type
+        json event_data
+    }
+
+    data_types {
+        int id PK
+        varchar type_name UK
+        varchar unit
+        text description
+    }
+
+    products ||--o{ devices : "product_key"
+    device_groups ||--o{ devices : "group_id"
+    devices ||--o{ device_shadows : "device_id"
+    devices ||--o{ alerts : "device_id"
+    devices ||--o{ data_records_template : "device_id"
+    devices ||--o| device_latest_data : "device_id"
+    devices ||--o{ device_events : "device_id"
+    alert_rules ||--o{ alerts : "rule_id"
+    users ||--o{ alerts : "acknowledged_by"
+    users ||--o{ alerts : "resolved_by"
 ```
 
 ---
