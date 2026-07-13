@@ -11,6 +11,7 @@
 #include <event2/http.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
+#include <event2/event.h>
 #include <event2/keyvalq_struct.h>
 
 #include <string.h>
@@ -41,16 +42,19 @@ static void sse_send_to_client(sse_client_t *c, const char *event, const char *d
     evhttp_send_reply_chunk(c->req, buf);
     evbuffer_free(buf);
 
-    /* TCP_NODELAY 减少延迟 */
+    /* 立即刷新到 TCP */
     struct evhttp_connection *conn = evhttp_request_get_connection(c->req);
     if (conn) {
         struct bufferevent *bev = evhttp_connection_get_bufferevent(conn);
         if (bev) {
+            /* TCP_NODELAY */
             evutil_socket_t fd = bufferevent_getfd(bev);
             if (fd >= 0) {
                 int flag = 1;
                 setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
             }
+            /* 刷新 libevent 输出缓冲区 → 立即发送 */
+            bufferevent_flush(bev, EV_WRITE, BEV_NORMAL);
         }
     }
 }

@@ -177,7 +177,7 @@ ApplicationWindow {
                 id: detailPage
                 isDark: root.isDark
             }
-            
+
             // 3: 数据面板
             DashboardPage {
                 id: dashboardPage

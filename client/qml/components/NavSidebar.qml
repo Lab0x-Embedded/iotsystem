@@ -119,11 +119,12 @@ Rectangle {
                         idx: 1
                         name: "分组管理"
                     }
-                    ListElement {
-                        icon: "📈"
-                        idx: 3
-                        name: "数据面板"
-                    }
+                    // TODO: 数据面板功能待完善，暂时隐藏
+                    // ListElement {
+                    //     icon: "📈"
+                    //     idx: 3
+                    //     name: "数据面板"
+                    // }
                     ListElement {
                         icon: "🔔"
                         idx: 4

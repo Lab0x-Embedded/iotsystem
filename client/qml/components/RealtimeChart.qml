@@ -1,31 +1,55 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick.Layouts 2.15
 
 Rectangle {
     id: root
 
-    property var dataPoints: []
     property bool isDark: true
     property int maxPoints: 60
     property bool hasData: false
 
+    // 按指标分组的数据 { "temperature": [{value, timestamp}, ...], "humidity": [...] }
+    property var metricData: ({})
+
+    // 指标颜色映射
+    property var metricColors: ({
+        "temperature": "#f38ba8",
+        "humidity": "#89b4fa",
+        "pressure": "#a6e3a1",
+        "voltage": "#fab387",
+        "current": "#f9e2af",
+        "power": "#cba6f7",
+        "energy": "#94e2d5"
+    })
+
+    // 指标中文名
+    property var metricLabels: ({
+        "temperature": "温度 °C",
+        "humidity": "湿度 %",
+        "pressure": "气压 Pa",
+        "voltage": "电压 V",
+        "current": "电流 A",
+        "power": "功率 W",
+        "energy": "电能 kWh"
+    })
+
     function addDataPoint(metric, value, timestamp) {
-        var point = {
-            "metric": metric,
-            "value": value,
-            "timestamp": timestamp
-        };
-        dataPoints.push(point);
-        if (dataPoints.length > maxPoints) {
-            dataPoints.shift();
+        if (!metricData[metric]) {
+            metricData[metric] = [];
         }
+        var arr = metricData[metric];
+        arr.push({"value": value, "timestamp": timestamp});
+        if (arr.length > maxPoints) {
+            arr.shift();
+        }
+        metricData[metric] = arr;  // 触发绑定更新
         hasData = true;
         canvas.requestPaint();
     }
 
     function clearData() {
-        dataPoints = [];
+        metricData = {};
         hasData = false;
         canvas.requestPaint();
     }
@@ -34,87 +58,103 @@ Rectangle {
 
     Canvas {
         id: canvas
-
         anchors.fill: parent
 
         onPaint: {
             var ctx = getContext("2d");
             ctx.reset();
 
-            if (dataPoints.length < 2)
-                return;
+            var keys = Object.keys(metricData);
+            if (keys.length === 0) return;
 
             var width = canvas.width;
             var height = canvas.height;
-            var padding = 40;
+            var padding = 50;
+            var legendH = 20;
+            var chartH = height - padding * 2 - legendH;
 
-            // Find min/max values
-            var minVal = Infinity;
-            var maxVal = -Infinity;
-            for (var i = 0; i < dataPoints.length; i++) {
-                if (dataPoints[i].value < minVal)
-                    minVal = dataPoints[i].value;
-                if (dataPoints[i].value > maxVal)
-                    maxVal = dataPoints[i].value;
+            // 收集所有指标的 min/max
+            var globalMin = Infinity;
+            var globalMax = -Infinity;
+            for (var k = 0; k < keys.length; k++) {
+                var arr = metricData[keys[k]];
+                for (var i = 0; i < arr.length; i++) {
+                    if (arr[i].value < globalMin) globalMin = arr[i].value;
+                    if (arr[i].value > globalMax) globalMax = arr[i].value;
+                }
             }
+            var range = globalMax - globalMin;
+            if (range === 0) range = 1;
 
-            var range = maxVal - minVal;
-            if (range === 0)
-                range = 1;
-
-            // Draw grid
+            // 绘制网格
             ctx.strokeStyle = root.isDark ? "#45475a" : "#e0e0e0";
             ctx.lineWidth = 1;
-            ctx.setLineDash([5, 5]);
-
-            for (var i = 0; i < 5; i++) {
-                var y = padding + (height - 2 * padding) * i / 4;
+            ctx.setLineDash([3, 3]);
+            for (var i = 0; i <= 4; i++) {
+                var y = padding + chartH * i / 4;
                 ctx.beginPath();
                 ctx.moveTo(padding, y);
                 ctx.lineTo(width - padding, y);
                 ctx.stroke();
-            }
 
+                // Y 轴标签
+                var val = globalMax - (range * i / 4);
+                ctx.fillStyle = root.isDark ? "#a6adc8" : "#666666";
+                ctx.font = "10px sans-serif";
+                ctx.textAlign = "right";
+                ctx.fillText(val.toFixed(1), padding - 5, y + 4);
+            }
             ctx.setLineDash([]);
 
-            // Draw line
-            ctx.beginPath();
-            ctx.strokeStyle = "#89b4fa";
-            ctx.lineWidth = 2;
+            // 绘制每个指标的折线
+            for (var k = 0; k < keys.length; k++) {
+                var metric = keys[k];
+                var arr = metricData[metric];
+                if (arr.length < 2) continue;
 
-            for (var i = 0; i < dataPoints.length; i++) {
-                var x = padding + (width - 2 * padding) * i / (dataPoints.length - 1);
-                var y = height - padding - (height - 2 * padding) * (dataPoints[i].value - minVal) / range;
+                var color = metricColors[metric] || "#89b4fa";
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
 
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
+                for (var i = 0; i < arr.length; i++) {
+                    var x = padding + (width - 2 * padding) * i / (arr.length - 1);
+                    var y = padding + chartH * (1 - (arr[i].value - globalMin) / range);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+
+                // 绘制数据点
+                ctx.fillStyle = color;
+                for (var i = 0; i < arr.length; i++) {
+                    var x = padding + (width - 2 * padding) * i / (arr.length - 1);
+                    var y = padding + chartH * (1 - (arr[i].value - globalMin) / range);
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
                 }
             }
 
-            ctx.stroke();
+            // 绘制图例
+            var legendX = padding;
+            var legendY = height - 15;
+            ctx.font = "11px sans-serif";
+            for (var k = 0; k < keys.length; k++) {
+                var metric = keys[k];
+                var color = metricColors[metric] || "#89b4fa";
+                var label = metricLabels[metric] || metric;
 
-            // Draw points
-            for (var i = 0; i < dataPoints.length; i++) {
-                var x = padding + (width - 2 * padding) * i / (dataPoints.length - 1);
-                var y = height - padding - (height - 2 * padding) * (dataPoints[i].value - minVal) / range;
+                // 色块
+                ctx.fillStyle = color;
+                ctx.fillRect(legendX, legendY - 8, 12, 3);
 
-                ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
-                ctx.fillStyle = "#89b4fa";
-                ctx.fill();
-            }
+                // 文字
+                ctx.fillStyle = root.isDark ? "#cdd6f4" : "#1e1e2e";
+                ctx.textAlign = "left";
+                ctx.fillText(label, legendX + 16, legendY);
 
-            // Draw labels
-            ctx.fillStyle = root.isDark ? "#a6adc8" : "#666666";
-            ctx.font = "10px sans-serif";
-            ctx.textAlign = "right";
-
-            for (var i = 0; i < 5; i++) {
-                var val = maxVal - (range * i / 4);
-                var y = padding + (height - 2 * padding) * i / 4;
-                ctx.fillText(val.toFixed(1), padding - 8, y + 4);
+                legendX += ctx.measureText(label).width + 36;
             }
         }
     }
