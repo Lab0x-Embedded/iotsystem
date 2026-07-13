@@ -482,7 +482,8 @@ Rectangle {
                                     Item { Layout.fillWidth: true }
                                     Button {
                                         Material.background: "#89b4fa"
-                                        Material.foreground: "white"
+                                        Material.foreground: "#1e1e2e"
+                                        font.bold: true
                                         text: "查询"
                                         onClicked: {
                                             if (currentDevice) {
@@ -499,38 +500,99 @@ Rectangle {
                                     Layout.fillWidth: true; Layout.fillHeight: true
                                     border.color: root.isDark ? "#45475a" : "#e0e0e0"
                                     border.width: 1
-                                    color: root.isDark ? "#1e1e2e" : "#f8f9fa"
-                                    radius: 8
+                                    color: root.isDark ? "#1e1e2e" : "#ffffff"
+                                    radius: 10
 
                                     ListView {
                                         id: historyList
-                                        anchors.fill: parent; anchors.margins: 8
+                                        anchors.fill: parent; anchors.margins: 1
                                         clip: true
                                         model: historyDataModel
 
-                                        header: RowLayout {
-                                            width: ListView.view ? ListView.view.width : 0; height: 28; spacing: 8
-                                            Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; font.bold: true; text: "时间" }
-                                            Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; font.bold: true; text: "数值" }
-                                        }
-
-                                        delegate: Rectangle {
-                                            width: ListView.view.width; height: 28
-                                            color: index % 2 === 0 ? "transparent" : (root.isDark ? "#ffffff08" : "#00000005")
+                                        header: Rectangle {
+                                            width: ListView.view ? ListView.view.width : 0
+                                            height: 36
+                                            color: root.isDark ? "#313244" : "#f0f0f5"
+                                            radius: 10
 
                                             RowLayout {
-                                                anchors.fill: parent; spacing: 8
-                                                Label { Layout.fillWidth: true; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.time }
-                                                Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6e3a1" : "#2e7d32"; font.pixelSize: 11; text: model.value.toFixed(2) }
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 16; anchors.rightMargin: 16
+                                                spacing: 8
+
+                                                Label { Layout.preferredWidth: 40; color: root.isDark ? "#585b70" : "#999"; font.pixelSize: 11; font.bold: true; text: "#" }
+                                                Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; font.bold: true; text: "时间" }
+                                                Label { Layout.preferredWidth: 120; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; font.bold: true; text: "数值"; horizontalAlignment: Text.AlignRight }
                                             }
                                         }
 
-                                        Label {
+                                        delegate: Rectangle {
+                                            width: ListView.view.width; height: 36
+                                            color: index % 2 === 0
+                                                   ? (root.isDark ? "#1e1e2e" : "#ffffff")
+                                                   : (root.isDark ? "#252536" : "#f8f8fc")
+                                            radius: 0
+
+                                            // 底部分隔线
+                                            Rectangle {
+                                                anchors.bottom: parent.bottom
+                                                anchors.left: parent.left; anchors.leftMargin: 16
+                                                anchors.right: parent.right; anchors.rightMargin: 16
+                                                height: 1
+                                                color: root.isDark ? "#ffffff0a" : "#00000008"
+                                            }
+
+                                            RowLayout {
+                                                anchors.fill: parent; spacing: 8
+                                                anchors.leftMargin: 16; anchors.rightMargin: 16
+
+                                                Label {
+                                                    Layout.preferredWidth: 40
+                                                    color: root.isDark ? "#585b70" : "#aaa"
+                                                    font.pixelSize: 11
+                                                    text: (index + 1)
+                                                }
+                                                Label {
+                                                    Layout.fillWidth: true
+                                                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                                                    font.pixelSize: 12
+                                                    text: model.time
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 120
+                                                    height: 24
+                                                    radius: 4
+                                                    color: root.isDark ? "#a6e3a120" : "#16a34a15"
+
+                                                    Label {
+                                                        anchors.centerIn: parent
+                                                        color: root.isDark ? "#a6e3a1" : "#16a34a"
+                                                        font.pixelSize: 12
+                                                        font.bold: true
+                                                        text: model.value.toFixed(2)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // 空状态
+                                        Column {
                                             anchors.centerIn: parent
                                             visible: historyDataModel.count === 0
-                                            color: root.isDark ? "#a6adc8" : "#666"
-                                            font.pixelSize: 12
-                                            text: "点击查询获取历史数据"
+                                            spacing: 8
+
+                                            Label {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                color: root.isDark ? "#585b70" : "#bbb"
+                                                font.pixelSize: 28
+                                                text: "📊"
+                                            }
+                                            Label {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                color: root.isDark ? "#585b70" : "#999"
+                                                font.pixelSize: 13
+                                                text: "点击查询获取历史数据"
+                                            }
                                         }
                                     }
                                 }
