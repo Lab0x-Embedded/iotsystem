@@ -91,7 +91,7 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            spacing: 16
+            spacing: 30
 
             TextField {
                 id: serverUrlField
