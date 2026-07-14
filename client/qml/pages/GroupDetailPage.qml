@@ -237,7 +237,7 @@ Rectangle {
             }
             RoundedButton {
                 Material.background: "#3874F7"
-                Material.foreground: "#1e1e2e"
+                Material.foreground: "#ffffff"
                 text: "+ 添加设备"
 
                 onClicked: addDeviceDialog.open()
