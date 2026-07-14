@@ -439,7 +439,7 @@ Rectangle {
                                 spacing: 8
 
                                 Button {
-                                    Material.foreground: model.groupId !== 1 ? "#4CAF50" : "#585b70"
+                                    Material.foreground: model.groupId !== 1 ? "#3874F7" : "#585b70"
                                     enabled: model.groupId !== 1
                                     flat: true
                                     font.pixelSize: 11
@@ -464,7 +464,7 @@ Rectangle {
                                     }
                                 }
                                 Button {
-                                    Material.foreground: model.groupId !== 1 ? "#f38ba8" : "#585b70"
+                                    Material.foreground: model.groupId !== 1 ? "#3874F7" : "#585b70"
                                     enabled: model.groupId !== 1 && model.deviceCount === 0
                                     flat: true
                                     font.pixelSize: 11

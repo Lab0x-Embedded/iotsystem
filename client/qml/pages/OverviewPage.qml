@@ -7,9 +7,9 @@ import "../components"
 Rectangle {
     id: root
 
-    property var overPageManager: null
     property var deviceData: null
     property bool isDark: true
+    property var overPageManager: null
 
     signal deviceSelected(string deviceId)
 
@@ -173,13 +173,13 @@ Rectangle {
                                 }
                                 SelectableLabel {
                                     Layout.preferredWidth: 200
-                                    textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     text: model.deviceId || ""
+                                    textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                 }
                                 SelectableLabel {
                                     Layout.preferredWidth: 200
-                                    textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     text: model.deviceName || "-"
+                                    textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                 }
                                 Label {
                                     Layout.preferredWidth: 80
@@ -189,40 +189,16 @@ Rectangle {
                                 }
                                 SelectableLabel {
                                     Layout.fillWidth: true
-                                    textColor: root.isDark ? "#a6adc8" : "#666666"
                                     text: model.lastSeen || ""
+                                    textColor: root.isDark ? "#a6adc8" : "#666666"
                                 }
                                 Button {
-                                    Layout.preferredHeight: 28
-                                    Layout.preferredWidth: 56
+                                    Material.foreground: "#3874F7"
                                     flat: true
                                     font.pixelSize: 11
-                                    hoverEnabled: true
                                     text: "详情"
 
-                                    background: Rectangle {
-                                        border.color: "#3874F7"
-                                        border.width: 1
-                                        color: parent.hovered ? (root.isDark ? "#45475a" : "#dbeafe") : "transparent"
-                                        radius: 6
-                                    }
-                                    contentItem: Label {
-                                        color: "#3874F7"
-                                        font: parent.font
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: parent.text
-                                        verticalAlignment: Text.AlignVCenter
-                                    }
-
                                     onClicked: root.deviceSelected(model.deviceId || "")
-
-                                    // 新增 MouseArea 来接管鼠标光标形状
-                                    MouseArea {
-                                        acceptedButtons: Qt.NoButton // 关键：不拦截鼠标点击，让点击事件正常传递给 Button
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        hoverEnabled: true // 必须开启，否则光标不会在悬停时改变
-                                    }
                                 }
                             }
                         }
