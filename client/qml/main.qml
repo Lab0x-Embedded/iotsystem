@@ -21,7 +21,7 @@ ApplicationWindow {
     property color sidebarBg: isDark ? "#181825" : "#ffffff"
     property color cardBg: isDark ? "#313244" : "#ffffff"
     property color textColor: isDark ? "#cdd6f4" : "#1e1e2e"
-    property color accentColor: "#89b4fa"
+    property color accentColor: "#3874F7"
     
     Material.theme: isDark ? Material.Dark : Material.Light
     Material.accent: accentColor

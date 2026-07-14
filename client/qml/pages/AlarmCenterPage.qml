@@ -150,6 +150,23 @@ Rectangle {
                                 }
                             }
                         }
+                        Label {
+                            color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                            font.pixelSize: 13
+                            text: "设备ID:"
+                        }
+                        TextField {
+                            id: deviceIdFilter
+                            Layout.preferredWidth: 160
+                            Layout.preferredHeight: 36
+                            placeholderText: "输入设备ID筛选"
+                            font.pixelSize: 12
+                            color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                            onTextChanged: {
+                                if (alarmListModel)
+                                    alarmListModel.setDeviceFilter(text.trim());
+                            }
+                        }
                         Item {
                             Layout.fillWidth: true
                         }
@@ -160,7 +177,7 @@ Rectangle {
                             visible: root.selectedCount() > 0
                         }
                         Button {
-                            Material.background: "#89b4fa"
+                            Material.background: "#3874F7"
                             Material.foreground: "white"
                             enabled: root.selectedCount() > 0
                             text: "确认选中"
@@ -420,7 +437,7 @@ Rectangle {
 
                                     // 设备
                                     Label {
-                                        Layout.minimumWidth: 180
+                                        Layout.minimumWidth: 1
                                         Layout.preferredWidth: 180
                                         color: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                         elide: Text.ElideRight
@@ -437,7 +454,7 @@ Rectangle {
                                     // 条件
                                     Label {
                                         Layout.preferredWidth: 120
-                                        color: root.isDark ? "#89b4fa" : "#4a6fa5"
+                                        color: root.isDark ? "#3874F7" : "#4a6fa5"
                                         font.pixelSize: 12
                                         horizontalAlignment: Text.AlignHCenter
                                         text: model.op
@@ -453,7 +470,7 @@ Rectangle {
                                     // 级别
                                     Label {
                                         Layout.preferredWidth: 120
-                                        color: model.severity === "严重" ? "#f38ba8" : model.severity === "警告" ? "#fab387" : "#89b4fa"
+                                        color: model.severity === "严重" ? "#f38ba8" : model.severity === "警告" ? "#fab387" : "#3874F7"
                                         font.bold: true
                                         font.pixelSize: 12
                                         horizontalAlignment: Text.AlignHCenter
@@ -477,7 +494,7 @@ Rectangle {
                                         Button {
                                             Layout.preferredHeight: 32
                                             Layout.preferredWidth: 50
-                                            Material.foreground: root.isDark ? "#89b4fa" : "#4a6fa5"
+                                            Material.foreground: root.isDark ? "#3874F7" : "#4a6fa5"
                                             flat: true
                                             font.pixelSize: 12
                                             text: "编辑"

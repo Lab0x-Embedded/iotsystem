@@ -31,7 +31,7 @@ Rectangle {
 
                 Repeater {
                     model: ListModel {
-                        ListElement { title: "平均温度"; val: 24.5; unit: "°C"; min: 0; max: 50; accent: "#89b4fa" }
+                        ListElement { title: "平均温度"; val: 24.5; unit: "°C"; min: 0; max: 50; accent: "#3874F7" }
                         ListElement { title: "平均湿度"; val: 65; unit: "%"; min: 0; max: 100; accent: "#a6e3a1" }
                         ListElement { title: "平均电量"; val: 78; unit: "%"; min: 0; max: 100; accent: "#f9e2af" }
                         ListElement { title: "在线率"; val: 85; unit: "%"; min: 0; max: 100; accent: "#cba6f7" }

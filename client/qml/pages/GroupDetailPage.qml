@@ -235,7 +235,7 @@ Rectangle {
                 }
             }
             Button {
-                Material.background: "#89b4fa"
+                Material.background: "#3874F7"
                 Material.foreground: "#1e1e2e"
                 text: "+ 添加设备"
 
@@ -261,7 +261,7 @@ Rectangle {
 
                     Label {
                         Layout.alignment: Qt.AlignHCenter
-                        color: root.isDark ? "#89b4fa" : "#3b82f6"
+                        color: root.isDark ? "#3874F7" : "#3b82f6"
                         font.bold: true
                         font.pixelSize: 24
                         text: root.groupDeviceCount.toString()

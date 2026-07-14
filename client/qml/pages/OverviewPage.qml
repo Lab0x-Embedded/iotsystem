@@ -33,7 +33,7 @@ Rectangle {
 
                 DashboardCard {
                     Layout.fillWidth: true
-                    accentColor: "#89b4fa"
+                    accentColor: "#3874F7"
                     isDark: root.isDark
                     title: "设备总数"
                     value: deviceData ? deviceData.totalCount.toString() : "0"
@@ -204,13 +204,13 @@ Rectangle {
                                     text: "详情"
 
                                     background: Rectangle {
-                                        border.color: "#89b4fa"
+                                        border.color: "#3874F7"
                                         border.width: 1
                                         color: parent.hovered ? (root.isDark ? "#45475a" : "#dbeafe") : "transparent"
                                         radius: 6
                                     }
                                     contentItem: Label {
-                                        color: "#89b4fa"
+                                        color: "#3874F7"
                                         font: parent.font
                                         horizontalAlignment: Text.AlignHCenter
                                         text: parent.text

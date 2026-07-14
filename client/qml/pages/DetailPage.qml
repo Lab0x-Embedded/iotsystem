@@ -38,11 +38,11 @@ Rectangle {
 
     // Toast notification
     property string toastText: ""
-    property color toastColor: "#89b4fa"
+    property color toastColor: "#3874F7"
 
     function showToast(msg, color) {
         toastText = msg;
-        toastColor = color || "#89b4fa";
+        toastColor = color || "#3874F7";
         toastTimer.restart();
     }
 
@@ -285,7 +285,7 @@ Rectangle {
                                         ScrollView {
                                             anchors.fill: parent; anchors.margins: 10; clip: true
                                             Label {
-                                                color: root.isDark ? "#89b4fa" : "#1565c0"
+                                                color: root.isDark ? "#3874F7" : "#1565c0"
                                                 font.family: "Monaco"; font.pixelSize: 12
                                                 text: shadowReportedText
                                                 wrapMode: Text.Wrap
@@ -326,7 +326,7 @@ Rectangle {
                                                 try {
                                                     var obj = JSON.parse(desiredEditor.text);
                                                     dataManager.httpClient.updateShadow(currentDevice.id, obj);
-                                                    root.showToast("保存中...", "#89b4fa");
+                                                    root.showToast("保存中...", "#3874F7");
                                                 } catch(e) {
                                                     root.showToast("JSON 格式错误: " + e, "#f38ba8");
                                                 }
@@ -398,7 +398,7 @@ Rectangle {
                                         Label { Layout.preferredWidth: 100; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.metric }
                                         Label { Layout.preferredWidth: 80; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.value.toFixed(1) }
                                         Label { Layout.preferredWidth: 80; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.threshold.toFixed(1) }
-                                        Label { Layout.preferredWidth: 80; color: model.status === 0 ? "#f38ba8" : model.status === 1 ? "#89b4fa" : "#a6e3a1"; font.pixelSize: 11; text: model.statusText }
+                                        Label { Layout.preferredWidth: 80; color: model.status === 0 ? "#f38ba8" : model.status === 1 ? "#3874F7" : "#a6e3a1"; font.pixelSize: 11; text: model.statusText }
                                         Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; text: model.triggeredAt }
                                     }
                                 }
@@ -428,7 +428,7 @@ Rectangle {
                                         font.pixelSize: 12
                                     }
                                     Button {
-                                        Material.background: "#89b4fa"
+                                        Material.background: "#3874F7"
                                         Material.foreground: "white"
                                         text: "发送"
                                         onClicked: {
@@ -481,7 +481,7 @@ Rectangle {
                                     }
                                     Item { Layout.fillWidth: true }
                                     Button {
-                                        Material.background: "#89b4fa"
+                                        Material.background: "#3874F7"
                                         Material.foreground: "#1e1e2e"
                                         font.bold: true
                                         text: "查询"

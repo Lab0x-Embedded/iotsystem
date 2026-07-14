@@ -13,7 +13,7 @@ QtObject {
             "sidebarBg": "#181825",
             "sidebarBorder": "#313244",
             "sidebarText": "#cdd6f4",
-            "sidebarTextActive": "#89b4fa",
+            "sidebarTextActive": "#3874F7",
             "sidebarHover": "#313244",
             "sidebarSelected": "#313244",
             "pageBg": "#1e1e2e",
@@ -25,7 +25,7 @@ QtObject {
             "text": "#cdd6f4",
             "textMuted": "#a6adc8",
             "textFaint": "#585b70",
-            "accent": "#89b4fa",
+            "accent": "#3874F7",
             "accentText": "#1e1e2e",
             "accentSoft": "#313244",
             "chipBg": "#45475a",
@@ -36,7 +36,7 @@ QtObject {
             "danger": "#f38ba8",
             "warning": "#f9e2af",
             "success": "#a6e3a1",
-            "info": "#89b4fa",
+            "info": "#3874F7",
             "tooltipBg": "#45475a",
             "tooltipText": "#cdd6f4"
         })

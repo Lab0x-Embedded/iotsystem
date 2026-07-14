@@ -257,7 +257,7 @@ Rectangle {
                 Layout.fillWidth: true
             }
             Button {
-                Material.background: "#89b4fa"
+                Material.background: "#3874F7"
                 Material.foreground: "#1e1e2e"
                 text: "+ 新增分组"
 
@@ -283,7 +283,7 @@ Rectangle {
 
                     Label {
                         Layout.alignment: Qt.AlignHCenter
-                        color: root.isDark ? "#89b4fa" : "#3b82f6"
+                        color: root.isDark ? "#3874F7" : "#3b82f6"
                         font.bold: true
                         font.pixelSize: 24
                         text: groupData ? groupData.totalCount.toString() : "0"
@@ -428,7 +428,7 @@ Rectangle {
                             }
                             Label {
                                 Layout.preferredWidth: 80
-                                color: root.isDark ? "#89b4fa" : "#2563eb"
+                                color: root.isDark ? "#3874F7" : "#2563eb"
                                 font.bold: true
                                 font.pixelSize: 12
                                 text: model.deviceCount + " 台"
@@ -449,7 +449,7 @@ Rectangle {
                                     }
                                 }
                                 Button {
-                                    Material.foreground: model.groupId !== 1 ? "#89b4fa" : "#585b70"
+                                    Material.foreground: model.groupId !== 1 ? "#3874F7" : "#585b70"
                                     enabled: model.groupId !== 1
                                     flat: true
                                     font.pixelSize: 11

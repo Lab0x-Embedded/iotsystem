@@ -15,7 +15,7 @@ Rectangle {
     // 指标颜色映射
     property var metricColors: ({
         "temperature": "#f38ba8",
-        "humidity": "#89b4fa",
+        "humidity": "#3874F7",
         "pressure": "#a6e3a1",
         "voltage": "#fab387",
         "current": "#f9e2af",
@@ -112,7 +112,7 @@ Rectangle {
                 var arr = metricData[metric];
                 if (arr.length < 2) continue;
 
-                var color = metricColors[metric] || "#89b4fa";
+                var color = metricColors[metric] || "#3874F7";
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
@@ -142,7 +142,7 @@ Rectangle {
             ctx.font = "11px sans-serif";
             for (var k = 0; k < keys.length; k++) {
                 var metric = keys[k];
-                var color = metricColors[metric] || "#89b4fa";
+                var color = metricColors[metric] || "#3874F7";
                 var label = metricLabels[metric] || metric;
 
                 // 色块

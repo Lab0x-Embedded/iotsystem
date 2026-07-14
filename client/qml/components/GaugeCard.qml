@@ -5,7 +5,7 @@ import QtQuick.Layouts 1.15
 Rectangle {
     id: root
 
-    property color accentColor: "#89b4fa"
+    property color accentColor: "#3874F7"
     property bool isDark: true
     property real maxValue: 100
     property real minValue: 0

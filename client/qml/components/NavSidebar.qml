@@ -42,7 +42,7 @@ Rectangle {
                     spacing: 0
 
                     Label {
-                        color: root.isDark ? "#89b4fa" : "#3b82f6"
+                        color: root.isDark ? "#3874F7" : "#3b82f6"
                         font.bold: true
                         font.pixelSize: 18
                         text: "IoT Platform"
@@ -74,7 +74,7 @@ Rectangle {
             Repeater {
                 delegate: Rectangle {
                     Layout.fillWidth: true
-                    border.color: root.currentIndex === model.idx ? (root.isDark ? "#89b4fa" : "#3b82f6") : "transparent"
+                    border.color: root.currentIndex === model.idx ? (root.isDark ? "#3874F7" : "#3b82f6") : "transparent"
                     border.width: root.currentIndex === model.idx ? 1 : 0
                     color: root.currentIndex === model.idx ? (root.isDark ? "#313244" : "#e8f0fe") : "transparent"
                     height: 44
@@ -92,7 +92,7 @@ Rectangle {
                         }
                         Label {
                             Layout.fillWidth: true
-                            color: root.currentIndex === model.idx ? (root.isDark ? "#89b4fa" : "#3b82f6") : (root.isDark ? "#cdd6f4" : "#1e1e2e")
+                            color: root.currentIndex === model.idx ? (root.isDark ? "#3874F7" : "#3b82f6") : (root.isDark ? "#cdd6f4" : "#1e1e2e")
                             font.bold: root.currentIndex === model.idx
                             font.pixelSize: 13
                             text: model.name
