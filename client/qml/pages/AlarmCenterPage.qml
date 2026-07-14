@@ -265,6 +265,18 @@ Rectangle {
                                         horizontalAlignment: Text.AlignHCenter
                                         text: model.acknowledged ? "✓" : "●"
                                     }
+                                    Label {
+                                        Layout.preferredWidth: 80
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.pixelSize: 12
+                                        text: model.acknowledgedByName || "-"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 80
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.pixelSize: 12
+                                        text: model.resolvedByName || "-"
+                                    }
                                 }
                             }
                             header: Rectangle {
@@ -337,6 +349,20 @@ Rectangle {
                                         font.bold: true
                                         font.pixelSize: 11
                                         text: "状态"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 80
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 11
+                                        text: "确认人"
+                                    }
+                                    Label {
+                                        Layout.preferredWidth: 80
+                                        color: root.isDark ? "#a6adc8" : "#666666"
+                                        font.bold: true
+                                        font.pixelSize: 11
+                                        text: "解决人"
                                     }
                                 }
                             }

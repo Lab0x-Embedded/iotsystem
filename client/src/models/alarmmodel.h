@@ -20,8 +20,10 @@ struct AlarmRecord {
     QString message;
     bool acknowledged = false;
     int acknowledgedBy = 0;
+    QString acknowledgedByName;
     QString acknowledgedAt;
     int resolvedBy = 0;
+    QString resolvedByName;
     QString resolvedAt;
 
     QString severityText() const {
@@ -63,8 +65,10 @@ public:
         AcknowledgedRole,
         IdRole,
         AcknowledgedByRole,
+        AcknowledgedByNameRole,
         AcknowledgedAtRole,
         ResolvedByRole,
+        ResolvedByNameRole,
         ResolvedAtRole,
     };
 

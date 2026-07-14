@@ -294,8 +294,10 @@ void DataManager::onAlarmsFetched(const QJsonArray &alarms)
 
         record.acknowledged = obj["acknowledged"].toBool(false);
         record.acknowledgedBy = obj["acknowledgedBy"].toInt(0);
+        record.acknowledgedByName = obj["acknowledgedByName"].toString();
         record.acknowledgedAt = obj["acknowledgedAt"].toString();
         record.resolvedBy = obj["resolvedBy"].toInt(0);
+        record.resolvedByName = obj["resolvedByName"].toString();
         record.resolvedAt = obj["resolvedAt"].toString();
         {
             double ts = obj["triggeredAt"].toDouble();

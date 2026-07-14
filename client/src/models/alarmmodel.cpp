@@ -38,8 +38,10 @@ QVariant AlarmModel::data(const QModelIndex &index, int role) const {
         case AcknowledgedRole:  return rec.acknowledged;
         case IdRole:            return static_cast<qint64>(rec.id);
         case AcknowledgedByRole: return rec.acknowledgedBy;
+        case AcknowledgedByNameRole: return rec.acknowledgedByName;
         case AcknowledgedAtRole: return rec.acknowledgedAt;
         case ResolvedByRole:    return rec.resolvedBy;
+        case ResolvedByNameRole: return rec.resolvedByName;
         case ResolvedAtRole:    return rec.resolvedAt;
         default:                return QVariant();
     }
@@ -59,8 +61,10 @@ QHash<int, QByteArray> AlarmModel::roleNames() const {
     roles[AcknowledgedRole] = "acknowledged";
     roles[IdRole]           = "id";
     roles[AcknowledgedByRole] = "acknowledgedBy";
+    roles[AcknowledgedByNameRole] = "acknowledgedByName";
     roles[AcknowledgedAtRole] = "acknowledgedAt";
     roles[ResolvedByRole]   = "resolvedBy";
+    roles[ResolvedByNameRole] = "resolvedByName";
     roles[ResolvedAtRole]   = "resolvedAt";
     return roles;
 }

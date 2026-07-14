@@ -20,6 +20,7 @@ extern "C" {
 #define ALARM_DEV_LEN   65
 #define ALARM_METRIC_LEN 64
 #define ALARM_MSG_LEN   256
+#define ALARM_NAME_LEN  64
 #define MAX_RULES       64
 #define MAX_ALARMS      1024
 
@@ -67,8 +68,10 @@ typedef struct {
     uint64_t       triggered_at;
     int            acknowledged;
     int            acknowledged_by;
+    char           acknowledged_by_name[ALARM_NAME_LEN];
     char           acknowledged_at[32];
     int            resolved_by;
+    char           resolved_by_name[ALARM_NAME_LEN];
     char           resolved_at[32];
 } alarm_record_t;
 

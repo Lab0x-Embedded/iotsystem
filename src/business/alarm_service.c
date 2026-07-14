@@ -106,11 +106,15 @@ int alarm_recent(alarm_record_t *out, int max_n) {
     if (!out || max_n<=0) return 0;
     db_conn_t *conn = db_pool_get();
     if (!conn) return 0;
-    char sql[256];
+    char sql[512];
     snprintf(sql,sizeof(sql),
-        "SELECT id,device_id,metric,current_value,threshold,severity,status,"
-        "acknowledged_by,acknowledged_at,resolved_by,resolved_at"
-        " FROM alerts ORDER BY id DESC LIMIT %d", max_n);
+        "SELECT a.id,a.device_id,a.metric,a.current_value,a.threshold,a.severity,a.status,"
+        "a.acknowledged_by,COALESCE(u1.display_name,''),a.acknowledged_at,"
+        "a.resolved_by,COALESCE(u2.display_name,''),a.resolved_at"
+        " FROM alerts a"
+        " LEFT JOIN users u1 ON a.acknowledged_by=u1.id"
+        " LEFT JOIN users u2 ON a.resolved_by=u2.id"
+        " ORDER BY a.id DESC LIMIT %d", max_n);
     void *res = db_pool_query(conn, sql);
     if (!res) { db_pool_put(conn); return 0; }
     int n=0; MYSQL_ROW row; MYSQL_RES *R=(MYSQL_RES*)res;
@@ -125,9 +129,11 @@ int alarm_recent(alarm_record_t *out, int max_n) {
         a->severity = severity_from_str(row[5]);
         a->acknowledged = (row[6] && (strcmp(row[6],"acknowledged")==0||strcmp(row[6],"resolved")==0)) ? 1 : 0;
         a->acknowledged_by = row[7]?atoi(row[7]):0;
-        strncpy(a->acknowledged_at, row[8]?row[8]:"", 31);
-        a->resolved_by = row[9]?atoi(row[9]):0;
-        strncpy(a->resolved_at, row[10]?row[10]:"", 31);
+        strncpy(a->acknowledged_by_name, row[8]?row[8]:"", ALARM_NAME_LEN-1);
+        strncpy(a->acknowledged_at, row[9]?row[9]:"", 31);
+        a->resolved_by = row[10]?atoi(row[10]):0;
+        strncpy(a->resolved_by_name, row[11]?row[11]:"", ALARM_NAME_LEN-1);
+        strncpy(a->resolved_at, row[12]?row[12]:"", 31);
         a->triggered_at = time(NULL);
         n++;
     }

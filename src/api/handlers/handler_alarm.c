@@ -56,8 +56,10 @@ void handler_alarm(struct evhttp_request *req, void *ctx) {
                 strcmp(recs[i].resolved_at, "") != 0 ? "resolved" :
                 recs[i].acknowledged ? "acknowledged" : "active");
             cJSON_AddNumberToObject(r, "acknowledgedBy", recs[i].acknowledged_by);
+            cJSON_AddStringToObject(r, "acknowledgedByName", recs[i].acknowledged_by_name);
             cJSON_AddStringToObject(r, "acknowledgedAt", recs[i].acknowledged_at);
             cJSON_AddNumberToObject(r, "resolvedBy", recs[i].resolved_by);
+            cJSON_AddStringToObject(r, "resolvedByName", recs[i].resolved_by_name);
             cJSON_AddStringToObject(r, "resolvedAt", recs[i].resolved_at);
             cJSON_AddItemToArray(arr, r);
         }
