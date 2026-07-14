@@ -93,12 +93,6 @@ ApplicationWindow {
             anchors.top: parent.top
             spacing: 16
 
-            Label {
-                Layout.fillWidth: true
-                color: textColor
-                font.pixelSize: 14
-                text: "请输入服务器信息"
-            }
             TextField {
                 id: serverUrlField
 
@@ -136,8 +130,9 @@ ApplicationWindow {
                 Item {
                     Layout.fillWidth: true
                 }
-                Button {
+                RoundedButton {
                     Material.background: accentColor
+                    Material.foreground: "#F3F6FF"
                     enabled: !loginDialog.connecting
                     text: loginDialog.connecting ? "连接中..." : "连接"
 
