@@ -176,7 +176,7 @@ Rectangle {
                             text: "已选 " + root.selectedCount() + " 条"
                             visible: root.selectedCount() > 0
                         }
-                        Button {
+                        RoundedButton {
                             Material.background: "#3874F7"
                             Material.foreground: "white"
                             enabled: root.selectedCount() > 0
@@ -184,7 +184,7 @@ Rectangle {
 
                             onClicked: root.acknowledgeSelected()
                         }
-                        Button {
+                        RoundedButton {
                             Material.background: "#a6e3a1"
                             Material.foreground: "white"
                             enabled: root.selectedCount() > 0
@@ -393,7 +393,7 @@ Rectangle {
                         Item {
                             Layout.fillWidth: true
                         }
-                        Button {
+                        RoundedButton {
                             Material.background: "#a6e3a1"
                             Material.foreground: "#1e1e2e"
                             text: "添加规则"

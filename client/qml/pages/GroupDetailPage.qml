@@ -1,7 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick.Layouts 2.15
 import QtQuick.Controls.Material 2.15
+import "../components"
 
 Rectangle {
     id: root
@@ -234,7 +235,7 @@ Rectangle {
                     text: "共 " + root.groupDeviceCount + " 台设备 · 在线 " + root.groupOnlineCount
                 }
             }
-            Button {
+            RoundedButton {
                 Material.background: "#3874F7"
                 Material.foreground: "#1e1e2e"
                 text: "+ 添加设备"

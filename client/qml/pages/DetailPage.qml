@@ -429,7 +429,7 @@ Rectangle {
                                         placeholderText: 'Payload JSON (如 {"speed":"high"})'
                                         font.pixelSize: 12
                                     }
-                                    Button {
+                                    RoundedButton {
                                         Material.background: "#3874F7"
                                         Material.foreground: "white"
                                         text: "发送"
@@ -484,7 +484,7 @@ Rectangle {
                                         Layout.preferredWidth: 130
                                     }
                                     Item { Layout.fillWidth: true }
-                                    Button {
+                                    RoundedButton {
                                         Material.background: "#3874F7"
                                         Material.foreground: "#1e1e2e"
                                         font.bold: true

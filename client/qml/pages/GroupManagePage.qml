@@ -1,7 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick.Layouts 2.15
 import QtQuick.Controls.Material 2.15
+import "../components"
 
 Rectangle {
     id: root
@@ -256,9 +257,9 @@ Rectangle {
             Item {
                 Layout.fillWidth: true
             }
-            Button {
+            RoundedButton {
                 Material.background: "#3874F7"
-                Material.foreground: "#1e1e2e"
+                Material.foreground: "#F3F6FF"
                 text: "+ 新增分组"
 
                 onClicked: addGroupDialog.open()
