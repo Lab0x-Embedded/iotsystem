@@ -141,6 +141,11 @@ void AlarmModel::resolve(int row) {
     }
 }
 
+bool AlarmModel::isRowSelectable(int row) const {
+    if (row < 0 || row >= m_filteredIndices.size()) return false;
+    return m_records[m_filteredIndices[row]].status != AlarmStatus::Resolved;
+}
+
 void AlarmModel::setDeviceFilter(const QString &deviceId) {
     m_deviceFilter = deviceId;
     beginResetModel();

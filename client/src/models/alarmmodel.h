@@ -86,6 +86,7 @@ public:
     Q_INVOKABLE void acknowledge(int row);
     Q_INVOKABLE void resolve(int row);
     Q_INVOKABLE void setDeviceFilter(const QString &deviceId);
+    Q_INVOKABLE bool isRowSelectable(int row) const;
     QString deviceFilter() const;
     Q_INVOKABLE void setSeverityFilter(int severityIndex);
     int severityFilter() const { return m_severityFilter; }
