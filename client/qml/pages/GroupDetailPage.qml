@@ -288,7 +288,7 @@ Rectangle {
 
                     Label {
                         Layout.alignment: Qt.AlignHCenter
-                        color: root.isDark ? "#a6e3a1" : "#16a34a"
+                        color: root.isDark ? "#4CAF50" : "#16a34a"
                         font.bold: true
                         font.pixelSize: 24
                         text: root.groupOnlineCount.toString()

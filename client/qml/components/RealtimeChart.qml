@@ -16,7 +16,7 @@ Rectangle {
     property var metricColors: ({
         "temperature": "#f38ba8",
         "humidity": "#3874F7",
-        "pressure": "#a6e3a1",
+        "pressure": "#4CAF50",
         "voltage": "#fab387",
         "current": "#f9e2af",
         "power": "#cba6f7",

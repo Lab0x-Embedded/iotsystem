@@ -40,7 +40,7 @@ Rectangle {
                 }
                 DashboardCard {
                     Layout.fillWidth: true
-                    accentColor: "#a6e3a1"
+                    accentColor: "#4CAF50"
                     isDark: root.isDark
                     title: "在线设备"
                     value: deviceData ? deviceData.onlineCount.toString() : "0"

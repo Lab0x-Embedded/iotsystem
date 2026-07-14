@@ -310,7 +310,7 @@ Rectangle {
 
                     Label {
                         Layout.alignment: Qt.AlignHCenter
-                        color: root.isDark ? "#a6e3a1" : "#16a34a"
+                        color: root.isDark ? "#4CAF50" : "#16a34a"
                         font.bold: true
                         font.pixelSize: 24
                         text: deviceData ? deviceData.totalCount.toString() : "0"
@@ -439,7 +439,7 @@ Rectangle {
                                 spacing: 8
 
                                 Button {
-                                    Material.foreground: model.groupId !== 1 ? "#a6e3a1" : "#585b70"
+                                    Material.foreground: model.groupId !== 1 ? "#4CAF50" : "#585b70"
                                     enabled: model.groupId !== 1
                                     flat: true
                                     font.pixelSize: 11

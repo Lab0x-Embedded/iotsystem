@@ -109,7 +109,7 @@ Rectangle {
                         Item { Layout.fillWidth: true }
                         Label { color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 12; text: "已选 " + root.selectedCount() + " 条"; visible: root.selectedCount() > 0 }
                         RoundedButton { Material.background: "#3874F7"; Material.foreground: "white"; enabled: root.selectedCount() > 0; text: "确认选中"; onClicked: root.acknowledgeSelected() }
-                        RoundedButton { Material.background: "#a6e3a1"; Material.foreground: "white"; enabled: root.selectedCount() > 0; text: "解决选中"; onClicked: root.resolveSelected() }
+                        RoundedButton { Material.background: "#4CAF50"; Material.foreground: "white"; enabled: root.selectedCount() > 0; text: "解决选中"; onClicked: root.resolveSelected() }
                     }
 
                     // Alarm table
@@ -187,7 +187,7 @@ Rectangle {
                                     SelectableLabel { Layout.preferredWidth: 110; text: model.metric; textColor: root.isDark ? "#cdd6f4" : "#1e1e2e" }
                                     Label { Layout.preferredWidth: 90; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 12; text: Number(model.value).toFixed(1) }
                                     Label { Layout.preferredWidth: 150; color: root.isDark ? "#a6adc8" : "#666666"; font.pixelSize: 12; text: model.triggeredAt }
-                                    Label { Layout.preferredWidth: 60; color: model.acknowledged ? "#a6e3a1" : "#f38ba8"; font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter; text: model.acknowledged ? "✓" : "●" }
+                                    Label { Layout.preferredWidth: 60; color: model.acknowledged ? "#4CAF50" : "#f38ba8"; font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter; text: model.acknowledged ? "✓" : "●" }
                                 }
                             }
                         }
@@ -209,7 +209,7 @@ Rectangle {
                         Layout.fillWidth: true
                         Item { Layout.fillWidth: true }
                         RoundedButton {
-                            Material.background: "#a6e3a1"; Material.foreground: "#1e1e2e"; text: "添加规则"
+                            Material.background: "#4CAF50"; Material.foreground: "#1e1e2e"; text: "添加规则"
                             onClicked: { addRuleDialog.editingRule = null; addRuleDialog.open(); }
                         }
                     }

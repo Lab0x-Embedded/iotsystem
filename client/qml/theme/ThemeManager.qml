@@ -35,7 +35,7 @@ QtObject {
             "statusBarText": "#a6adc8",
             "danger": "#f38ba8",
             "warning": "#f9e2af",
-            "success": "#a6e3a1",
+            "success": "#4CAF50",
             "info": "#3874F7",
             "tooltipBg": "#45475a",
             "tooltipText": "#cdd6f4"

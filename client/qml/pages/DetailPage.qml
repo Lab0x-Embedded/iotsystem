@@ -309,14 +309,14 @@ Rectangle {
                                         }
                                         Item { Layout.fillWidth: true }
                                         Button {
-                                            Material.foreground: "#a6e3a1"
+                                            Material.foreground: "#4CAF50"
                                             flat: true
                                             font.pixelSize: 11
                                             text: "保存"
                                             visible: currentDevice && currentDevice.status === 1
 
                                             background: Rectangle {
-                                                border.color: "#a6e3a1"; border.width: 1
+                                                border.color: "#4CAF50"; border.width: 1
                                                 color: parent.hovered ? (root.isDark ? "#3b3b4f" : "#f0fdf4") : "transparent"
                                                 implicitHeight: 24; radius: 4
                                             }
@@ -344,7 +344,7 @@ Rectangle {
                                             anchors.fill: parent; anchors.margins: 4; clip: true
                                             TextArea {
                                                 id: desiredEditor
-                                                color: root.isDark ? "#a6e3a1" : "#2e7d32"
+                                                color: root.isDark ? "#4CAF50" : "#2e7d32"
                                                 font.family: "Monaco"; font.pixelSize: 12
                                                 wrapMode: TextArea.Wrap
                                                 text: shadowDesiredText
@@ -398,7 +398,7 @@ Rectangle {
                                         SelectableLabel { Layout.preferredWidth: 100; textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"; text: model.metric }
                                         SelectableLabel { Layout.preferredWidth: 80; textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"; text: model.value.toFixed(1) }
                                         Label { Layout.preferredWidth: 80; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.threshold.toFixed(1) }
-                                        Label { Layout.preferredWidth: 80; color: model.status === 0 ? "#f38ba8" : model.status === 1 ? "#3874F7" : "#a6e3a1"; font.pixelSize: 11; text: model.statusText }
+                                        Label { Layout.preferredWidth: 80; color: model.status === 0 ? "#f38ba8" : model.status === 1 ? "#3874F7" : "#4CAF50"; font.pixelSize: 11; text: model.statusText }
                                         Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; text: model.triggeredAt }
                                     }
                                 }
@@ -566,11 +566,11 @@ Rectangle {
                                                     Layout.preferredWidth: 120
                                                     height: 24
                                                     radius: 4
-                                                    color: root.isDark ? "#a6e3a120" : "#16a34a15"
+                                                    color: root.isDark ? "#4CAF5020" : "#16a34a15"
 
                                                     Label {
                                                         anchors.centerIn: parent
-                                                        color: root.isDark ? "#a6e3a1" : "#16a34a"
+                                                        color: root.isDark ? "#4CAF50" : "#16a34a"
                                                         font.pixelSize: 12
                                                         font.bold: true
                                                         text: model.value.toFixed(2)
@@ -649,7 +649,7 @@ Rectangle {
 
         function onShadowUpdated(deviceId) {
             if (currentDevice && currentDevice.id === deviceId)
-                root.showToast("保存成功", "#a6e3a1");
+                root.showToast("保存成功", "#4CAF50");
         }
 
         function onShadowError(error) {
