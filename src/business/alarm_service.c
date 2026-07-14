@@ -76,26 +76,26 @@ void alarm_evaluate(const char *device_id, const char *metric, double value) {
     if (!device_id || !metric) return;
     db_conn_t *conn = db_pool_get();
     if (!conn) return;
-    void *res = db_pool_query(conn, "SELECT device_id,metric,condition_type,threshold,severity FROM alert_rules WHERE enabled=1");
+    char sql[512];
+    snprintf(sql, sizeof(sql),
+        "SELECT condition_type,threshold,severity FROM alert_rules "
+        "WHERE enabled=1 AND metric='%s' AND (device_id='%s' OR device_id IS NULL OR device_id='')",
+        metric, device_id);
+    void *res = db_pool_query(conn, sql);
     if (!res) { db_pool_put(conn); return; }
     MYSQL_ROW row;
     MYSQL_RES *R = (MYSQL_RES*)res;
     while ((row = mysql_fetch_row(R))) {
-        const char *rd = row[0]?row[0]:"";
-        const char *rm = row[1]?row[1]:"";
-        const char *rs = row[2]?row[2]:"gt";
-        const char *rt = row[3]?row[3]:"0";
-        const char *rv = row[4]?row[4]:"warning";
-        if (strlen(rd)>0 && strcmp(rd,device_id)!=0) continue;
-        if (strcmp(rm,metric)!=0) continue;
-        double t = atof(rt);
+        const char *rs = row[0]?row[0]:"gt";
+        double t = row[1]?atof(row[1]):0.0;
+        const char *rv = row[2]?row[2]:"warning";
         if (!alarm_hit(op_from_str(rs), value, t)) continue;
-        char sql[512];
-        snprintf(sql,sizeof(sql),
+        char sql2[512];
+        snprintf(sql2,sizeof(sql2),
             "INSERT INTO alerts (device_id,metric,current_value,threshold,severity,status)"
             "VALUES('%s','%s',%.2f,%.2f,'%s','active')",
             device_id, metric, value, t, rv);
-        db_pool_exec(conn, sql);
+        db_pool_exec(conn, sql2);
         LOG_WARN("ALERT: %s %s=%.2f > %.2f", device_id, metric, value, t);
     }
     db_pool_free_result(res);

@@ -35,8 +35,6 @@ static MYSQL *create_mysql_conn(const db_pool_config_t *cfg) {
     }
 
     // 设置连接选项
-    bool reconnect = 1;
-    mysql_options(mysql, MYSQL_OPT_RECONNECT, &reconnect);
     mysql_options(mysql, MYSQL_SET_CHARSET_NAME, "utf8mb4");
 
     // 连接数据库
@@ -166,12 +164,28 @@ void db_pool_put(db_conn_t *conn) {
     pthread_mutex_unlock(&g_lock);
 }
 
+/** 判断是否为可恢复的连接断开错误 */
+static bool is_disconnect_error(MYSQL *mysql) {
+    unsigned int err = mysql_errno(mysql);
+    return err == CR_SERVER_LOST || err == CR_SERVER_GONE_ERROR ||
+           err == CR_CONN_HOST_ERROR || err == 2006 /* SERVER_GONE */;
+}
+
 int db_pool_exec(db_conn_t *conn, const char *sql) {
     if (!conn || !conn->mysql || !sql) return -1;
 
     if (mysql_query(conn->mysql, sql) != 0) {
-        LOG_ERROR("mysql_query failed: %s", mysql_error(conn->mysql));
-        return -1;
+        if (!is_disconnect_error(conn->mysql)) {
+            LOG_ERROR("mysql_query failed: %s", mysql_error(conn->mysql));
+            return -1;
+        }
+        /* 断线 → 重连一次 */
+        LOG_WARN("exec: connection lost, reconnecting...");
+        if (reconnect_conn(conn) != 0) return -1;
+        if (mysql_query(conn->mysql, sql) != 0) {
+            LOG_ERROR("mysql_query retry failed: %s", mysql_error(conn->mysql));
+            return -1;
+        }
     }
     return 0;
 }
@@ -180,8 +194,17 @@ void *db_pool_query(db_conn_t *conn, const char *sql) {
     if (!conn || !conn->mysql || !sql) return NULL;
 
     if (mysql_query(conn->mysql, sql) != 0) {
-        LOG_ERROR("mysql_query failed: %s", mysql_error(conn->mysql));
-        return NULL;
+        if (!is_disconnect_error(conn->mysql)) {
+            LOG_ERROR("mysql_query failed: %s", mysql_error(conn->mysql));
+            return NULL;
+        }
+        /* 断线 → 重连一次 */
+        LOG_WARN("query: connection lost, reconnecting...");
+        if (reconnect_conn(conn) != 0) return NULL;
+        if (mysql_query(conn->mysql, sql) != 0) {
+            LOG_ERROR("mysql_query retry failed: %s", mysql_error(conn->mysql));
+            return NULL;
+        }
     }
 
     MYSQL_RES *result = mysql_store_result(conn->mysql);

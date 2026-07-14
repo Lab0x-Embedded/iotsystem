@@ -335,7 +335,7 @@ void DataManager::removeDeviceFromGroup(const QString &deviceId)
 {
     qDebug() << "removeDeviceFromGroup:" << deviceId;
     if (m_online) {
-        m_http.updateDevice(deviceId, QString(), 0);
+        m_http.updateDevice(deviceId, QString(), 1); // 1 = 未分组
     }
 }
 
