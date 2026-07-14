@@ -94,7 +94,6 @@ Rectangle {
 
         Column {
             anchors.left: parent.left
-            anchors.margins: 24
             anchors.right: parent.right
             anchors.top: parent.top
             spacing: 12

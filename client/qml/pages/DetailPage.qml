@@ -263,93 +263,146 @@ Rectangle {
                         Item {
                             RowLayout {
                                 anchors.fill: parent
-                                spacing: 12
+                                spacing: 16
 
                                 // ---- Reported (left) ----
-                                ColumnLayout {
-                                    Layout.fillWidth: true; Layout.fillHeight: true
-                                    spacing: 6
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 10
+                                    color: root.isDark ? "#1e1e2e" : "#ffffff"
+                                    border.color: root.isDark ? "#45475a" : "#e0e0e0"
+                                    border.width: 1
 
-                                    Label {
-                                        color: root.isDark ? "#a6adc8" : "#666666"
-                                        font.bold: true; font.pixelSize: 11
-                                        text: "Reported（报告状态）"
-                                    }
-                                    Rectangle {
-                                        Layout.fillHeight: true; Layout.fillWidth: true
-                                        border.color: root.isDark ? "#45475a" : "#e0e0e0"
-                                        border.width: 1
-                                        color: root.isDark ? "#1e1e2e" : "#f8f9fa"
-                                        radius: 8
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        spacing: 0
 
+                                        // Header
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 36
+                                            color: root.isDark ? "#313244" : "#f0f0f5"
+                                            radius: 10
+
+                                            Rectangle {
+                                                anchors.bottom: parent.bottom
+                                                width: parent.width
+                                                height: 10
+                                                color: parent.color
+                                            }
+
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 12; anchors.rightMargin: 12
+                                                spacing: 6
+
+                                                Rectangle { width: 8; height: 8; radius: 4; color: "#4CAF50" }
+                                                Label { color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.bold: true; font.pixelSize: 12; text: "Reported（上报状态）" }
+                                                Item { Layout.fillWidth: true }
+                                                Label { color: root.isDark ? "#585b70" : "#aaa"; font.pixelSize: 10; text: "只读" }
+                                            }
+                                        }
+
+                                        // Content
                                         ScrollView {
-                                            anchors.fill: parent; anchors.margins: 10; clip: true
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            Layout.margins: 12
+                                            clip: true
+
                                             Label {
-                                                color: root.isDark ? "#3874F7" : "#1565c0"
-                                                font.family: "Monaco"; font.pixelSize: 12
+                                                color: root.isDark ? "#a6e3a1" : "#16a34a"
+                                                font.family: "Monaco"
+                                                font.pixelSize: 12
                                                 text: shadowReportedText
                                                 wrapMode: Text.Wrap
+                                                width: parent.width
                                             }
                                         }
                                     }
                                 }
 
                                 // ---- Desired (right) ----
-                                ColumnLayout {
-                                    Layout.fillWidth: true; Layout.fillHeight: true
-                                    spacing: 6
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 10
+                                    color: root.isDark ? "#1e1e2e" : "#ffffff"
+                                    border.color: root.isDark ? "#45475a" : "#e0e0e0"
+                                    border.width: 1
 
-                                    RowLayout {
-                                        Layout.fillWidth: true
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        spacing: 0
 
-                                        Label {
-                                            color: root.isDark ? "#a6adc8" : "#666666"
-                                            font.bold: true; font.pixelSize: 11
-                                            text: "Desired（期望状态）"
-                                        }
-                                        Item { Layout.fillWidth: true }
-                                        Button {
-                                            Material.foreground: "#4CAF50"
-                                            flat: true
-                                            font.pixelSize: 11
-                                            text: "保存"
-                                            visible: currentDevice && currentDevice.status === 1
+                                        // Header
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 36
+                                            color: root.isDark ? "#313244" : "#f0f0f5"
+                                            radius: 10
 
-                                            background: Rectangle {
-                                                border.color: "#4CAF50"; border.width: 1
-                                                color: parent.hovered ? (root.isDark ? "#3b3b4f" : "#f0fdf4") : "transparent"
-                                                implicitHeight: 24; radius: 4
+                                            Rectangle {
+                                                anchors.bottom: parent.bottom
+                                                width: parent.width
+                                                height: 10
+                                                color: parent.color
                                             }
 
-                                            onClicked: {
-                                                if (!currentDevice) return;
-                                                try {
-                                                    var obj = JSON.parse(desiredEditor.text);
-                                                    dataManager.httpClient.updateShadow(currentDevice.id, obj);
-                                                    root.showToast("保存中...", "#3874F7");
-                                                } catch(e) {
-                                                    root.showToast("JSON 格式错误: " + e, "#f38ba8");
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 12; anchors.rightMargin: 12
+                                                spacing: 6
+
+                                                Rectangle { width: 8; height: 8; radius: 4; color: "#89b4fa" }
+                                                Label { color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.bold: true; font.pixelSize: 12; text: "Desired（期望状态）" }
+                                                Item { Layout.fillWidth: true }
+
+                                                Button {
+                                                    visible: currentDevice && currentDevice.status === 1
+                                                    flat: true
+                                                    font.pixelSize: 11
+                                                    text: "💾 保存"
+                                                    Material.foreground: "#a6e3a1"
+
+                                                    background: Rectangle {
+                                                        radius: 6
+                                                        color: parent.hovered ? (root.isDark ? "#3b3b4f" : "#f0fdf4") : "transparent"
+                                                        border.color: "#a6e3a1"; border.width: 1
+                                                        implicitHeight: 26
+                                                    }
+
+                                                    onClicked: {
+                                                        if (!currentDevice) return;
+                                                        try {
+                                                            var obj = JSON.parse(desiredEditor.text);
+                                                            dataManager.httpClient.updateShadow(currentDevice.id, obj);
+                                                            root.showToast("保存中...", "#3874F7");
+                                                        } catch(e) {
+                                                            root.showToast("JSON 格式错误: " + e, "#f38ba8");
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
-                                    Rectangle {
-                                        Layout.fillHeight: true; Layout.fillWidth: true
-                                        border.color: root.isDark ? "#45475a" : "#e0e0e0"
-                                        border.width: 1
-                                        color: root.isDark ? "#1e1e2e" : "#f8f9fa"
-                                        radius: 8
 
+                                        // Editor
                                         ScrollView {
-                                            anchors.fill: parent; anchors.margins: 4; clip: true
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            Layout.margins: 8
+                                            clip: true
+
                                             TextArea {
                                                 id: desiredEditor
-                                                color: root.isDark ? "#4CAF50" : "#2e7d32"
-                                                font.family: "Monaco"; font.pixelSize: 12
+                                                color: root.isDark ? "#89b4fa" : "#2563eb"
+                                                font.family: "Monaco"
+                                                font.pixelSize: 12
                                                 wrapMode: TextArea.Wrap
                                                 text: shadowDesiredText
-                                                background: Rectangle { color: "transparent" }
                                                 selectByMouse: true
+                                                background: Rectangle { color: "transparent" }
                                             }
                                         }
                                     }
@@ -486,7 +539,7 @@ Rectangle {
                                     Item { Layout.fillWidth: true }
                                     RoundedButton {
                                         Material.background: "#3874F7"
-                                        Material.foreground: "#1e1e2e"
+                                        Material.foreground: "#ffffff"
                                         font.bold: true
                                         text: "查询"
                                         onClicked: {

@@ -41,14 +41,17 @@ Payload:
 
 ### 2.2 认证逻辑
 
-```c
-// mqtt_broker.c
-#define AUTH_PRODUCT_KEY   "pk_test"
-#define AUTH_DEVICE_SECRET "secret_001"
+从 `devices` 表查询验证:
 
-int ok = (strcmp(username, AUTH_PRODUCT_KEY) == 0) &&
-         (strcmp(password, AUTH_DEVICE_SECRET) == 0);
+```sql
+SELECT device_id FROM devices
+WHERE product_key = '<username>' AND device_secret = '<password>'
+AND status IN ('registered', 'active')
+LIMIT 1
 ```
+
+- 查到记录 → 认证通过 (CONNACK 0x00)
+- 未查到 → 认证拒绝 (CONNACK 0x05)
 
 ### 2.3 CONNACK 响应
 
@@ -106,7 +109,7 @@ PUBLISH 收到
   ↓
 解析 JSON payload
   ↓
-① 自动注册设备 (INSERT IGNORE INTO devices)
+① 自动注册设备 (使用 CONNECT 传入的 product_key, INSERT IGNORE INTO devices)
   ↓
 ② 告警规则评估 (alarm_evaluate)
   ↓

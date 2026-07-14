@@ -33,7 +33,7 @@ import urllib.error
 # ────────────────────────────────────────────────────────────────
 MQTT_HOST = "127.0.0.1"
 MQTT_PORT = 1883
-MQTT_USER = "pk_test"
+MQTT_USER = "factory_sensor"
 MQTT_PASS = "secret_001"
 
 HTTP_HOST = "127.0.0.1"

@@ -27,6 +27,7 @@ typedef struct mqtt_connection {
     int                 sub_count;
     int                 fd;
     char                client_id[65];
+    char                product_key[65];
     uint8_t             authenticated;
     uint8_t             connected;
     uint16_t            keepalive;

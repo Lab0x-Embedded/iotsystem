@@ -2,7 +2,7 @@
  * @file mqtt_broker.c
  *
  * Phase 2 基础 + Phase 3 PUBLISH/UNSUBSCRIBE:
- *   - CONNECT    → 解析 client_id / username / password 硬编码认证
+ *   - CONNECT    → 解析 client_id / username / password, 数据库认证
  *   - SUBSCRIBE  → 记录订阅 topic, 回复 SUBACK
  *   - UNSUBSCRIBE→ 移除订阅 topic, 回复 UNSUBACK
  *   - PUBLISH    → 按 topic 分发给所有匹配的在线订阅者 (QoS 0)
@@ -21,6 +21,7 @@
 #include "server/sse_handler.h"
 #include "data/db_pool.h"
 
+#include <mysql.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -32,13 +33,6 @@
 /* 前向声明 */
 static int send_bytes(int fd, const uint8_t *buf, uint32_t len);
 static void send_packet(int fd, mqtt_packet_t *pkt);
-
-/* ------------------------------------------------------------------ */
-/* 硬编码认证凭据                                                       */
-/* ------------------------------------------------------------------ */
-#define AUTH_PRODUCT_KEY   "pk_test"
-#define AUTH_DEVICE_ID     "dev_001"
-#define AUTH_DEVICE_SECRET "secret_001"
 
 /* ------------------------------------------------------------------ */
 /* 全局 session 表 / 在线连接表                                          */
@@ -346,9 +340,26 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
 
     LOG_INFO("CONNECT cid=%s user=%s secret=%.4s...", client_id, username, password);
 
-    /* 硬编码认证 */
-    int ok = (strcmp(username, AUTH_PRODUCT_KEY) == 0) &&
-             (strcmp(password, AUTH_DEVICE_SECRET) == 0);
+    /* 数据库认证: 查 devices 表校验 product_key + device_secret */
+    int ok = 0;
+    {
+        db_conn_t *db = db_pool_get();
+        if (db) {
+            char auth_sql[256];
+            snprintf(auth_sql, sizeof(auth_sql),
+                "SELECT device_id FROM devices "
+                "WHERE product_key='%s' AND device_secret='%s' "
+                "AND status IN ('registered','active') LIMIT 1",
+                username, password);
+            MYSQL_RES *result = db_pool_query(db, auth_sql);
+            if (result) {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                if (row) ok = 1;
+                db_pool_free_result(result);
+            }
+            db_pool_put(db);
+        }
+    }
     if (!ok) {
         LOG_ERROR("auth failed for user=%s", username);
         goto refused;
@@ -360,6 +371,7 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     conn->keepalive = pkt->vh.connect.keepalive;
     conn->last_active = time(NULL);
     strncpy(conn->client_id, client_id, sizeof(conn->client_id) - 1);
+    strncpy(conn->product_key, username, sizeof(conn->product_key) - 1);
 
     /* CONNACK ACCEPTED */
     {
@@ -539,12 +551,13 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                                     char ensure_sql[512];
                                     snprintf(ensure_sql, sizeof(ensure_sql),
                                         "INSERT IGNORE INTO products (product_key, product_name) "
-                                        "VALUES ('pk_test','MQTT Auto Registered')");
+                                        "VALUES ('%s','MQTT Auto Registered')",
+                                        conn->product_key);
                                     db_pool_exec(db, ensure_sql);
                                     snprintf(ensure_sql, sizeof(ensure_sql),
                                         "INSERT IGNORE INTO devices (product_key, device_id, device_name, status, online) "
-                                        "VALUES ('pk_test','%s','%s','active',TRUE)",
-                                        id->valuestring, id->valuestring);
+                                        "VALUES ('%s','%s','%s','active',TRUE)",
+                                        conn->product_key, id->valuestring, id->valuestring);
                                     if (db_pool_exec(db, ensure_sql) != 0) {
                                         LOG_WARN("auto-register device failed: %s", id->valuestring);
                                     }
