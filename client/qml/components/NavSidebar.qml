@@ -69,6 +69,8 @@ Rectangle {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.topMargin: 16
+            Layout.leftMargin: 12
+            Layout.rightMargin: 12
             spacing: 4
 
             Repeater {
@@ -78,7 +80,7 @@ Rectangle {
                     border.width: root.currentIndex === model.idx ? 1 : 0
                     color: root.currentIndex === model.idx ? (root.isDark ? "#313244" : "#e8f0fe") : "transparent"
                     height: 44
-                    radius: 2
+                    radius: 8
 
                     RowLayout {
                         anchors.fill: parent
