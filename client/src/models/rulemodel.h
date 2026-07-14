@@ -59,8 +59,14 @@ public:
     void setRules(const QVector<AlarmRule> &rules);
     void clear();
 
+    Q_INVOKABLE void setDeviceFilter(const QString &deviceId);
+    QString deviceFilter() const { return m_deviceFilter; }
+
 private:
+    void rebuildFilter();
     QVector<AlarmRule> m_rules;
+    QString m_deviceFilter;
+    QVector<int> m_filteredIndices;
 };
 
 #endif // RULEMODEL_H

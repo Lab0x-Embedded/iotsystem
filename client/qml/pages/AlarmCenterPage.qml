@@ -416,7 +416,25 @@ Rectangle {
 
                     RowLayout {
                         Layout.fillWidth: true
+                        spacing: 12
 
+                        Label {
+                            color: root.isDark ? "#cdd6f4" : "#1e1e2e"
+                            font.pixelSize: 13
+                            text: "设备ID:"
+                        }
+                        TextField {
+                            id: ruleDeviceFilter
+
+                            Layout.preferredHeight: 36
+                            Layout.preferredWidth: 160
+                            placeholderText: "输入设备ID筛选"
+
+                            onTextChanged: {
+                                if (ruleListModel)
+                                    ruleListModel.setDeviceFilter(text.trim());
+                            }
+                        }
                         Item {
                             Layout.fillWidth: true
                         }
@@ -456,23 +474,20 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.leftMargin: 16
                                     anchors.rightMargin: 16
-                                    spacing: 12
+                                    spacing: 0
 
-                                    Label {
-                                        Layout.preferredWidth: 180
-                                        color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                                        elide: Text.ElideRight
-                                        font.pixelSize: 12
+                                    SelectableLabel {
+                                        Layout.preferredWidth: 160
                                         text: model.deviceId
+                                        textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     }
-                                    Label {
+                                    SelectableLabel {
                                         Layout.preferredWidth: 120
-                                        color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                                        font.pixelSize: 12
                                         text: model.metric
+                                        textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 120
+                                        Layout.preferredWidth: 80
                                         color: root.isDark ? "#3874F7" : "#4a6fa5"
                                         font.pixelSize: 12
                                         horizontalAlignment: Text.AlignHCenter
@@ -485,16 +500,24 @@ Rectangle {
                                         horizontalAlignment: Text.AlignRight
                                         text: model.threshold
                                     }
-                                    Label {
-                                        Layout.preferredWidth: 120
-                                        color: model.severity === "严重" ? "#f38ba8" : model.severity === "警告" ? "#fab387" : "#3874F7"
-                                        font.bold: true
-                                        font.pixelSize: 12
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: model.severity
+                                    Rectangle {
+                                        Layout.preferredHeight: 22
+                                        Layout.preferredWidth: 100
+                                        color: model.severity === "严重" ? "#fff1f0" : model.severity === "警告" ? "#fff7e6" : "#e6f4ff"
+                                        border.color: model.severity === "严重" ? "#ff4d4f" : model.severity === "警告" ? "#faad14" : "#1677ff"
+                                        border.width: 1
+                                        radius: 4
+
+                                        Label {
+                                            anchors.centerIn: parent
+                                            color: model.severity === "严重" ? "#ff4d4f" : model.severity === "警告" ? "#faad14" : "#1677ff"
+                                            font.bold: true
+                                            font.pixelSize: 11
+                                            text: model.severity
+                                        }
                                     }
                                     Switch {
-                                        Layout.preferredWidth: 120
+                                        Layout.preferredWidth: 80
                                         checked: model.enabled === "启用"
                                         scale: 0.5
 
@@ -502,10 +525,11 @@ Rectangle {
                                     }
                                     RowLayout {
                                         spacing: 4
+                                        Layout.preferredWidth: 120
 
                                         Button {
                                             Layout.preferredWidth: 50
-                                            Material.foreground: root.isDark ? "#3874F7" : "#4a6fa5"
+                                            Material.foreground: "#3874F7"
                                             flat: true
                                             font.pixelSize: 12
                                             text: "编辑"
@@ -536,7 +560,7 @@ Rectangle {
                                         }
                                         Button {
                                             Layout.preferredWidth: 50
-                                            Material.foreground: "#f38ba8"
+                                            Material.foreground: "#3874F7"
                                             flat: true
                                             font.pixelSize: 12
                                             text: "删除"
@@ -560,10 +584,10 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.leftMargin: 16
                                     anchors.rightMargin: 16
-                                    spacing: 12
+                                    spacing: 0
 
                                     Label {
-                                        Layout.preferredWidth: 180
+                                        Layout.preferredWidth: 160
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 11
@@ -577,7 +601,7 @@ Rectangle {
                                         text: "指标"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 120
+                                        Layout.preferredWidth: 80
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 11
@@ -591,21 +615,21 @@ Rectangle {
                                         text: "阈值"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 120
+                                        Layout.preferredWidth: 100
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 11
                                         text: "级别"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 120
+                                        Layout.preferredWidth: 80
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 11
                                         text: "启用"
                                     }
                                     Label {
-                                        Layout.preferredWidth: 80
+                                        Layout.preferredWidth: 120
                                         color: root.isDark ? "#a6adc8" : "#666666"
                                         font.bold: true
                                         font.pixelSize: 11
