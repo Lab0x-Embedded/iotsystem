@@ -74,35 +74,56 @@ int shadow_set_desired(const char *device_id, const char *key, const char *value
     char *desired_str = cJSON_PrintUnformatted(desired_json);
     cJSON_Delete(desired_json);
 
+    /* 重算 delta: desired 中与 reported 不同的项 */
+    cJSON *delta_json = cJSON_CreateObject();
+    for (int i = 0; i < s->desired_n; i++) {
+        shadow_kv_t *rep = kv_find(s->reported, s->reported_n, s->desired[i].key);
+        if (!rep || strcmp(rep->value, s->desired[i].value) != 0) {
+            cJSON *val = cJSON_Parse(s->desired[i].value);
+            if (val) {
+                cJSON_AddItemToObject(delta_json, s->desired[i].key, val);
+            } else {
+                cJSON_AddStringToObject(delta_json, s->desired[i].key, s->desired[i].value);
+            }
+        }
+    }
+    char *delta_str = cJSON_PrintUnformatted(delta_json);
+    cJSON_Delete(delta_json);
+
     pthread_mutex_unlock(&g_lock);
 
     /* 写入 DB */
     if (desired_str) {
         db_conn_t *conn = db_pool_get();
         if (conn) {
-            char *esc = calloc(strlen(desired_str) * 2 + 1, 1);
-            if (esc) {
-                MYSQL *mysql = (MYSQL*)db_pool_get_mysql(conn);
-                if (mysql) mysql_real_escape_string(mysql, esc, desired_str, strlen(desired_str));
+            char *esc_d = calloc(strlen(desired_str) * 2 + 1, 1);
+            char *esc_delta = delta_str ? calloc(strlen(delta_str) * 2 + 1, 1) : NULL;
+            MYSQL *mysql = (MYSQL*)db_pool_get_mysql(conn);
+            if (mysql && esc_d) {
+                mysql_real_escape_string(mysql, esc_d, desired_str, strlen(desired_str));
+                if (esc_delta && delta_str)
+                    mysql_real_escape_string(mysql, esc_delta, delta_str, strlen(delta_str));
                 char sql[2048];
                 /* 先尝试 UPDATE */
                 snprintf(sql, sizeof(sql),
-                    "UPDATE device_shadows SET desired='%s', version=version+1 WHERE device_id='%s'",
-                    esc, device_id);
+                    "UPDATE device_shadows SET desired='%s', delta='%s', version=version+1 WHERE device_id='%s'",
+                    esc_d, esc_delta ? esc_delta : "{}", device_id);
                 if (db_pool_exec(conn, sql) != 0 || mysql_affected_rows(mysql) == 0) {
                     /* UPDATE 失败或无匹配行，执行 INSERT */
                     snprintf(sql, sizeof(sql),
-                        "INSERT INTO device_shadows (product_key, device_id, desired) "
-                        "SELECT product_key, device_id, '%s' FROM devices WHERE device_id='%s' LIMIT 1",
-                        esc, device_id);
+                        "INSERT INTO device_shadows (product_key, device_id, desired, delta) "
+                        "SELECT product_key, device_id, '%s', '%s' FROM devices WHERE device_id='%s' LIMIT 1",
+                        esc_d, esc_delta ? esc_delta : "{}", device_id);
                     db_pool_exec(conn, sql);
                 }
-                free(esc);
             }
+            free(esc_d);
+            free(esc_delta);
             db_pool_put(conn);
         }
         free(desired_str);
     }
+    free(delta_str);
     return 0;
 }
 
@@ -122,7 +143,45 @@ int shadow_update_reported(const char *device_id, const char *key, const char *v
         kv->version = 1;
     }
     s->version++;
+
+    /* 重算 delta: reported 更新后，检查是否消除了差异 */
+    cJSON *delta_json = cJSON_CreateObject();
+    for (int i = 0; i < s->desired_n; i++) {
+        shadow_kv_t *rep = kv_find(s->reported, s->reported_n, s->desired[i].key);
+        if (!rep || strcmp(rep->value, s->desired[i].value) != 0) {
+            cJSON *val = cJSON_Parse(s->desired[i].value);
+            if (val) {
+                cJSON_AddItemToObject(delta_json, s->desired[i].key, val);
+            } else {
+                cJSON_AddStringToObject(delta_json, s->desired[i].key, s->desired[i].value);
+            }
+        }
+    }
+    char *delta_str = cJSON_PrintUnformatted(delta_json);
+    cJSON_Delete(delta_json);
     pthread_mutex_unlock(&g_lock);
+
+    /* 写入 DB delta */
+    if (delta_str) {
+        db_conn_t *conn = db_pool_get();
+        if (conn) {
+            char *esc = calloc(strlen(delta_str) * 2 + 1, 1);
+            if (esc) {
+                MYSQL *mysql = (MYSQL*)db_pool_get_mysql(conn);
+                if (mysql) {
+                    mysql_real_escape_string(mysql, esc, delta_str, strlen(delta_str));
+                    char sql[1024];
+                    snprintf(sql, sizeof(sql),
+                        "UPDATE device_shadows SET delta='%s', version=version+1 WHERE device_id='%s'",
+                        esc, device_id);
+                    db_pool_exec(conn, sql);
+                }
+                free(esc);
+            }
+            db_pool_put(conn);
+        }
+        free(delta_str);
+    }
     return 0;
 }
 
