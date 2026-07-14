@@ -69,15 +69,37 @@ Rectangle {
             Item {
                 Layout.fillWidth: true
             }
-            Label {
-                color: "#f38ba8"
-                font.pixelSize: 13
-                text: "未确认: " + (alarmListModel ? alarmListModel.unacknowledgedCount : 0)
+            Rectangle {
+                Layout.preferredHeight: 24
+                Layout.preferredWidth: unackLabel.implicitWidth + 20
+                color: "#fff1f0"
+                border.color: "#ff7875"
+                border.width: 1
+                radius: 12
+
+                Label {
+                    id: unackLabel
+                    anchors.centerIn: parent
+                    color: "#ff7875"
+                    font.pixelSize: 12
+                    text: "未确认 " + (alarmListModel ? alarmListModel.unacknowledgedCount : 0)
+                }
             }
-            Label {
-                color: "#fab387"
-                font.pixelSize: 13
-                text: "未解决: " + (alarmListModel ? alarmListModel.unresolvedCount : 0)
+            Rectangle {
+                Layout.preferredHeight: 24
+                Layout.preferredWidth: unresLabel.implicitWidth + 20
+                color: "#fff7e6"
+                border.color: "#ffc53d"
+                border.width: 1
+                radius: 12
+
+                Label {
+                    id: unresLabel
+                    anchors.centerIn: parent
+                    color: "#ffc53d"
+                    font.pixelSize: 12
+                    text: "未解决 " + (alarmListModel ? alarmListModel.unresolvedCount : 0)
+                }
             }
         }
 
@@ -225,12 +247,14 @@ Rectangle {
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: 88
-                                        color: model.severity === 0 ? "#2196F3" : model.severity === 1 ? "#FFC107" : "#FF5722"
+                                        color: model.severity === 0 ? "#e6f4ff" : model.severity === 1 ? "#fff7e6" : "#fff1f0"
+                                        border.color: model.severity === 0 ? "#1677ff" : model.severity === 1 ? "#faad14" : "#ff4d4f"
+                                        border.width: 1
                                         radius: 4
 
                                         Label {
                                             anchors.centerIn: parent
-                                            color: "white"
+                                            color: model.severity === 0 ? "#1677ff" : model.severity === 1 ? "#faad14" : "#ff4d4f"
                                             font.bold: true
                                             font.pixelSize: 10
                                             text: model.severityText
@@ -258,12 +282,21 @@ Rectangle {
                                         font.pixelSize: 12
                                         text: model.triggeredAt
                                     }
-                                    Label {
-                                        Layout.preferredWidth: 60
-                                        color: model.acknowledged ? "#4CAF50" : "#f38ba8"
-                                        font.pixelSize: 14
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: model.acknowledged ? "✓" : "●"
+                                    Rectangle {
+                                        Layout.preferredHeight: 22
+                                        Layout.preferredWidth: statusTag.implicitWidth + 16
+                                        color: model.status === 2 ? "#f6ffed" : model.status === 1 ? "#e6f4ff" : "#fff1f0"
+                                        border.color: model.status === 2 ? "#52c41a" : model.status === 1 ? "#1677ff" : "#ff4d4f"
+                                        border.width: 1
+                                        radius: 4
+
+                                        Label {
+                                            id: statusTag
+                                            anchors.centerIn: parent
+                                            color: model.status === 2 ? "#52c41a" : model.status === 1 ? "#1677ff" : "#ff4d4f"
+                                            font.pixelSize: 11
+                                            text: model.status === 2 ? "已解决" : model.status === 1 ? "已确认" : "未确认"
+                                        }
                                     }
                                     Label {
                                         Layout.preferredWidth: 80
