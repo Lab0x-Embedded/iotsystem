@@ -33,9 +33,8 @@ Rectangle {
             }
         }
 
-        Column {
+        ColumnLayout {
             anchors.left: parent.left
-            anchors.margins: 24
             anchors.right: parent.right
             anchors.top: parent.top
             spacing: 12
@@ -46,8 +45,9 @@ Rectangle {
             TextField {
                 id: groupNameField
 
+                Layout.preferredHeight: 36
+                Layout.fillWidth: true
                 placeholderText: "请输入分组名称"
-                width: parent.width
             }
             Label {
                 text: "描述:"
@@ -55,8 +55,9 @@ Rectangle {
             TextField {
                 id: groupDescField
 
+                Layout.preferredHeight: 36
+                Layout.fillWidth: true
                 placeholderText: "请输入描述"
-                width: parent.width
             }
         }
     }
@@ -79,9 +80,8 @@ Rectangle {
             }
         }
 
-        Column {
+        ColumnLayout {
             anchors.left: parent.left
-            anchors.margins: 24
             anchors.right: parent.right
             anchors.top: parent.top
             spacing: 12
@@ -92,8 +92,9 @@ Rectangle {
             TextField {
                 id: editGroupNameField
 
+                Layout.preferredHeight: 36
+                Layout.fillWidth: true
                 placeholderText: "请输入分组名称"
-                width: parent.width
             }
             Label {
                 text: "描述:"
@@ -101,8 +102,9 @@ Rectangle {
             TextField {
                 id: editGroupDescField
 
+                Layout.preferredHeight: 36
+                Layout.fillWidth: true
                 placeholderText: "请输入描述"
-                width: parent.width
             }
         }
     }
@@ -128,7 +130,6 @@ Rectangle {
 
         Column {
             anchors.left: parent.left
-            anchors.margins: 24
             anchors.right: parent.right
             anchors.top: parent.top
             spacing: 12
@@ -174,7 +175,6 @@ Rectangle {
 
         Column {
             anchors.left: parent.left
-            anchors.margins: 24
             anchors.right: parent.right
             anchors.top: parent.top
             spacing: 12

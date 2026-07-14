@@ -62,6 +62,7 @@ Dialog {
             id: deviceField
 
             Layout.fillWidth: true
+            Layout.preferredHeight: 36
             Material.background: dialog.isDark ? "#313244" : "#ffffff"
             Material.foreground: dialog.isDark ? "#cdd6f4" : "#1e1e2e"
             placeholderText: "留空表示所有设备"
@@ -75,6 +76,7 @@ Dialog {
             id: metricField
 
             Layout.fillWidth: true
+            Layout.preferredHeight: 36
             Material.background: dialog.isDark ? "#313244" : "#ffffff"
             Material.foreground: dialog.isDark ? "#cdd6f4" : "#1e1e2e"
             placeholderText: "如 temperature"
@@ -88,6 +90,7 @@ Dialog {
             id: opCombo
 
             Layout.fillWidth: true
+            Layout.preferredHeight: 36
             Material.foreground: dialog.isDark ? "#cdd6f4" : "#1e1e2e"
             model: [">", "<", "==", ">=", "<="]
         }
@@ -99,6 +102,7 @@ Dialog {
             id: thresholdField
 
             Layout.fillWidth: true
+            Layout.preferredHeight: 36
             Material.background: dialog.isDark ? "#313244" : "#ffffff"
             Material.foreground: dialog.isDark ? "#cdd6f4" : "#1e1e2e"
             placeholderText: "如 32.0"
@@ -119,6 +123,7 @@ Dialog {
             id: severityCombo
 
             Layout.fillWidth: true
+            Layout.preferredHeight: 36
             Material.foreground: dialog.isDark ? "#cdd6f4" : "#1e1e2e"
             model: ["INFO", "WARNING", "CRITICAL"]
         }

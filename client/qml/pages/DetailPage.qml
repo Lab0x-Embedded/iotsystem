@@ -417,12 +417,14 @@ Rectangle {
 
                                     TextField {
                                         id: cmdNameField
+                                        Layout.preferredHeight: 36
                                         Layout.preferredWidth: 120
                                         placeholderText: "指令名"
                                         font.pixelSize: 12
                                     }
                                     TextField {
                                         id: cmdPayloadField
+                                        Layout.preferredHeight: 36
                                         Layout.fillWidth: true
                                         placeholderText: 'Payload JSON (如 {"speed":"high"})'
                                         font.pixelSize: 12
@@ -471,12 +473,14 @@ Rectangle {
                                     ComboBox {
                                         id: historyMetric
                                         model: ["temperature", "humidity", "battery"]
+                                        Layout.preferredHeight: 36
                                         Layout.preferredWidth: 130
                                     }
                                     Label { color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 12; text: "时间:" }
                                     ComboBox {
                                         id: historyRange
                                         model: ["最近1小时", "最近6小时", "最近24小时", "最近7天"]
+                                        Layout.preferredHeight: 36
                                         Layout.preferredWidth: 130
                                     }
                                     Item { Layout.fillWidth: true }

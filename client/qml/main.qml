@@ -42,7 +42,7 @@ ApplicationWindow {
         property bool connecting: false
         property string errorMsg: ""
         
-        Column {
+        ColumnLayout {
             spacing: 16
             anchors.top: parent.top
             anchors.left: parent.left
@@ -50,7 +50,7 @@ ApplicationWindow {
             anchors.margins: 24
             
             Label {
-                width: parent.width
+                Layout.fillWidth: true
                 text: "请输入服务器信息"
                 font.pixelSize: 14
                 color: textColor
@@ -60,14 +60,16 @@ ApplicationWindow {
                 id: serverUrlField
                 placeholderText: "服务器地址"
                 text: "http://127.0.0.1:8080"
-                width: parent.width
+                Layout.preferredHeight: 36
+                Layout.fillWidth: true
             }
             
             TextField {
                 id: usernameField
                 placeholderText: "用户名"
                 text: "admin"
-                width: parent.width
+                Layout.preferredHeight: 36
+                Layout.fillWidth: true
             }
             
             TextField {
@@ -75,7 +77,8 @@ ApplicationWindow {
                 placeholderText: "密码"
                 echoMode: TextInput.Password
                 text: "admin@123"
-                width: parent.width
+                Layout.preferredHeight: 36
+                Layout.fillWidth: true
             }
             
             Label {
