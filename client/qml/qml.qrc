@@ -14,6 +14,7 @@
         <file>components/StatusIndicator.qml</file>
         <file>components/GaugeWidget.qml</file>
         <file>components/AddAlarmRuleDialog.qml</file>
+        <file>components/SelectableLabel.qml</file>
         <file>pages/OverviewPage.qml</file>
         <file>pages/GroupManagePage.qml</file>
         <file>pages/DashboardPage.qml</file>

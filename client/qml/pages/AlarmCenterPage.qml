@@ -248,20 +248,16 @@ Rectangle {
                                             text: model.severityText
                                         }
                                     }
-                                    Label {
+                                    SelectableLabel {
                                         Layout.minimumWidth: 140
                                         Layout.preferredWidth: 140
-                                        color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                                        elide: Text.ElideRight
-                                        font.pixelSize: 12
+                                        textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                         text: model.deviceId
                                     }
-                                    Label {
+                                    SelectableLabel {
                                         Layout.minimumWidth: 110
                                         Layout.preferredWidth: 110
-                                        color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                                        elide: Text.ElideRight
-                                        font.pixelSize: 12
+                                        textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                         text: model.metric
                                     }
                                     Label {

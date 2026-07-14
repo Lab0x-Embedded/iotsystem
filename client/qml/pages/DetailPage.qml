@@ -395,8 +395,8 @@ Rectangle {
                                                 text: model.severityText
                                             }
                                         }
-                                        Label { Layout.preferredWidth: 100; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.metric }
-                                        Label { Layout.preferredWidth: 80; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.value.toFixed(1) }
+                                        SelectableLabel { Layout.preferredWidth: 100; textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"; text: model.metric }
+                                        SelectableLabel { Layout.preferredWidth: 80; textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"; text: model.value.toFixed(1) }
                                         Label { Layout.preferredWidth: 80; color: root.isDark ? "#cdd6f4" : "#1e1e2e"; font.pixelSize: 11; text: model.threshold.toFixed(1) }
                                         Label { Layout.preferredWidth: 80; color: model.status === 0 ? "#f38ba8" : model.status === 1 ? "#3874F7" : "#a6e3a1"; font.pixelSize: 11; text: model.statusText }
                                         Label { Layout.fillWidth: true; color: root.isDark ? "#a6adc8" : "#666"; font.pixelSize: 11; text: model.triggeredAt }

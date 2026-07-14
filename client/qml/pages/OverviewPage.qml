@@ -171,16 +171,14 @@ Rectangle {
                                         width: 12
                                     }
                                 }
-                                Label {
+                                SelectableLabel {
                                     Layout.preferredWidth: 200
-                                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                                    font.pixelSize: 12
+                                    textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     text: model.deviceId || ""
                                 }
-                                Label {
+                                SelectableLabel {
                                     Layout.preferredWidth: 200
-                                    color: root.isDark ? "#cdd6f4" : "#1e1e2e"
-                                    font.pixelSize: 12
+                                    textColor: root.isDark ? "#cdd6f4" : "#1e1e2e"
                                     text: model.deviceName || "-"
                                 }
                                 Label {
@@ -189,10 +187,9 @@ Rectangle {
                                     font.pixelSize: 12
                                     text: model.group ? groupModel.groupName(Number(model.group)) : "未分组"
                                 }
-                                Label {
+                                SelectableLabel {
                                     Layout.fillWidth: true
-                                    color: root.isDark ? "#a6adc8" : "#666666"
-                                    font.pixelSize: 12
+                                    textColor: root.isDark ? "#a6adc8" : "#666666"
                                     text: model.lastSeen || ""
                                 }
                                 Button {
