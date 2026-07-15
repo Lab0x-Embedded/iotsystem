@@ -48,6 +48,61 @@ static int alarm_hit(alarm_compare_t op, double v, double t) {
     return 0;
 }
 
+/* 连续检测：超阈值 N 次才告警，回落自动 resolve */
+#define CONSECUTIVE_THRESHOLD 3
+#define MAX_TRACKED 256
+static struct {
+    char device_id[ALARM_DEV_LEN];
+    char metric[ALARM_METRIC_LEN];
+    int  count;
+} g_tracked[MAX_TRACKED];
+static int g_tracked_n = 0;
+
+static int alarm_find_tracked(const char *device_id, const char *metric) {
+    for (int i = 0; i < g_tracked_n; i++) {
+        if (strcmp(g_tracked[i].device_id, device_id) == 0 &&
+            strcmp(g_tracked[i].metric, metric) == 0) return i;
+    }
+    return -1;
+}
+
+static void alarm_auto_resolve(const char *device_id, const char *metric) {
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return;
+    printf("ALERT auto-resolve: %s %s", device_id, metric);
+    char sql[512];
+    snprintf(sql, sizeof(sql),
+        "UPDATE alerts SET status='resolved', resolved_at=NOW() "
+        "WHERE device_id='%s' AND metric='%s' AND status='active'",
+        device_id, metric);
+    int rc = db_pool_exec(conn, sql);
+    if (rc != 0)
+        LOG_ERROR("ALERT auto-resolve FAILED: %s %s", device_id, metric);
+    else
+        LOG_WARN("ALERT auto-resolve executed: %s %s", device_id, metric);
+    db_pool_put(conn);
+    /* 回落清零计数 */
+    int idx = alarm_find_tracked(device_id, metric);
+    if (idx >= 0) g_tracked[idx].count = 0;
+}
+
+static int alarm_consecutive_check(const char *device_id, const char *metric) {
+    int idx = alarm_find_tracked(device_id, metric);
+    if (idx < 0) {
+        if (g_tracked_n >= MAX_TRACKED) return 0;
+        idx = g_tracked_n++;
+        strncpy(g_tracked[idx].device_id, device_id, ALARM_DEV_LEN - 1);
+        strncpy(g_tracked[idx].metric, metric, ALARM_METRIC_LEN - 1);
+        g_tracked[idx].count = 0;
+    }
+    g_tracked[idx].count++;
+    if (g_tracked[idx].count >= CONSECUTIVE_THRESHOLD) {
+        g_tracked[idx].count = 0;
+        return 1;  /* 达到阈值，允许告警 */
+    }
+    return 0;  /* 次数不够，跳过 */
+}
+
 int alarm_service_init(void) {
     LOG_INFO("alarm_service initialized (MySQL)");
     return 0;
@@ -78,7 +133,7 @@ void alarm_evaluate(const char *device_id, const char *metric, double value) {
     if (!conn) return;
     char sql[512];
     snprintf(sql, sizeof(sql),
-        "SELECT condition_type,threshold,severity FROM alert_rules "
+        "SELECT rule_id,condition_type,threshold,severity FROM alert_rules "
         "WHERE enabled=1 AND metric='%s' AND (device_id='%s' OR device_id IS NULL OR device_id='')",
         metric, device_id);
     void *res = db_pool_query(conn, sql);
@@ -86,15 +141,46 @@ void alarm_evaluate(const char *device_id, const char *metric, double value) {
     MYSQL_ROW row;
     MYSQL_RES *R = (MYSQL_RES*)res;
     while ((row = mysql_fetch_row(R))) {
-        const char *rs = row[0]?row[0]:"gt";
-        double t = row[1]?atof(row[1]):0.0;
-        const char *rv = row[2]?row[2]:"warning";
-        if (!alarm_hit(op_from_str(rs), value, t)) continue;
+        uint64_t rule_id = row[0] ? strtoull(row[0], NULL, 10) : 0;
+        const char *rs = row[1]?row[1]:"gt";
+        double t = row[2]?atof(row[2]):0.0;
+        const char *rv = row[3]?row[3]:"warning";
+        (void)rule_id;
+        if (!alarm_hit(op_from_str(rs), value, t)) {
+            /* 温度回落到正常范围，自动 resolve 旧告警 */
+            alarm_auto_resolve(device_id, metric);
+            continue;
+        }
+
+        /* === 去重检查：同一规则是否已有 active 告警 === */
+        char dedup_sql[512];
+        snprintf(dedup_sql, sizeof(dedup_sql),
+            "SELECT id FROM alerts "
+            "WHERE device_id='%s' AND metric='%s' AND rule_id=%llu AND status='active' "
+            "LIMIT 1",
+            device_id, metric, (unsigned long long)rule_id);
+        void *dedup_res = db_pool_query(conn, dedup_sql);
+        if (dedup_res) {
+            MYSQL_ROW dedup_row = mysql_fetch_row((MYSQL_RES*)dedup_res);
+            db_pool_free_result(dedup_res);
+            if (dedup_row) {
+                /* 已有 active 告警，跳过 */
+                LOG_DEBUG("ALERT dedup: %s %s=%.2f (already active)", device_id, metric, value);
+                continue;
+            }
+        }
+
+        /* === 连续检测：超阈值 N 次才告警 === */
+        if (!alarm_consecutive_check(device_id, metric)) {
+            LOG_DEBUG("ALERT consecutive: %s %s=%.2f (counting)", device_id, metric, value);
+            continue;
+        }
+
         char sql2[512];
         snprintf(sql2,sizeof(sql2),
-            "INSERT INTO alerts (device_id,metric,current_value,threshold,severity,status)"
-            "VALUES('%s','%s',%.2f,%.2f,'%s','active')",
-            device_id, metric, value, t, rv);
+            "INSERT INTO alerts (rule_id,device_id,metric,current_value,threshold,severity,status)"
+            "VALUES(%llu,'%s','%s',%.2f,%.2f,'%s','active')",
+            (unsigned long long)rule_id, device_id, metric, value, t, rv);
         db_pool_exec(conn, sql2);
         LOG_WARN("ALERT: %s %s=%.2f > %.2f", device_id, metric, value, t);
     }

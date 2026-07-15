@@ -178,6 +178,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     INDEX idx_alerts_status (status),
     INDEX idx_alerts_severity (severity),
     INDEX idx_alerts_time (created_at),
+    INDEX idx_alerts_dedup (rule_id, device_id, metric, status),
     FOREIGN KEY (rule_id) REFERENCES alert_rules(rule_id) ON DELETE SET NULL,
     FOREIGN KEY (device_id) REFERENCES devices(device_id) ON DELETE CASCADE,
     FOREIGN KEY (acknowledged_by) REFERENCES users(id) ON DELETE SET NULL,
