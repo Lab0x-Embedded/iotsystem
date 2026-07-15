@@ -14,6 +14,7 @@
 #include "mqtt/mqtt_codec.h"
 #include "mqtt/mqtt_topic.h"
 #include "business/command_service.h"
+#include "server/thread_pool.h"
 
 #include "common/log.h"
 #include <cJSON.h>
@@ -29,6 +30,8 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <pthread.h>
+
+extern thread_pool_t *g_thread_pool;
 
 /* 前向声明 */
 static int send_bytes(int fd, const uint8_t *buf, uint32_t len);
@@ -497,8 +500,92 @@ static void handle_unsubscribe(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
 }
 
 /* ------------------------------------------------------------------ */
-/* PUBLISH (QoS 0): 收 → 按 topic 分发给所有匹配的在线订阅者             */
+/* PUBLISH: 主线程做协议解析 + 订阅转发; 重 DB/告警 任务下沉线程池           */
 /* ------------------------------------------------------------------ */
+
+typedef struct {
+    char product_key[65];
+    char device_id[65];
+    char metric[64];
+    double value;
+    uint64_t ts;
+} publish_task_t;
+
+static void publish_worker(void *arg) {
+    publish_task_t *task = (publish_task_t *)arg;
+
+    db_conn_t *db = db_pool_get();
+    if (!db) {
+        free(task);
+        return;
+    }
+
+    /* 自动注册 product */
+    char ensure_sql[512];
+    snprintf(ensure_sql, sizeof(ensure_sql),
+        "INSERT IGNORE INTO products (product_key, product_name) "
+        "VALUES ('%s','MQTT Auto Registered')",
+        task->product_key);
+    db_pool_exec(db, ensure_sql);
+
+    /* 自动注册 device */
+    snprintf(ensure_sql, sizeof(ensure_sql),
+        "INSERT IGNORE INTO devices (product_key, device_id, device_name, status, online) "
+        "VALUES ('%s','%s','%s','active',TRUE)",
+        task->product_key, task->device_id, task->device_id);
+    if (db_pool_exec(db, ensure_sql) != 0) {
+        LOG_WARN("auto-register device failed: %s", task->device_id);
+    }
+
+    /* 告警评估 */
+    alarm_evaluate(task->device_id, task->metric, task->value);
+
+    /* 写入 data_reports_YYYYMM */
+    time_t now = time(NULL);
+    struct tm tm_buf;
+    struct tm *tm_now = localtime_r(&now, &tm_buf);
+    char tbl[64];
+    snprintf(tbl, sizeof(tbl), "data_reports_%04d%02d",
+             tm_now->tm_year + 1900, tm_now->tm_mon + 1);
+
+    char sql[512];
+    snprintf(sql, sizeof(sql),
+        "CREATE TABLE IF NOT EXISTS `%s` LIKE data_records_template", tbl);
+    if (db_pool_exec(db, sql) != 0) {
+        LOG_WARN("CREATE TABLE %s failed (may already exist)", tbl);
+    }
+
+    char *ins = (char *)malloc(512);
+    if (ins) {
+        snprintf(ins, 512,
+            "INSERT INTO `%s` (device_id, metric, value, ts) "
+            "VALUES ('%s','%s',%.2f,%llu)",
+            tbl, task->device_id, task->metric, task->value,
+            (unsigned long long)task->ts);
+        if (db_pool_exec(db, ins) != 0) {
+            LOG_WARN("DB insert failed: %s %s=%.2f",
+                     task->device_id, task->metric, task->value);
+        }
+        free(ins);
+    }
+
+    /* 更新 device_latest_data */
+    char *upsert = (char *)malloc(512);
+    if (upsert) {
+        snprintf(upsert, 512,
+            "INSERT INTO device_latest_data (device_id, metric, value, ts, updated_at) "
+            "VALUES ('%s','%s',%.2f,%llu,NOW()) "
+            "ON DUPLICATE KEY UPDATE value=VALUES(value), ts=VALUES(ts), updated_at=NOW()",
+            task->device_id, task->metric, task->value,
+            (unsigned long long)task->ts);
+        db_pool_exec(db, upsert);
+        free(upsert);
+    }
+
+    db_pool_put(db);
+    free(task);
+}
+
 static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     uint8_t *data = pkt->payload; uint32_t len = pkt->payload_len;
     if (len < 2) return;
@@ -521,7 +608,7 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     LOG_INFO("PUBLISH from fd=%d topic=%s payload_len=%u",
              conn->fd, topic, len - 2 - tlen);
 
-    /* ── 解析 payload 并落库 + 告警评估 ── */
+    /* 主线程: 解析 JSON 并提交后台任务 + SSE 广播 */
     {
         uint32_t payload_off = 2 + tlen;
         uint32_t payload_len = len - payload_off;
@@ -545,76 +632,23 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                                 double val = value->valuedouble;
                                 uint64_t ts_val = ts ? (uint64_t)ts->valuedouble : (uint64_t)time(NULL);
 
-                                /* ① 获取 DB 连接并自动注册设备 (解决外键约束) */
-                                db_conn_t *db = db_pool_get();
-                                if (db) {
-                                    char ensure_sql[512];
-                                    snprintf(ensure_sql, sizeof(ensure_sql),
-                                        "INSERT IGNORE INTO products (product_key, product_name) "
-                                        "VALUES ('%s','MQTT Auto Registered')",
-                                        conn->product_key);
-                                    db_pool_exec(db, ensure_sql);
-                                    snprintf(ensure_sql, sizeof(ensure_sql),
-                                        "INSERT IGNORE INTO devices (product_key, device_id, device_name, status, online) "
-                                        "VALUES ('%s','%s','%s','active',TRUE)",
-                                        conn->product_key, id->valuestring, id->valuestring);
-                                    if (db_pool_exec(db, ensure_sql) != 0) {
-                                        LOG_WARN("auto-register device failed: %s", id->valuestring);
-                                    }
-                                }
-
-                                /* ② 告警规则评估 */
-                                alarm_evaluate(id->valuestring, metric->valuestring, val);
-
-                                /* ③ 广播到 SSE 客户端 */
+                                /* SSE 广播保留在主线程 (evhttp 线程安全限制) */
                                 sse_broadcast_datapoint(id->valuestring, metric->valuestring, val, ts_val);
 
-                                /* ③ 写入 MySQL data_records */
-                                if (db) {
-                                    char tbl[64];
-                                    time_t now = time(NULL);
-                                    struct tm *tm_now = localtime(&now);
-                                    snprintf(tbl, sizeof(tbl), "data_reports_%04d%02d",
-                                             tm_now->tm_year + 1900, tm_now->tm_mon + 1);
-
-                                    /* 确保当月表存在 */
-                                    char sql[512];
-                                    snprintf(sql, sizeof(sql),
-                                        "CREATE TABLE IF NOT EXISTS `%s` LIKE data_records_template", tbl);
-                                    if (db_pool_exec(db, sql) != 0) {
-                                        LOG_WARN("CREATE TABLE %s failed (may already exist)", tbl);
-                                    }
-
-                                    /* 插入数据 */
-                                    char *ins = malloc(512);
-                                    if (ins) {
-                                        snprintf(ins, 512,
-                                            "INSERT INTO `%s` (device_id, metric, value, ts) "
-                                            "VALUES ('%s','%s',%.2f,%llu)",
-                                            tbl, id->valuestring, metric->valuestring, val,
-                                            (unsigned long long)ts_val);
-                                        if (db_pool_exec(db, ins) == 0) {
-                                            LOG_INFO("DB insert %s %s=%.2f", id->valuestring, metric->valuestring, val);
-                                        } else {
-                                            LOG_WARN("DB insert failed: %s %s=%.2f", id->valuestring, metric->valuestring, val);
+                                /* 把 DB+告警 任务提交到线程池 */
+                                if (g_thread_pool) {
+                                    publish_task_t *task = (publish_task_t *)calloc(1, sizeof(publish_task_t));
+                                    if (task) {
+                                        strncpy(task->product_key, conn->product_key, sizeof(task->product_key) - 1);
+                                        strncpy(task->device_id, id->valuestring, sizeof(task->device_id) - 1);
+                                        strncpy(task->metric, metric->valuestring, sizeof(task->metric) - 1);
+                                        task->value = val;
+                                        task->ts = ts_val;
+                                        if (thread_pool_submit(g_thread_pool, publish_worker, task) != 0) {
+                                            LOG_WARN("thread_pool_submit failed, drop task");
+                                            free(task);
                                         }
-                                        free(ins);
                                     }
-
-                                    /* ④ 更新 device_latest_data */
-                                    char *upsert = malloc(512);
-                                    if (upsert) {
-                                        snprintf(upsert, 512,
-                                            "INSERT INTO device_latest_data (device_id, metric, value, ts, updated_at) "
-                                            "VALUES ('%s','%s',%.2f,%llu,NOW()) "
-                                            "ON DUPLICATE KEY UPDATE value=VALUES(value), ts=VALUES(ts), updated_at=NOW()",
-                                            id->valuestring, metric->valuestring, val,
-                                            (unsigned long long)ts_val);
-                                        db_pool_exec(db, upsert);
-                                        free(upsert);
-                                    }
-
-                                    db_pool_put(db);
                                 }
                             }
                         }
@@ -630,7 +664,7 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
         }
     }
 
-    /* 遍历所有在线连接, 逐 subscription 匹配 */
+    /* 遍历所有在线连接, 逐 subscription 匹配 (保留在主线程) */
     for (int ci = 0; ci < g_conn_count; ci++) {
         mqtt_connection_t *target = g_conns[ci];
         if (!target || !target->connected) continue;
@@ -650,7 +684,7 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
         }
     }
 
-    /* 如果发布者 QoS > 0, 回复 PUBACK */
+    /* 如果发布者 QoS > 0, 回复 PUBACK (保留在主线程) */
     {
         uint8_t qos = (pkt->fix_header.flags >> 1) & 0x03;
         if (qos > 0) {

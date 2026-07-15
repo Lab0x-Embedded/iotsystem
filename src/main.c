@@ -31,6 +31,7 @@
 #include <errno.h>
 
 static event_loop_t *g_loop;
+thread_pool_t *g_thread_pool = NULL;
 static void on_signal(int sig) { (void)sig; if (g_loop) event_loop_stop(g_loop); }
 
 static int make_listener(int port, int backlog) {
@@ -169,15 +170,15 @@ int main(int argc, char **argv) {
     int listen_fd = make_listener(cfg.mqtt_port, cfg.backlog);
     if (listen_fd < 0) return 1;
 
-    thread_pool_t *pool = thread_pool_create(cfg.workers, 1024);
-    if (!pool) { close(listen_fd); return 1; }
+    g_thread_pool = thread_pool_create(cfg.workers, 1024);
+    if (!g_thread_pool) { close(listen_fd); return 1; }
 
-    g_loop = event_loop_create(pool);
-    if (!g_loop) { close(listen_fd); thread_pool_destroy(pool); return 1; }
+    g_loop = event_loop_create(g_thread_pool);
+    if (!g_loop) { close(listen_fd); thread_pool_destroy(g_thread_pool); return 1; }
 
     if (event_loop_set_listen(g_loop, listen_fd) != 0) {
         event_loop_destroy(g_loop);
-        thread_pool_destroy(pool);
+        thread_pool_destroy(g_thread_pool);
         return 1;
     }
 
@@ -186,8 +187,8 @@ int main(int argc, char **argv) {
 
     LOG_INFO("shutdown: total_conns=%u rc=%d", g_loop->total_conns, result);
     event_loop_destroy(g_loop);
-    thread_pool_destroy(pool);
-    g_loop = NULL;
+    thread_pool_destroy(g_thread_pool);
+    g_thread_pool = NULL;
 
     /* -------- 清理 -------- */
     data_writer_shutdown();
