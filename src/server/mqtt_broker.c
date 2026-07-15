@@ -537,8 +537,8 @@ static void publish_worker(void *arg) {
         LOG_WARN("auto-register device failed: %s", task->device_id);
     }
 
-    /* 告警评估 */
-    alarm_evaluate(task->device_id, task->metric, task->value);
+    /* 告警评估（复用当前连接，避免多连接死锁） */
+    alarm_evaluate_with_conn(db, task->device_id, task->metric, task->value);
 
     /* 写入 data_reports_YYYYMM */
     time_t now = time(NULL);

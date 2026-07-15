@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <mysql.h>
 #include <stdbool.h>
+#include <errno.h>
+#include <sys/time.h>
 
 struct db_conn {
     int      in_use;
@@ -138,7 +140,7 @@ db_conn_t *db_pool_get(void) {
             if (!g_pool[i].in_use) {
                 g_pool[i].in_use = 1;
                 pthread_mutex_unlock(&g_lock);
-                
+
                 // 检查连接是否有效
                 if (db_pool_ping(&g_pool[i]) != 0) {
                     if (reconnect_conn(&g_pool[i]) != 0) {
@@ -147,11 +149,25 @@ db_conn_t *db_pool_get(void) {
                         continue;
                     }
                 }
-                
+
                 return &g_pool[i];
             }
         }
-        pthread_cond_wait(&g_avail, &g_lock);
+        /* 等待可用连接，超时 3 秒后放弃，避免事件循环永久挂死 */
+        struct timespec ts;
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        ts.tv_sec  = tv.tv_sec + 3;
+        ts.tv_nsec = tv.tv_usec * 1000;
+        int rc = pthread_cond_timedwait(&g_avail, &g_lock, &ts);
+        if (rc == ETIMEDOUT) {
+            int in_use_count = 0;
+            for (int i = 0; i < g_pool_size; i++)
+                if (g_pool[i].in_use) in_use_count++;
+            LOG_WARN("db_pool: %d/%d in use, timeout waiting 3s", in_use_count, g_pool_size);
+            pthread_mutex_unlock(&g_lock);
+            return NULL;
+        }
     }
 }
 

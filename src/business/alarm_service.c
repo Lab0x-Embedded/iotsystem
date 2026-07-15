@@ -66,8 +66,8 @@ static int alarm_find_tracked(const char *device_id, const char *metric) {
     return -1;
 }
 
-static void alarm_auto_resolve(const char *device_id, const char *metric) {
-    db_conn_t *conn = db_pool_get();
+/* auto-resolve: 复用外部连接版本，用于事件循环流水线 */
+static void alarm_auto_resolve_with_conn(db_conn_t *conn, const char *device_id, const char *metric) {
     if (!conn) return;
     printf("ALERT auto-resolve: %s %s", device_id, metric);
     char sql[512];
@@ -80,7 +80,6 @@ static void alarm_auto_resolve(const char *device_id, const char *metric) {
         LOG_ERROR("ALERT auto-resolve FAILED: %s %s", device_id, metric);
     else
         LOG_WARN("ALERT auto-resolve executed: %s %s", device_id, metric);
-    db_pool_put(conn);
     /* 回落清零计数 */
     int idx = alarm_find_tracked(device_id, metric);
     if (idx >= 0) g_tracked[idx].count = 0;
@@ -127,17 +126,17 @@ int alarm_add_rule(const char *device_id, const char *metric,
     return rc ? -1 : 0;
 }
 
-void alarm_evaluate(const char *device_id, const char *metric, double value) {
-    if (!device_id || !metric) return;
-    db_conn_t *conn = db_pool_get();
-    if (!conn) return;
+/* 评估一条上报数据（复用外部连接，避免事件循环多连接死锁） */
+void alarm_evaluate_with_conn(void *vconn, const char *device_id, const char *metric, double value) {
+    if (!device_id || !metric || !vconn) return;
+    db_conn_t *conn = (db_conn_t *)vconn;
     char sql[512];
     snprintf(sql, sizeof(sql),
         "SELECT rule_id,condition_type,threshold,severity FROM alert_rules "
         "WHERE enabled=1 AND metric='%s' AND (device_id='%s' OR device_id IS NULL OR device_id='')",
         metric, device_id);
     void *res = db_pool_query(conn, sql);
-    if (!res) { db_pool_put(conn); return; }
+    if (!res) return;
     MYSQL_ROW row;
     MYSQL_RES *R = (MYSQL_RES*)res;
     while ((row = mysql_fetch_row(R))) {
@@ -148,7 +147,7 @@ void alarm_evaluate(const char *device_id, const char *metric, double value) {
         (void)rule_id;
         if (!alarm_hit(op_from_str(rs), value, t)) {
             /* 温度回落到正常范围，自动 resolve 旧告警 */
-            alarm_auto_resolve(device_id, metric);
+            alarm_auto_resolve_with_conn(conn, device_id, metric);
             continue;
         }
 
@@ -185,6 +184,13 @@ void alarm_evaluate(const char *device_id, const char *metric, double value) {
         LOG_WARN("ALERT: %s %s=%.2f > %.2f", device_id, metric, value, t);
     }
     db_pool_free_result(res);
+}
+
+void alarm_evaluate(const char *device_id, const char *metric, double value) {
+    if (!device_id || !metric) return;
+    db_conn_t *conn = db_pool_get();
+    if (!conn) return;
+    alarm_evaluate_with_conn(conn, device_id, metric, value);
     db_pool_put(conn);
 }
 

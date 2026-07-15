@@ -85,6 +85,9 @@ int  alarm_add_rule(const char *device_id, const char *metric,
 /** 评估一条上报数据; 命中则生成告警. */
 void alarm_evaluate(const char *device_id, const char *metric, double value);
 
+/** 评估一条上报数据（复用外部连接，避免事件循环多连接死锁）. */
+void alarm_evaluate_with_conn(void *conn, const char *device_id, const char *metric, double value);
+
 /** 读取最近 N 条告警. */
 int  alarm_recent(alarm_record_t *out, int max_n);
 

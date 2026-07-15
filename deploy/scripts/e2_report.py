@@ -292,11 +292,24 @@ def scenario_full():
         time.sleep(1)
     sock.close()
 
-    # Phase 4: 恢复随机
+    # Phase 4: 先发一次正常数据解除告警，再开始随机上报
     print("\n✅ Phase 4: 恢复随机上报")
-    print("-" * 40)
-
+    print("")
+    print("  📤 发送 dev_001 正常数据，自动解除告警...")
+    norm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    norm_sock.settimeout(10)
+    norm_sock.connect((MQTT_HOST, MQTT_PORT))
+    mqtt_connect(norm_sock, "e2_normalize")
+    normal_data = generate_datapoints(alarm_dev, alarm_mode=False)
+    for dp in normal_data["datapoints"]:
+        topic = f"devices/{alarm_dev['id']}/data"
+        payload = json.dumps({"device_id": alarm_dev["id"], "datapoints": [dp]}, ensure_ascii=False)
+        mqtt_publish(norm_sock, topic, payload)
+        print(f"    {dp['metric']}={dp['value']:.1f}")
+    norm_sock.close()
     time.sleep(1)
+
+    print("")
     try:
         while True:
             dev = random.choice(DEVICES)
