@@ -28,6 +28,7 @@ typedef struct mqtt_connection {
     int                 fd;
     char                client_id[65];
     char                product_key[65];
+    char                device_id[65];   /* CONNECT 认证时从 devices 表取回, 供 presence 标记用 */
     uint8_t             authenticated;
     uint8_t             connected;
     uint16_t            keepalive;

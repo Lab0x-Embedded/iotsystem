@@ -14,6 +14,7 @@
 #include "mqtt/mqtt_codec.h"
 #include "mqtt/mqtt_topic.h"
 #include "business/command_service.h"
+#include "business/device_manager.h"
 #include "server/thread_pool.h"
 
 #include "common/log.h"
@@ -343,21 +344,32 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
 
     LOG_INFO("CONNECT cid=%s user=%s secret=%.4s...", client_id, username, password);
 
-    /* 数据库认证: 查 devices 表校验 product_key + device_secret */
+    /* 数据库认证: 查 devices 表校验 product_key + device_secret
+     * (username/password 已转义; 顺带取回 device_id 供 presence 标记) */
     int ok = 0;
+    char auth_device_id[65] = {0};
     {
         db_conn_t *db = db_pool_get();
         if (db) {
-            char auth_sql[256];
+            MYSQL *my = (MYSQL *)db_pool_get_mysql(db);
+            char esc_user[sizeof(username) * 2 + 1];
+            char esc_pw[sizeof(password) * 2 + 1];
+            char auth_sql[512];
+            mysql_real_escape_string(my, esc_user, username, (unsigned long)strlen(username));
+            mysql_real_escape_string(my, esc_pw, password, (unsigned long)strlen(password));
             snprintf(auth_sql, sizeof(auth_sql),
                 "SELECT device_id FROM devices "
                 "WHERE product_key='%s' AND device_secret='%s' "
                 "AND status IN ('registered','active') LIMIT 1",
-                username, password);
+                esc_user, esc_pw);
             MYSQL_RES *result = db_pool_query(db, auth_sql);
             if (result) {
                 MYSQL_ROW row = mysql_fetch_row(result);
-                if (row) ok = 1;
+                if (row) {
+                    ok = 1;
+                    if (row[0])
+                        snprintf(auth_device_id, sizeof(auth_device_id), "%s", row[0]);
+                }
                 db_pool_free_result(result);
             }
             db_pool_put(db);
@@ -375,6 +387,11 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     conn->last_active = time(NULL);
     strncpy(conn->client_id, client_id, sizeof(conn->client_id) - 1);
     strncpy(conn->product_key, username, sizeof(conn->product_key) - 1);
+    strncpy(conn->device_id, auth_device_id, sizeof(conn->device_id) - 1);
+
+    /* 标记在线 (非阻塞: 交给 device_manager 的 presence 线程批量下刷) */
+    if (conn->device_id[0])
+        device_manager_presence(conn->device_id, true);
 
     /* CONNACK ACCEPTED */
     {
@@ -520,19 +537,29 @@ static void publish_worker(void *arg) {
         return;
     }
 
+    /* 转义 MQTT 上报里的 product_key / device_id (payload 由设备控制, 必须转义) */
+    char esc_pk[sizeof(task->product_key) * 2 + 1];
+    char esc_id[sizeof(task->device_id) * 2 + 1];
+    MYSQL *my = (MYSQL *)db_pool_get_mysql(db);
+    mysql_real_escape_string(my, esc_pk, task->product_key,
+                             (unsigned long)strlen(task->product_key));
+    mysql_real_escape_string(my, esc_id, task->device_id,
+                             (unsigned long)strlen(task->device_id));
+
     /* 自动注册 product */
-    char ensure_sql[512];
+    char ensure_sql[768];
     snprintf(ensure_sql, sizeof(ensure_sql),
         "INSERT IGNORE INTO products (product_key, product_name) "
         "VALUES ('%s','MQTT Auto Registered')",
-        task->product_key);
+        esc_pk);
     db_pool_exec(db, ensure_sql);
 
-    /* 自动注册 device */
+    /* 自动注册 device; 已存在则顺带刷新 presence (不额外增加往返) */
     snprintf(ensure_sql, sizeof(ensure_sql),
-        "INSERT IGNORE INTO devices (product_key, device_id, device_name, status, online) "
-        "VALUES ('%s','%s','%s','active',TRUE)",
-        task->product_key, task->device_id, task->device_id);
+        "INSERT INTO devices (product_key, device_id, device_name, status, online, last_online) "
+        "VALUES ('%s','%s','%s','active',TRUE,NOW()) "
+        "ON DUPLICATE KEY UPDATE online=TRUE, last_online=NOW()",
+        esc_pk, esc_id, esc_id);
     if (db_pool_exec(db, ensure_sql) != 0) {
         LOG_WARN("auto-register device failed: %s", task->device_id);
     }
@@ -715,6 +742,10 @@ static void handle_ping(mqtt_connection_t *conn) {
     ack.fix_header.flags      = 0;
     ack.fix_header.remain_len = 0;
     send_packet(conn->fd, &ack);
+
+    /* PINGREQ = 设备心跳: 非阻塞标记在线, 避免 MQTT 主循环里做 DB 写 */
+    if (conn->device_id[0])
+        device_manager_presence(conn->device_id, true);
 }
 
 /* ------------------------------------------------------------------ */

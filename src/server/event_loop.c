@@ -15,6 +15,7 @@
 #include "connection.h"
 #include "thread_pool.h"
 #include "mqtt_broker.h"
+#include "business/device_manager.h"
 #include "common/log.h"
 
 #include <string.h>
@@ -238,8 +239,12 @@ static void handle_new_connection(event_loop_t *loop) {
 static void handle_disconnect(event_loop_t *loop, connection_t *c) {
     if (!c) return;
     if (c->wrapper) {
-        mqtt_broker_unregister(&((conn_wrapper_t *)c->wrapper)->mqtt);
-        conn_wrapper_destroy((conn_wrapper_t *)c->wrapper);
+        conn_wrapper_t *w = (conn_wrapper_t *)c->wrapper;
+        /* 设备断开 (DISCONNECT / EOF / 错误) → 非阻塞标记离线, 由 presence 线程下刷 */
+        if (w->mqtt.device_id[0])
+            device_manager_offline(w->mqtt.device_id);
+        mqtt_broker_unregister(&w->mqtt);
+        conn_wrapper_destroy(w);
         c->wrapper = NULL;
     }
     LOG_INFO("conn fd=%d end (active=%u)", c->fd, loop->active_conns - 1);

@@ -191,6 +191,7 @@ int main(int argc, char **argv) {
     g_thread_pool = NULL;
 
     /* -------- 清理 -------- */
+    device_manager_shutdown();   /* 停 presence 线程并落库剩余标记 (须早于 db_pool_shutdown) */
     data_writer_shutdown();
     db_pool_shutdown();
 
