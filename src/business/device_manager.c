@@ -17,6 +17,7 @@
  */
 #include "business/device_manager.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 
 #include <mysql.h>
@@ -77,22 +78,6 @@ static bool dev_id_valid(const char *device_id) {
            strlen(device_id) < DEV_ID_LEN;
 }
 
-/**
- * 转义字符串到 dst (容量 cap).
- * 超长直接失败 —— 不截断, 避免 mysql_real_escape_string 写出栈缓冲.
- * @return 0 成功, -1 参数错或超长
- */
-static int esc_str(MYSQL *mysql, char *dst, size_t cap, const char *src) {
-    size_t n;
-    if (!mysql || !dst || cap == 0)
-        return -1;
-    n = src ? strlen(src) : 0;
-    if (n * 2 + 1 > cap)
-        return -1;
-    mysql_real_escape_string(mysql, dst, src ? src : "", (unsigned long)n);
-    return 0;
-}
-
 /* ================================================================
  *  presence 标记队列 + 后台下刷线程
  * ================================================================ */
@@ -117,7 +102,7 @@ static void presence_write_one(const char *device_id, bool online) {
         return;
     char esc[DEV_ID_LEN * 2 + 1];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
-    if (esc_str(mysql, esc, sizeof(esc), device_id) != 0) {
+    if (sql_escape(mysql, esc, sizeof(esc), device_id) != 0) {
         db_pool_put(conn);
         return;
     }
@@ -148,7 +133,7 @@ static int presence_exec_chunk(db_conn_t *conn, const presence_item_t *items, in
     for (int i = 0; i < n; i++) {
         char esc[DEV_ID_LEN * 2 + 1];
         int w;
-        if (esc_str(mysql, esc, sizeof(esc), items[i].device_id) != 0)
+        if (sql_escape(mysql, esc, sizeof(esc), items[i].device_id) != 0)
             continue;
         w = snprintf(sql + off, cap - (size_t)off, "%s'%s'", k ? "," : "", esc);
         if (w < 0 || (size_t)w >= cap - (size_t)off)
@@ -373,17 +358,17 @@ int device_register(const char *device_id, const char *name, const char *product
     if (!conn)
         return -1;
 
-    /* 转义防止 SQL 注入 (超长参数由 esc_str 拒绝) */
-    char esc_id[DEV_ID_LEN * 2 + 1], esc_name[DEV_NAME_LEN * 2 + 1];
-    char esc_pk[DEV_PK_LEN * 2 + 1], esc_dt[DEV_TYPE_LEN * 2 + 1];
-    char esc_ds[DEV_SECRET_LEN * 2 + 1];
+    /* 转义防止 SQL 注入 (超长参数由 sql_escape 拒绝) */
+    char esc_id[SQL_ESC_CAP(64)], esc_name[SQL_ESC_CAP(128)];
+    char esc_pk[SQL_ESC_CAP(64)], esc_dt[SQL_ESC_CAP(64)];
+    char esc_ds[SQL_ESC_CAP(255)];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
 
-    if (esc_str(mysql, esc_id, sizeof(esc_id), device_id) != 0 ||
-        esc_str(mysql, esc_name, sizeof(esc_name), name ? name : "") != 0 ||
-        esc_str(mysql, esc_pk, sizeof(esc_pk), product_key) != 0 ||
-        esc_str(mysql, esc_dt, sizeof(esc_dt), dt) != 0 ||
-        esc_str(mysql, esc_ds, sizeof(esc_ds), ds) != 0) {
+    if (sql_escape(mysql, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape(mysql, esc_name, sizeof(esc_name), name ? name : "") != 0 ||
+        sql_escape(mysql, esc_pk, sizeof(esc_pk), product_key) != 0 ||
+        sql_escape(mysql, esc_dt, sizeof(esc_dt), dt) != 0 ||
+        sql_escape(mysql, esc_ds, sizeof(esc_ds), ds) != 0) {
         LOG_WARN("device_register: parameter too long for %s", device_id);
         db_pool_put(conn);
         return -1;
@@ -431,8 +416,8 @@ int device_manager_activate(const char *device_id, const char *device_secret) {
     char esc_id[DEV_ID_LEN * 2 + 1];
     char esc_ds[DEV_SECRET_LEN * 2 + 1];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
-    if (esc_str(mysql, esc_id, sizeof(esc_id), device_id) != 0 ||
-        esc_str(mysql, esc_ds, sizeof(esc_ds), device_secret ? device_secret : "") != 0) {
+    if (sql_escape(mysql, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape(mysql, esc_ds, sizeof(esc_ds), device_secret ? device_secret : "") != 0) {
         LOG_WARN("device_manager_activate: bad parameter for %s", device_id);
         db_pool_put(conn);
         return -1;
@@ -504,7 +489,7 @@ void device_manager_heartbeat(const char *device_id) {
 
     char esc_id[DEV_ID_LEN * 2 + 1];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
-    if (esc_str(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
+    if (sql_escape(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
         db_pool_put(conn);
         return;
     }
@@ -564,7 +549,7 @@ int device_manager_find(const char *device_id, device_info_t *out_info) {
 
     char esc_id[DEV_ID_LEN * 2 + 1];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
-    if (esc_str(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
+    if (sql_escape(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
         db_pool_put(conn);
         return -1;
     }
@@ -660,7 +645,7 @@ int device_manager_decommission(const char *device_id) {
 
     char esc_id[DEV_ID_LEN * 2 + 1];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
-    if (esc_str(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
+    if (sql_escape(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
         db_pool_put(conn);
         return -1;
     }
@@ -733,7 +718,7 @@ int device_manager_update_group(const char *device_id, int group_id) {
 
     char esc_id[DEV_ID_LEN * 2 + 1];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
-    if (esc_str(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
+    if (sql_escape(mysql, esc_id, sizeof(esc_id), device_id) != 0) {
         db_pool_put(conn);
         return -1;
     }
@@ -760,8 +745,8 @@ int device_manager_update_name(const char *device_id, const char *name) {
     char esc_id[DEV_ID_LEN * 2 + 1];
     char esc_name[DEV_NAME_LEN * 2 + 1];
     MYSQL *mysql = (MYSQL *)db_pool_get_mysql(conn);
-    if (esc_str(mysql, esc_id, sizeof(esc_id), device_id) != 0 ||
-        esc_str(mysql, esc_name, sizeof(esc_name), name) != 0) {
+    if (sql_escape(mysql, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape(mysql, esc_name, sizeof(esc_name), name) != 0) {
         db_pool_put(conn);
         return -1;
     }

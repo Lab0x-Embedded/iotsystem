@@ -6,6 +6,7 @@
 #include "data/query_service.h"
 #include "data/shard_router.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 
 #include <stdio.h>
@@ -25,16 +26,25 @@ int query_history(const query_request_t *req, query_point_t *out, int max_n) {
     // 构建查询SQL
     char sql[512];
     char table_name[64];
+    char esc_id[SQL_ESC_CAP(64)];
+    char esc_metric[SQL_ESC_CAP(64)];
     shard_router_table(req->device_id, (time_t)req->start_ts, table_name, sizeof(table_name));
-    
+
+    if (sql_escape_conn(conn, esc_id, sizeof(esc_id), req->device_id) != 0 ||
+        sql_escape_conn(conn, esc_metric, sizeof(esc_metric), req->metric) != 0) {
+        LOG_WARN("query_history: device_id/metric too long");
+        db_pool_put(conn);
+        return -1;
+    }
+
     snprintf(sql, sizeof(sql),
         "SELECT ts, value FROM %s "
         "WHERE device_id = '%s' AND metric = '%s' "
         "AND ts >= %llu AND ts <= %llu "
         "ORDER BY ts DESC LIMIT %d",
         table_name,
-        req->device_id,
-        req->metric,
+        esc_id,
+        esc_metric,
         (unsigned long long)req->start_ts,
         (unsigned long long)req->end_ts,
         max_n);
@@ -72,11 +82,20 @@ int query_latest(const char *device_id, const char *metric, double *out_value,
 
     // 查询最新值（从device_latest_data表）
     char sql[256];
+    char esc_id[SQL_ESC_CAP(64)];
+    char esc_metric[SQL_ESC_CAP(64)];
+    if (sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape_conn(conn, esc_metric, sizeof(esc_metric), metric) != 0) {
+        LOG_WARN("query_latest: device_id/metric too long");
+        db_pool_put(conn);
+        return -1;
+    }
+
     snprintf(sql, sizeof(sql),
         "SELECT value, ts FROM device_latest_data "
         "WHERE device_id = '%s' AND metric = '%s' "
         "ORDER BY ts DESC LIMIT 1",
-        device_id, metric);
+        esc_id, esc_metric);
 
     MYSQL_RES *result = db_pool_query(conn, sql);
     if (!result) {
@@ -112,15 +131,24 @@ int query_aggregate(const char *device_id, const char *metric,
     // 构建聚合查询
     char sql[512];
     char table_name[64];
+    char esc_id[SQL_ESC_CAP(64)];
+    char esc_metric[SQL_ESC_CAP(64)];
     shard_router_table(device_id, (time_t)start_ts, table_name, sizeof(table_name));
     
+    if (sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape_conn(conn, esc_metric, sizeof(esc_metric), metric) != 0) {
+        LOG_WARN("query_aggregate: device_id/metric too long");
+        db_pool_put(conn);
+        return -1;
+    }
+
     snprintf(sql, sizeof(sql),
         "SELECT MIN(value), AVG(value), MAX(value) FROM %s "
         "WHERE device_id = '%s' AND metric = '%s' "
         "AND ts >= %llu AND ts <= %llu",
         table_name,
-        device_id,
-        metric,
+        esc_id,
+        esc_metric,
         (unsigned long long)start_ts,
         (unsigned long long)end_ts);
 

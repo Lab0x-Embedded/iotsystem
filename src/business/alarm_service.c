@@ -6,6 +6,7 @@
 #include "business/alarm_service.h"
 #include <mysql.h>
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 
 #include <stdlib.h>
@@ -69,12 +70,18 @@ static int alarm_find_tracked(const char *device_id, const char *metric) {
 /* auto-resolve: 复用外部连接版本，用于事件循环流水线 */
 static void alarm_auto_resolve_with_conn(db_conn_t *conn, const char *device_id, const char *metric) {
     if (!conn) return;
-    printf("ALERT auto-resolve: %s %s", device_id, metric);
+    char esc_id[SQL_ESC_CAP(64)];
+    char esc_metric[SQL_ESC_CAP(64)];
+    if (sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape_conn(conn, esc_metric, sizeof(esc_metric), metric) != 0) {
+        LOG_WARN("ALERT auto-resolve skipped: device_id/metric too long");
+        return;
+    }
     char sql[512];
     snprintf(sql, sizeof(sql),
         "UPDATE alerts SET status='resolved', resolved_at=NOW() "
         "WHERE device_id='%s' AND metric='%s' AND status='active'",
-        device_id, metric);
+        esc_id, esc_metric);
     int rc = db_pool_exec(conn, sql);
     if (rc != 0)
         LOG_ERROR("ALERT auto-resolve FAILED: %s %s", device_id, metric);
@@ -113,11 +120,19 @@ int alarm_add_rule(const char *device_id, const char *metric,
     if (!device_id || !metric) return -1;
     db_conn_t *conn = db_pool_get();
     if (!conn) return -1;
+    char esc_id[SQL_ESC_CAP(64)];
+    char esc_metric[SQL_ESC_CAP(64)];
+    if (sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape_conn(conn, esc_metric, sizeof(esc_metric), metric) != 0) {
+        LOG_WARN("alarm_add_rule: device_id/metric too long");
+        db_pool_put(conn);
+        return -1;
+    }
     char sql[1024];
     snprintf(sql,sizeof(sql),
         "INSERT INTO alert_rules (rule_name,device_id,metric,condition_type,threshold,severity)"
-        "VALUES('\%s > %.2f','%s','%s','%s',%.2f,'%s')",
-        metric, threshold, device_id, metric,
+        "VALUES('%s > %.2f','%s','%s','%s',%.2f,'%s')",
+        esc_metric, threshold, esc_id, esc_metric,
         op==ALARM_OP_GT?"gt":op==ALARM_OP_LT?"lt":op==ALARM_OP_GTE?"gte":op==ALARM_OP_LTE?"lte":"eq",
         threshold, severity_to_str(severity));
     int rc = db_pool_exec(conn, sql);
@@ -130,11 +145,18 @@ int alarm_add_rule(const char *device_id, const char *metric,
 void alarm_evaluate_with_conn(void *vconn, const char *device_id, const char *metric, double value) {
     if (!device_id || !metric || !vconn) return;
     db_conn_t *conn = (db_conn_t *)vconn;
+    char esc_id[SQL_ESC_CAP(64)];
+    char esc_metric[SQL_ESC_CAP(64)];
+    if (sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) != 0 ||
+        sql_escape_conn(conn, esc_metric, sizeof(esc_metric), metric) != 0) {
+        LOG_WARN("ALERT evaluate skipped: device_id/metric too long");
+        return;
+    }
     char sql[512];
     snprintf(sql, sizeof(sql),
         "SELECT rule_id,condition_type,threshold,severity FROM alert_rules "
         "WHERE enabled=1 AND metric='%s' AND (device_id='%s' OR device_id IS NULL OR device_id='')",
-        metric, device_id);
+        esc_metric, esc_id);
     void *res = db_pool_query(conn, sql);
     if (!res) return;
     MYSQL_ROW row;
@@ -157,7 +179,7 @@ void alarm_evaluate_with_conn(void *vconn, const char *device_id, const char *me
             "SELECT id FROM alerts "
             "WHERE device_id='%s' AND metric='%s' AND rule_id=%llu AND status='active' "
             "LIMIT 1",
-            device_id, metric, (unsigned long long)rule_id);
+            esc_id, esc_metric, (unsigned long long)rule_id);
         void *dedup_res = db_pool_query(conn, dedup_sql);
         if (dedup_res) {
             MYSQL_ROW dedup_row = mysql_fetch_row((MYSQL_RES*)dedup_res);
@@ -179,7 +201,7 @@ void alarm_evaluate_with_conn(void *vconn, const char *device_id, const char *me
         snprintf(sql2,sizeof(sql2),
             "INSERT INTO alerts (rule_id,device_id,metric,current_value,threshold,severity,status)"
             "VALUES(%llu,'%s','%s',%.2f,%.2f,'%s','active')",
-            (unsigned long long)rule_id, device_id, metric, value, t, rv);
+            (unsigned long long)rule_id, esc_id, esc_metric, value, t, rv);
         db_pool_exec(conn, sql2);
         LOG_WARN("ALERT: %s %s=%.2f > %.2f", device_id, metric, value, t);
     }
@@ -333,11 +355,19 @@ int alarm_edit_rule(uint64_t rule_id, const char *device_id, const char *metric,
     if (!conn) return -1;
     const char *op_str = op == ALARM_OP_GT ? "gt" : op == ALARM_OP_LT ? "lt" :
                          op == ALARM_OP_EQ ? "eq" : op == ALARM_OP_GTE ? "gte" : "lte";
+    char esc_id[SQL_ESC_CAP(64)];
+    char esc_metric[SQL_ESC_CAP(64)];
+    if (sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id ? device_id : "") != 0 ||
+        sql_escape_conn(conn, esc_metric, sizeof(esc_metric), metric) != 0) {
+        LOG_WARN("alarm_edit_rule: device_id/metric too long");
+        db_pool_put(conn);
+        return -1;
+    }
     char sql[1024];
     snprintf(sql, sizeof(sql),
         "UPDATE alert_rules SET device_id='%s', metric='%s', condition_type='%s', "
         "threshold=%.2f, severity='%s' WHERE rule_id=%llu",
-        device_id ? device_id : "", metric, op_str, threshold,
+        esc_id, esc_metric, op_str, threshold,
         severity == ALARM_SEVERITY_CRITICAL ? "critical" :
         severity == ALARM_SEVERITY_INFO ? "info" : "warning",
         (unsigned long long)rule_id);

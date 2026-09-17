@@ -7,6 +7,7 @@
 #include "api/http_server.h"
 #include "api/auth_middleware.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 
 #include <cJSON.h>
@@ -26,16 +27,21 @@ static int verify_user(const char *username, const char *password) {
         return -1;
     }
 
-    // 转义用户名防止 SQL 注入
-    MYSQL *mysql = db_pool_get_mysql(conn);
-    char escaped_user[128];
-    mysql_real_escape_string(mysql, escaped_user, username, strlen(username));
+    // 转义用户名/口令 (超长直接拒绝: 防止转义写出缓冲 + 注入)
+    char esc_user[SQL_ESC_CAP(64)];
+    char esc_pwd[SQL_ESC_CAP(128)];
+    if (sql_escape_conn(conn, esc_user, sizeof(esc_user), username) != 0 ||
+        sql_escape_conn(conn, esc_pwd, sizeof(esc_pwd), password) != 0) {
+        LOG_WARN("login: username/password too long");
+        db_pool_put(conn);
+        return -1;
+    }
 
     // 查询用户
-    char sql[256];
+    char sql[384];
     snprintf(sql, sizeof(sql),
              "SELECT id, password_hash FROM users WHERE username='%s' AND status='active' LIMIT 1",
-             escaped_user);
+             esc_user);
 
     MYSQL_RES *result = db_pool_query(conn, sql);
     if (!result) {
@@ -56,8 +62,8 @@ static int verify_user(const char *username, const char *password) {
     const char *stored_hash = row[1];
 
     // 使用 MySQL 的 SHA2 函数计算输入密码的哈希值
-    char sha_sql[256];
-    snprintf(sha_sql, sizeof(sha_sql), "SELECT SHA2('%s', 256)", password);
+    char sha_sql[512];
+    snprintf(sha_sql, sizeof(sha_sql), "SELECT SHA2('%s', 256)", esc_pwd);
     MYSQL_RES *sha_result = db_pool_query(conn, sha_sql);
     if (!sha_result) {
         db_pool_free_result(result);

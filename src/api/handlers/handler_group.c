@@ -1,6 +1,7 @@
 #include "api/handlers.h"
 #include "api/http_server.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 #include <cJSON.h>
 #include <stdlib.h>
@@ -81,11 +82,20 @@ void handler_group(struct evhttp_request *req, void *ctx) {
             return;
         }
 
-        char sql[512];
+        char esc_name[SQL_ESC_CAP(128)];
+        char esc_desc[SQL_ESC_CAP(255)];
+        char sql[1024];
+        if (sql_escape_conn(conn, esc_name, sizeof(esc_name), name->valuestring) != 0 ||
+            sql_escape_conn(conn, esc_desc, sizeof(esc_desc), desc ? desc->valuestring : "") != 0) {
+            LOG_WARN("group create: name/description too long");
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"name/description too long\"}");
+            db_pool_put(conn);
+            free(body); cJSON_Delete(root);
+            return;
+        }
         snprintf(sql, sizeof(sql),
             "INSERT INTO device_groups (group_name, description) VALUES ('%s', '%s')",
-            name->valuestring,
-            desc ? desc->valuestring : "");
+            esc_name, esc_desc);
 
         if (db_pool_exec(conn, sql) != 0) {
             http_reply_json(req, 500, "Internal Error", "{\"error\":\"insert failed\"}");
@@ -131,11 +141,22 @@ void handler_group(struct evhttp_request *req, void *ctx) {
             return;
         }
 
-        char sql[512];
+        char esc_name[SQL_ESC_CAP(128)];
+        char esc_desc[SQL_ESC_CAP(255)];
+        char sql[1024];
+        if (sql_escape_conn(conn, esc_name, sizeof(esc_name), name ? name->valuestring : "") != 0 ||
+            sql_escape_conn(conn, esc_desc, sizeof(esc_desc), desc ? desc->valuestring : "") != 0) {
+            LOG_WARN("group update: name/description too long");
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"name/description too long\"}");
+            db_pool_put(conn);
+            free(body); cJSON_Delete(root);
+            return;
+        }
+
         snprintf(sql, sizeof(sql),
             "UPDATE device_groups SET group_name='%s', description='%s' WHERE group_id=%d",
-            name ? name->valuestring : "",
-            desc ? desc->valuestring : "",
+            esc_name,
+            esc_desc,
             groupId->valueint);
 
         db_pool_exec(conn, sql);

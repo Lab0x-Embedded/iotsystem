@@ -2,6 +2,7 @@
 #include "api/http_server.h"
 #include "business/shadow_manager.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 #include <cJSON.h>
 #include <mysql.h>
@@ -79,10 +80,18 @@ void handler_shadow(struct evhttp_request *req, void *ctx) {
         /* 从 DB 读取 desired/reported */
         db_conn_t *conn = db_pool_get();
         if (conn) {
+            char esc_id[SQL_ESC_CAP(64)];
             char sql[256];
+            if (sql_escape_conn(conn, esc_id, sizeof(esc_id), id->valuestring) != 0) {
+                LOG_WARN("shadow query: device_id too long");
+                db_pool_put(conn);
+                http_reply_json(req, 400, "Bad Request", "{\"error\":\"device_id too long\"}");
+                free(body); cJSON_Delete(root);
+                return;
+            }
             snprintf(sql, sizeof(sql),
                 "SELECT desired, reported FROM device_shadows WHERE device_id='%s' LIMIT 1",
-                id->valuestring);
+                esc_id);
             void *qres = db_pool_query(conn, sql);
             if (qres) {
                 MYSQL_ROW row = mysql_fetch_row((MYSQL_RES*)qres);

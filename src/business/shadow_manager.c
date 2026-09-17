@@ -5,6 +5,7 @@
  */
 #include "business/shadow_manager.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 
 #include <stdlib.h>
@@ -96,29 +97,40 @@ int shadow_set_desired(const char *device_id, const char *key, const char *value
     if (desired_str) {
         db_conn_t *conn = db_pool_get();
         if (conn) {
-            char *esc_d = calloc(strlen(desired_str) * 2 + 1, 1);
-            char *esc_delta = delta_str ? calloc(strlen(delta_str) * 2 + 1, 1) : NULL;
-            MYSQL *mysql = (MYSQL*)db_pool_get_mysql(conn);
-            if (mysql && esc_d) {
-                mysql_real_escape_string(mysql, esc_d, desired_str, strlen(desired_str));
-                if (esc_delta && delta_str)
-                    mysql_real_escape_string(mysql, esc_delta, delta_str, strlen(delta_str));
-                char sql[2048];
-                /* 先尝试 UPDATE */
-                snprintf(sql, sizeof(sql),
+            const char *delta_src = delta_str ? delta_str : "{}";
+            size_t dlen = strlen(desired_str);
+            size_t rlen = strlen(delta_src);
+            size_t cap = (dlen + rlen) * 2 + 512;      /* 按 payload 分配, 避免静态缓冲截断 SQL */
+            char *esc_d = malloc(dlen * 2 + 1);
+            char *esc_delta = malloc(rlen * 2 + 1);
+            char *sql = malloc(cap);
+            char esc_id[SQL_ESC_CAP(64)];
+
+            if (esc_d && esc_delta && sql &&
+                sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) == 0 &&
+                sql_escape_conn(conn, esc_d, dlen * 2 + 1, desired_str) == 0 &&
+                sql_escape_conn(conn, esc_delta, rlen * 2 + 1, delta_src) == 0) {
+                /* 先尝试 UPDATE (exec 内部可能重连, 影响行数重新取句柄) */
+                snprintf(sql, cap,
                     "UPDATE device_shadows SET desired='%s', delta='%s', version=version+1 WHERE device_id='%s'",
-                    esc_d, esc_delta ? esc_delta : "{}", device_id);
-                if (db_pool_exec(conn, sql) != 0 || mysql_affected_rows(mysql) == 0) {
+                    esc_d, esc_delta, esc_id);
+                unsigned long long affected = 0;
+                if (db_pool_exec(conn, sql) == 0)
+                    affected = (unsigned long long)mysql_affected_rows((MYSQL *)db_pool_get_mysql(conn));
+                if (affected == 0) {
                     /* UPDATE 失败或无匹配行，执行 INSERT */
-                    snprintf(sql, sizeof(sql),
+                    snprintf(sql, cap,
                         "INSERT INTO device_shadows (product_key, device_id, desired, delta) "
                         "SELECT product_key, device_id, '%s', '%s' FROM devices WHERE device_id='%s' LIMIT 1",
-                        esc_d, esc_delta ? esc_delta : "{}", device_id);
+                        esc_d, esc_delta, esc_id);
                     db_pool_exec(conn, sql);
                 }
+            } else {
+                LOG_WARN("shadow_write_desired: parameter too long or alloc failed (%s)", device_id);
             }
             free(esc_d);
             free(esc_delta);
+            free(sql);
             db_pool_put(conn);
         }
         free(desired_str);
@@ -165,19 +177,21 @@ int shadow_update_reported(const char *device_id, const char *key, const char *v
     if (delta_str) {
         db_conn_t *conn = db_pool_get();
         if (conn) {
-            char *esc = calloc(strlen(delta_str) * 2 + 1, 1);
-            if (esc) {
-                MYSQL *mysql = (MYSQL*)db_pool_get_mysql(conn);
-                if (mysql) {
-                    mysql_real_escape_string(mysql, esc, delta_str, strlen(delta_str));
-                    char sql[1024];
-                    snprintf(sql, sizeof(sql),
-                        "UPDATE device_shadows SET delta='%s', version=version+1 WHERE device_id='%s'",
-                        esc, device_id);
-                    db_pool_exec(conn, sql);
-                }
-                free(esc);
+            size_t rlen = strlen(delta_str);
+            char *esc = malloc(rlen * 2 + 1);
+            char esc_id[SQL_ESC_CAP(64)];
+            if (esc &&
+                sql_escape_conn(conn, esc, rlen * 2 + 1, delta_str) == 0 &&
+                sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) == 0) {
+                char sql[1024];
+                snprintf(sql, sizeof(sql),
+                    "UPDATE device_shadows SET delta='%s', version=version+1 WHERE device_id='%s'",
+                    esc, esc_id);
+                db_pool_exec(conn, sql);
+            } else {
+                LOG_WARN("shadow_write_delta: parameter too long or alloc failed (%s)", device_id);
             }
+            free(esc);
             db_pool_put(conn);
         }
         free(delta_str);

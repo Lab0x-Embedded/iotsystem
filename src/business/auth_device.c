@@ -10,6 +10,7 @@
  */
 #include "business/auth_device.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 #include <mysql.h>
 
@@ -44,12 +45,21 @@ static int lookup_secret(const char *product_key,
         return -1;
     }
 
+    char esc_pk[SQL_ESC_CAP(64)];
+    char esc_id[SQL_ESC_CAP(64)];
+    if (sql_escape_conn(conn, esc_pk, sizeof(esc_pk), product_key) != 0 ||
+        sql_escape_conn(conn, esc_id, sizeof(esc_id), device_id) != 0) {
+        LOG_WARN("auth_device: product_key/device_id too long");
+        db_pool_put(conn);
+        return -1;
+    }
+
     char sql[512];
     snprintf(sql, sizeof(sql),
         "SELECT device_secret FROM devices "
         "WHERE product_key='%s' AND device_id='%s' AND status != 'decommissioned' "
         "LIMIT 1",
-        product_key, device_id);
+        esc_pk, esc_id);
 
     int found = -1;
     void *result = db_pool_query(conn, sql);

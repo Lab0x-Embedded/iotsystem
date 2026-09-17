@@ -22,6 +22,7 @@
 #include "business/alarm_service.h"
 #include "server/sse_handler.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 
 #include <mysql.h>
 #include <stdlib.h>
@@ -351,12 +352,15 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     {
         db_conn_t *db = db_pool_get();
         if (db) {
-            MYSQL *my = (MYSQL *)db_pool_get_mysql(db);
-            char esc_user[sizeof(username) * 2 + 1];
-            char esc_pw[sizeof(password) * 2 + 1];
+            char esc_user[SQL_ESC_CAP(65)];
+            char esc_pw[SQL_ESC_CAP(65)];
             char auth_sql[512];
-            mysql_real_escape_string(my, esc_user, username, (unsigned long)strlen(username));
-            mysql_real_escape_string(my, esc_pw, password, (unsigned long)strlen(password));
+            if (sql_escape_conn(db, esc_user, sizeof(esc_user), username) != 0 ||
+                sql_escape_conn(db, esc_pw, sizeof(esc_pw), password) != 0) {
+                LOG_WARN("CONNECT auth: username/password too long");
+                db_pool_put(db);
+                goto refused;
+            }
             snprintf(auth_sql, sizeof(auth_sql),
                 "SELECT device_id FROM devices "
                 "WHERE product_key='%s' AND device_secret='%s' "
@@ -537,14 +541,18 @@ static void publish_worker(void *arg) {
         return;
     }
 
-    /* 转义 MQTT 上报里的 product_key / device_id (payload 由设备控制, 必须转义) */
-    char esc_pk[sizeof(task->product_key) * 2 + 1];
-    char esc_id[sizeof(task->device_id) * 2 + 1];
-    MYSQL *my = (MYSQL *)db_pool_get_mysql(db);
-    mysql_real_escape_string(my, esc_pk, task->product_key,
-                             (unsigned long)strlen(task->product_key));
-    mysql_real_escape_string(my, esc_id, task->device_id,
-                             (unsigned long)strlen(task->device_id));
+    /* 转义 MQTT 上报里的 product_key / device_id / metric (payload 由设备控制, 必须转义) */
+    char esc_pk[SQL_ESC_CAP(65)];
+    char esc_id[SQL_ESC_CAP(65)];
+    char esc_metric[SQL_ESC_CAP(64)];
+    if (sql_escape_conn(db, esc_pk, sizeof(esc_pk), task->product_key) != 0 ||
+        sql_escape_conn(db, esc_id, sizeof(esc_id), task->device_id) != 0 ||
+        sql_escape_conn(db, esc_metric, sizeof(esc_metric), task->metric) != 0) {
+        LOG_WARN("publish: product_key/device_id/metric too long, point dropped");
+        db_pool_put(db);
+        free(task);
+        return;
+    }
 
     /* 自动注册 product */
     char ensure_sql[768];
@@ -582,12 +590,12 @@ static void publish_worker(void *arg) {
         LOG_WARN("CREATE TABLE %s failed (may already exist)", tbl);
     }
 
-    char *ins = (char *)malloc(512);
+    char *ins = (char *)malloc(768);
     if (ins) {
-        snprintf(ins, 512,
+        snprintf(ins, 768,
             "INSERT INTO `%s` (device_id, metric, value, ts) "
             "VALUES ('%s','%s',%.2f,%llu)",
-            tbl, task->device_id, task->metric, task->value,
+            tbl, esc_id, esc_metric, task->value,
             (unsigned long long)task->ts);
         if (db_pool_exec(db, ins) != 0) {
             LOG_WARN("DB insert failed: %s %s=%.2f",
@@ -597,13 +605,13 @@ static void publish_worker(void *arg) {
     }
 
     /* 更新 device_latest_data */
-    char *upsert = (char *)malloc(512);
+    char *upsert = (char *)malloc(768);
     if (upsert) {
-        snprintf(upsert, 512,
+        snprintf(upsert, 768,
             "INSERT INTO device_latest_data (device_id, metric, value, ts, updated_at) "
             "VALUES ('%s','%s',%.2f,%llu,NOW()) "
             "ON DUPLICATE KEY UPDATE value=VALUES(value), ts=VALUES(ts), updated_at=NOW()",
-            task->device_id, task->metric, task->value,
+            esc_id, esc_metric, task->value,
             (unsigned long long)task->ts);
         db_pool_exec(db, upsert);
         free(upsert);

@@ -37,6 +37,7 @@
 #include "data/data_writer.h"
 #include "data/shard_router.h"
 #include "data/db_pool.h"
+#include "data/sql_escape.h"
 #include "common/log.h"
 
 #include <pthread.h>
@@ -49,7 +50,8 @@
 
 #define BATCH_SIZE 64
 #define BATCH_QUEUE_SIZE 8
-#define MAX_SQL_LEN 4096
+/* 单条批量 INSERT 的最大长度: 64 行 × 转义后最坏 (device_id 64→128 + metric 63→126 + 数值/分隔符 ~40) ≈ 20KB */
+#define MAX_SQL_LEN 24576
 #define FLUSH_INTERVAL_MS 1000
 
 typedef struct {
@@ -187,16 +189,12 @@ static int queue_active_batch_locked(void) {
 /**
  * 构建 INSERT SQL。
  *
- * 注意：
- *
- * 当前仍然是字符串拼接。
- *
- * 如果 device_id / metric 来自不可信输入，
- * 后续建议改 prepared statement。
+ * device_id / metric 来自设备上报 (不可信), 统一走 sql_escape 转义;
+ * 转义后的长度按 2 倍预留, sql_size 不足时返回 -1 (调用方回滚并丢批)。
  */
-static int build_insert_sql(const data_point_t *points, int count, char *sql, size_t sql_size,
-                            const char *table_name) {
-    if (!points || count <= 0 || !sql || sql_size == 0 || !table_name) {
+static int build_insert_sql(void *mysql, const data_point_t *points, int count,
+                            char *sql, size_t sql_size, const char *table_name) {
+    if (!mysql || !points || count <= 0 || !sql || sql_size == 0 || !table_name) {
 
         return -1;
     }
@@ -215,15 +213,27 @@ static int build_insert_sql(const data_point_t *points, int count, char *sql, si
 
     for (int i = 0; i < count; ++i) {
 
-        int written = snprintf(sql + offset, sql_size - (size_t)offset,
+        char esc_id[SQL_ESC_CAP(64)];
+        char esc_metric[SQL_ESC_CAP(64)];
+        int written;
 
-                               "('%s', '%s', %.17g, %llu)%s",
+        if (sql_escape(mysql, esc_id, sizeof(esc_id), points[i].device_id) != 0 ||
+            sql_escape(mysql, esc_metric, sizeof(esc_metric), points[i].metric) != 0) {
 
-                               points[i].device_id, points[i].metric, points[i].value,
+            LOG_WARN("data_writer: device_id/metric too long, point dropped");
 
-                               (unsigned long long)points[i].ts,
+            return -1;
+        }
 
-                               i == count - 1 ? "" : ",");
+        written = snprintf(sql + offset, sql_size - (size_t)offset,
+
+                           "('%s', '%s', %.17g, %llu)%s",
+
+                           esc_id, esc_metric, points[i].value,
+
+                           (unsigned long long)points[i].ts,
+
+                           i == count - 1 ? "" : ",");
 
         if (written < 0) {
             return -1;
@@ -282,7 +292,7 @@ static int flush_batch_to_db(const data_point_t *points, int count) {
     /*
      * 构建 SQL。
      */
-    if (build_insert_sql(points, count, sql, sizeof(sql), table_name) != 0) {
+    if (build_insert_sql(db_pool_get_mysql(conn), points, count, sql, sizeof(sql), table_name) != 0) {
 
         LOG_ERROR("data_writer: "
                   "SQL too large, "
