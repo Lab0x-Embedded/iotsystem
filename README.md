@@ -42,6 +42,8 @@ graph TB
     Dev -->|"MQTT :1883"| MQTT
 ```
 
+![](./public/preview.png)
+
 ---
 
 ## 功能特性
