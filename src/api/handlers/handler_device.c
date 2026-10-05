@@ -1,5 +1,7 @@
 #include "api/handlers.h"
 #include "data/query_service.h"
+#include "data/db_pool.h"
+#include <mysql.h>
 #include "api/http_server.h"
 #include "business/device_manager.h"
 #include "common/log.h"
@@ -81,6 +83,39 @@ void handler_device(struct evhttp_request *req, void *ctx) {
             free(txt); cJSON_Delete(res);
         } else {
             http_reply_json(req, 404, "Not Found", "{\"error\":\"device not found\"}");
+        }
+    } else if (action && strcmp(action->valuestring, "query_latest") == 0) {
+        /* -------- 轮询数据源: 全量设备最新数据点 (device_latest_data) -------- */
+        db_conn_t *db = db_pool_get();
+        if (!db) {
+            http_reply_json(req, 503, "Service Unavailable",
+                            "{\"error\":\"no db connection\"}");
+        } else {
+            MYSQL_RES *res = (MYSQL_RES *)db_pool_query(db,
+                "SELECT device_id, metric, value, ts FROM device_latest_data");
+            cJSON *out = cJSON_CreateObject();
+            cJSON *arr = cJSON_CreateArray();
+            int total = 0;
+            if (res) {
+                MYSQL_ROW row;
+                while ((row = mysql_fetch_row(res)) != NULL) {
+                    cJSON *item = cJSON_CreateObject();
+                    cJSON_AddStringToObject(item, "device_id", row[0] ? row[0] : "");
+                    cJSON_AddStringToObject(item, "metric", row[1] ? row[1] : "");
+                    cJSON_AddNumberToObject(item, "value", row[2] ? atof(row[2]) : 0);
+                    cJSON_AddNumberToObject(item, "ts", row[3] ? (double)strtoull(row[3], NULL, 10) : 0);
+                    cJSON_AddItemToArray(arr, item);
+                    total++;
+                }
+                db_pool_free_result(res);
+            }
+            db_pool_put(db);
+            cJSON_AddItemToObject(out, "data", arr);
+            cJSON_AddNumberToObject(out, "total", total);
+            char *txt = cJSON_PrintUnformatted(out);
+            http_reply_json(req, 200, "OK", txt);
+            free(txt);
+            cJSON_Delete(out);
         }
     } else if (action && strcmp(action->valuestring, "query_all") == 0) {
         const device_info_t *devices = NULL;
