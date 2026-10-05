@@ -158,19 +158,25 @@ QQC.ApplicationWindow {
                     size: ShadcnLabel.Size.Small
                     variant: ShadcnLabel.Variant.Destructive
                     visible: loginDialog.errorMsg !== ""
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
                 }
-            }
-        }
-        footer: ShadcnDialogFooter {
-            Item { Layout.fillWidth: true }
-            ShadcnButton {
-                enabled: !loginDialog.connecting
-                text: loginDialog.connecting ? "连接中..." : "连接"
-                size: ShadcnButton.Size.Small
-                onClicked: {
-                    loginDialog.connecting = true;
-                    loginDialog.errorMsg = "";
-                    dataManager.connectToServer(serverUrlField.text, usernameField.text, passwordField.text);
+
+                // 登录框只有一个动作：做成表单内联的全宽主按钮，
+                // 比「满宽灰底栏里孤零零一个靠右小按钮」更合理
+                ShadcnButton {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    text: loginDialog.connecting ? "连接中..." : "连接"
+                    loading: loginDialog.connecting
+                    enabled: !loginDialog.connecting
+                    onClicked: {
+                        loginDialog.connecting = true;
+                        loginDialog.errorMsg = "";
+                        dataManager.connectToServer(serverUrlField.text,
+                                                    usernameField.text,
+                                                    passwordField.text);
+                    }
                 }
             }
         }
