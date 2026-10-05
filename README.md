@@ -266,7 +266,7 @@ make client
 
 ## 配置
 
-配置文件: `deploy/config.json`
+配置文件: `deploy/config.json`（首次部署请先 `cp deploy/config.example.json deploy/config.json` 并填入真实数据库密码）
 
 ```json
 {

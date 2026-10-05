@@ -7,3 +7,5 @@ doc
 
 .hermes
 E2_面试题_200道.md
+# 部署配置（含敏感凭证）
+deploy/config.json
