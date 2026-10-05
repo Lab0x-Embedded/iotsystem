@@ -26,34 +26,49 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        // Logo
+        // 品牌区：logo + 两行文字
+        // 左对齐到 20px（= 下方导航项图标的左边距：ColumnLayout 8 + 行内 12），
+        // 这样 logo、导航图标、文字在同一条竖直基准线上
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 64
 
-            Row {
-                anchors.centerIn: parent
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 20
+                anchors.rightMargin: 16
                 spacing: 10
 
                 Image {
                     source: "../assets/logo.png"
-                    width: 32
-                    height: 32
+
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredHeight: 30
+                    Layout.preferredWidth: 30
                     fillMode: Image.PreserveAspectFit
                     mipmap: true
+                    smooth: true
                 }
-                Column {
-                    spacing: 0
-                    anchors.verticalCenter: parent.verticalCenter
+
+                ColumnLayout {
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.fillWidth: true
+                    spacing: 2
+
                     ShadcnLabel {
+                        Layout.fillWidth: true
                         text: "IoT Platform"
-                        size: ShadcnLabel.Size.Medium
-                        color: theme.primary
+                        color: theme.foreground
+                        elide: Text.ElideRight
+                        font.bold: true
+                        font.pixelSize: 14
                     }
                     ShadcnLabel {
+                        Layout.fillWidth: true
                         text: "Device Manager"
                         size: ShadcnLabel.Size.Small
                         variant: ShadcnLabel.Variant.Muted
+                        elide: Text.ElideRight
                     }
                 }
             }
