@@ -120,6 +120,27 @@ void HttpClient::fetchDevices() {
     );
 }
 
+void HttpClient::fetchLatest() {
+    QJsonObject body;
+    body["action"] = "query_latest";
+
+    auto *reply = m_mgr.post(makeRequest("/api/device"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            QJsonArray dps;
+            if (obj.contains("data")) {
+                dps = obj["data"].toArray();
+            }
+            emit latestFetched(dps);
+        },
+        [this](const QString &error) {
+            Q_UNUSED(error);
+        }
+    );
+}
+
 void HttpClient::registerDevice(const QString &deviceId, const QString &name,
                                  const QString &productKey, const QString &groupId) {
     QJsonObject body;

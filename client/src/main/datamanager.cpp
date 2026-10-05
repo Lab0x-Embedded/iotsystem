@@ -8,6 +8,16 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::loginSucceeded, this, &DataManager::onLoginSucceeded);
     connect(&m_http, &HttpClient::loginFailed, this, &DataManager::onLoginFailed);
     connect(&m_http, &HttpClient::devicesFetched, this, &DataManager::onDevicesFetched);
+    connect(&m_http, &HttpClient::latestFetched, this, [this](const QJsonArray &dps) {
+        m_latestPoints.clear();
+        for (const auto &item : dps) {
+            QJsonObject o = item.toObject();
+            QString key = o["device_id"].toString() + "/" + o["metric"].toString();
+            m_latestPoints[key] = o["value"].toDouble();
+        }
+        // 用最新数据刷新模型（取真实值替代随机数）
+        refreshDevices();
+    });
     connect(&m_http, &HttpClient::groupsFetched, this, &DataManager::onGroupsFetched);
     connect(&m_http, &HttpClient::alarmsFetched, this, &DataManager::onAlarmsFetched);
     connect(&m_http, &HttpClient::alarmRuleAdded, this, &DataManager::alarmRuleAdded);
@@ -34,10 +44,6 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
             m_alarms.addRecord(a);
         });
 
-    connect(&m_ws, &WsClient::datapointReceived, this,
-        [this](const QString &deviceId, const QString &metric, double value, quint64 ts) {
-            emit dataPointArrived(deviceId, metric, value, (qint64)ts);
-        });
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
     connect(&m_http, &HttpClient::groupCreated, this, [this](int id)
             { Q_UNUSED(id); refreshGroups(); });
@@ -50,6 +56,7 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_refreshTimer, &QTimer::timeout, this, [this]()
             {
         if (m_online) {
+            m_http.fetchLatest();
             refreshDevices();
             refreshGroups();
             refreshAlarms();
@@ -160,9 +167,6 @@ void DataManager::onLoginSucceeded(const QString &token, const QString &role)
     emit onlineChanged();
     emit connectionStatusChanged("connected");
 
-    /* 连接 WebSocket */
-    m_ws.connectToServer(m_http.serverUrl());
-
     refreshDevices();
     refreshGroups();
     refreshAlarms();
@@ -220,9 +224,10 @@ void DataManager::onDevicesFetched(const QJsonArray &devices)
             info.status = DeviceStatus::Offline;
         }
 
-        info.temperature = 20.0 + (rand() % 150) / 10.0;
-        info.humidity = 40.0 + (rand() % 400) / 10.0;
-        info.battery = 80.0 + (rand() % 200) / 10.0;
+        // 从 query_latest 轮询数据取真实值（无数据则显示 0）
+        info.temperature = m_latestPoints.value(info.id + "/temperature", 0.0);
+        info.humidity = m_latestPoints.value(info.id + "/humidity", 0.0);
+        info.battery = m_latestPoints.value(info.id + "/battery", 0.0);
 
         qint64 ts = 0;
         if (obj.contains("last_online") && obj["last_online"].toDouble() > 0)
@@ -411,7 +416,13 @@ void DataManager::deleteRule(ulong ruleId)
 }
 
 void DataManager::startAutoRefresh() {
-    m_refreshTimer.start(30000);
+    if (m_online) {
+        m_http.fetchLatest();
+        refreshDevices();
+        refreshGroups();
+        refreshAlarms();
+        refreshRules();
+    }
 }
 
 void DataManager::start() {

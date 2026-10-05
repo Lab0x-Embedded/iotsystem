@@ -31,6 +31,7 @@ public:
 
     // 设备管理
     Q_INVOKABLE void fetchDevices();
+    Q_INVOKABLE void fetchLatest();
     Q_INVOKABLE void registerDevice(const QString &deviceId, const QString &name,
                                      const QString &productKey, const QString &groupId);
     Q_INVOKABLE void queryDevice(const QString &deviceId);
@@ -79,6 +80,7 @@ signals:
 
     // 设备
     void devicesFetched(const QJsonArray &devices);
+    void latestFetched(const QJsonArray &datapoints);
     void deviceRegistered(const QString &deviceId);
     void deviceQueryResult(const QJsonObject &device);
     void deviceUpdated(const QString &deviceId, int groupId);
