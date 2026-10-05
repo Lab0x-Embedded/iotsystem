@@ -2,25 +2,12 @@
     <qresource prefix="/qml">
         <file>main.qml</file>
         <file>assets/logo.png</file>
-        <file>theme/ThemeManager.qml</file>
-        <file>theme/qmldir</file>
-        <file>components/NavSidebar.qml</file>
+        <file>components/AppSidebar.qml</file>
         <file>components/StatCard.qml</file>
-        <file>components/GaugeCard.qml</file>
         <file>components/RealtimeChart.qml</file>
-        <file>components/TopDevicesTable.qml</file>
-        <file>components/MetricCard.qml</file>
-        <file>components/DashboardCard.qml</file>
-        <file>components/StatusIndicator.qml</file>
-        <file>components/GaugeWidget.qml</file>
-        <file>components/AddAlarmRuleDialog.qml</file>
-        <file>components/SelectableLabel.qml</file>
-        <file>components/RoundedButton.qml</file>
-        <file>pages/OverviewPage.qml</file>
-        <file>pages/GroupManagePage.qml</file>
-        <file>pages/DashboardPage.qml</file>
-        <file>pages/DetailPage.qml</file>
-        <file>pages/AlarmCenterPage.qml</file>
-        <file>pages/GroupDetailPage.qml</file>
+        <file>views/DevicesView.qml</file>
+        <file>views/AlarmsView.qml</file>
+        <file>views/GroupsView.qml</file>
+        <file>views/DeviceDetailView.qml</file>
     </qresource>
 </RCC>

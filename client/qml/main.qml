@@ -1,258 +1,184 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
-import QtQuick.Controls.Material 2.15
-
-import "pages"
-import "components"
+import QtQuick
+import QtQuick.Controls as QQC
+import QtQuick.Layouts
+import QtShadcn
+import "views"
 
 ApplicationWindow {
     id: root
 
-    property color accentColor: "#3874F7"
-    property color bgColor: isDark ? "#1e1e2e" : "#f5f5f5"
-    property color cardBg: isDark ? "#313244" : "#ffffff"
-
-    // Theme properties
-    property bool isDark: themeManager ? themeManager.isDark : true
-    property color sidebarBg: isDark ? "#181825" : "#ffffff"
-    property color textColor: isDark ? "#cdd6f4" : "#1e1e2e"
-
-    Material.accent: accentColor
-    Material.theme: isDark ? Material.Dark : Material.Light
+    width: 1280
     height: 800
-    minimumHeight: 600
     minimumWidth: 1024
+    minimumHeight: 600
     title: "IoT Device Manager"
     visible: true
-    width: 1280
 
-    // Status bar
-    footer: ToolBar {
-        Material.background: isDark ? "#11111b" : "#e0e0e0"
+    QtShadcnTheme { id: theme }
+    color: theme.background
+
+    // ===== 视图切换 =====
+    // 0: 设备总览  1: 告警中心  2: 分组管理  3: 设备详情
+    property int currentView: 0
+
+    Component.onCompleted: {
+        dataManager.connectToServer("http://127.0.0.1:8080", "admin", "admin@123");
+    }
+
+    // ===== 状态栏 =====
+    footer: Rectangle {
         height: 32
+        color: theme.card
+        border.color: theme.border
+        border.width: 0
 
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 12
             anchors.rightMargin: 12
+            spacing: 8
 
-            // 连接状态指示器
-            Rectangle {
-                color: dataManager && dataManager.online ? "#4CAF50" : "#FF5722"
-                height: 8
-                radius: 4
-                width: 8
+            ShadcnStatusDot {
+                status: dataManager && dataManager.online
+                        ? ShadcnStatusDot.Status.Online
+                        : ShadcnStatusDot.Status.Danger
             }
-            Label {
-                color: isDark ? "#a6adc8" : "#666666"
-                font.pixelSize: 12
-                text: dataManager && dataManager.online ? "已连接: " + (dataManager.serverUrl || "127.0.0.1") : "未连接 (离线模式)"
+            ShadcnLabel {
+                text: dataManager && dataManager.online
+                      ? "已连接 " + (dataManager.serverUrl || "127.0.0.1")
+                      : "未连接 · 离线模式"
+                size: ShadcnLabel.Size.Small
+                variant: ShadcnLabel.Variant.Muted
 
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-
                     onClicked: loginDialog.open()
                 }
             }
-            Item {
-                Layout.fillWidth: true
-            }
-            Label {
-                id: statusLabel
-
-                color: isDark ? "#a6adc8" : "#666666"
-                font.pixelSize: 12
-                text: "共 " + (deviceModel ? deviceModel.totalCount : 0) + " 设备  ·  在线 " + (deviceModel ? deviceModel.onlineCount : 0) + "  ·  告警 " + (alarmModel ? alarmModel.activeCount : 0)
+            Item { Layout.fillWidth: true }
+            ShadcnLabel {
+                text: "设备 " + (deviceModel ? deviceModel.totalCount : 0)
+                      + " · 在线 " + (deviceModel ? deviceModel.onlineCount : 0)
+                      + " · 告警 " + (alarmModel ? alarmModel.activeCount : 0)
+                size: ShadcnLabel.Size.Small
+                variant: ShadcnLabel.Variant.Muted
             }
         }
     }
 
-    // ===== 启动时自动连接服务器 =====
-    Component.onCompleted: {
-        dataManager.connectToServer("http://127.0.0.1:8080", "admin", "admin@123");
+    // ===== 主体 =====
+    RowLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        AppSidebar {
+            Layout.fillHeight: true
+            Layout.preferredWidth: 200
+            currentIndex: root.currentView >= 3 ? 0 : root.currentView
+            onPageSelected: function(index) { root.currentView = index; }
+        }
+
+        StackLayout {
+            Layout.fillHeight: true
+            Layout.fillWidth: true
+            currentIndex: root.currentView
+
+            // 0: 设备总览
+            DevicesView {
+                deviceData: deviceModel
+                onDeviceSelected: function(deviceId) {
+                    detailView.showDevice(deviceId);
+                    root.currentView = 3;
+                }
+            }
+
+            // 1: 告警中心
+            AlarmsView {
+                alarmListModel: alarmModel
+                ruleListModel: ruleModel
+            }
+
+            // 2: 分组管理
+            GroupsView {
+                deviceData: deviceModel
+                groupData: groupModel
+                groupManager: dataManager
+            }
+
+            // 3: 设备详情
+            DeviceDetailView {
+                id: detailView
+                onBackRequested: root.currentView = 0
+            }
+        }
     }
 
     // ===== 登录对话框 =====
-    Dialog {
+    ShadcnDialog {
         id: loginDialog
 
         property bool connecting: false
         property string errorMsg: ""
 
-        anchors.centerIn: parent
-        closePolicy: Popup.NoAutoClose
         modal: true
-        title: "连接服务器"
-        width: 480
+        closePolicy: QQC.Popup.NoAutoClose
 
-        ColumnLayout {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            spacing: 30
-
-            TextField {
-                id: serverUrlField
-
-                Layout.fillWidth: true
-                Layout.preferredHeight: 36
-                placeholderText: "服务器地址"
-                text: "http://127.0.0.1:8080"
+        ShadcnDialogContent {
+            ShadcnDialogHeader {
+                ShadcnDialogTitle { text: "连接服务器" }
+                ShadcnDialogDescription { text: "输入服务器地址和凭据" }
             }
-            TextField {
-                id: usernameField
-
-                Layout.fillWidth: true
-                Layout.preferredHeight: 36
-                placeholderText: "用户名"
-                text: "admin"
-            }
-            TextField {
-                id: passwordField
-
-                Layout.fillWidth: true
-                Layout.preferredHeight: 36
-                echoMode: TextInput.Password
-                placeholderText: "密码"
-                text: "admin@123"
-            }
-            Label {
-                color: "#FF5722"
-                font.pixelSize: 12
-                text: loginDialog.errorMsg
-                visible: loginDialog.errorMsg !== ""
-            }
-            RowLayout {
+            ColumnLayout {
                 width: parent.width
+                spacing: 12
 
-                Item {
+                ShadcnInput {
+                    id: serverUrlField
                     Layout.fillWidth: true
+                    text: "http://127.0.0.1:8080"
+                    placeholderText: "服务器地址"
                 }
-                RoundedButton {
-                    Material.background: accentColor
-                    Material.foreground: "#F3F6FF"
-                    enabled: !loginDialog.connecting
-                    text: loginDialog.connecting ? "连接中..." : "连接"
-
-                    onClicked: {
-                        loginDialog.connecting = true;
-                        loginDialog.errorMsg = "";
-                        dataManager.connectToServer(serverUrlField.text, usernameField.text, passwordField.text);
-                    }
+                ShadcnInput {
+                    id: usernameField
+                    Layout.fillWidth: true
+                    text: "admin"
+                    placeholderText: "用户名"
+                }
+                ShadcnInput {
+                    id: passwordField
+                    Layout.fillWidth: true
+                    text: "admin@123"
+                    echoMode: TextInput.Password
+                    placeholderText: "密码"
+                }
+                ShadcnLabel {
+                    text: loginDialog.errorMsg
+                    size: ShadcnLabel.Size.Small
+                    variant: ShadcnLabel.Variant.Destructive
+                    visible: loginDialog.errorMsg !== ""
+                }
+            }
+        }
+        footer: ShadcnDialogFooter {
+            Item { Layout.fillWidth: true }
+            ShadcnButton {
+                enabled: !loginDialog.connecting
+                text: loginDialog.connecting ? "连接中..." : "连接"
+                size: ShadcnButton.Size.Small
+                onClicked: {
+                    loginDialog.connecting = true;
+                    loginDialog.errorMsg = "";
+                    dataManager.connectToServer(serverUrlField.text, usernameField.text, passwordField.text);
                 }
             }
         }
     }
 
-    // Main layout
-    RowLayout {
-        anchors.fill: parent
-        spacing: 0
-
-        // Navigation sidebar
-        NavSidebar {
-            id: sidebar
-
-            Layout.fillHeight: true
-            Layout.preferredWidth: 220
-            isDark: root.isDark
-
-            onPageSelected: function (index) {
-                stackView.currentIndex = index;
-            }
-            onThemeToggle: {
-                themeManager.toggle();
-            }
-        }
-
-        // Content area
-        StackLayout {
-            id: stackView
-
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            currentIndex: 0
-
-            onCurrentIndexChanged: {
-                if (currentIndex === 0 && dataManager) {
-                    dataManager.refreshDevices();
-                    dataManager.refreshGroups();
-                }
-            }
-
-            // History data model for detail page
-            ListModel {
-                id: historyDataModel
-            }
-
-            // 0: 设备总览
-            OverviewPage {
-                id: overviewPage
-
-                deviceData: deviceModel
-                isDark: root.isDark
-                overPageManager: dataManager
-
-                onDeviceSelected: function (deviceId) {
-                    detailPage.showDevice(deviceId);
-                    stackView.currentIndex = 2;  // 跳转到设备详情
-                    sidebar.currentIndex = 2;
-                }
-            }
-
-            // 1: 分组管理
-            GroupManagePage {
-                id: groupManagePage
-
-                deviceData: deviceModel
-                groupData: groupModel
-                groupPageManager: dataManager
-                isDark: root.isDark
-
-                onShowGroupDetail: function (groupId, groupName) {
-                    groupDetailPage.showGroup(groupId, groupName);
-                    stackView.currentIndex = 5;
-                }
-            }
-
-            // 2: 设备详情
-            DetailPage {
-                id: detailPage
-
-                isDark: root.isDark
-            }
-
-            // 3: 数据面板
-            DashboardPage {
-                id: dashboardPage
-
-                isDark: root.isDark
-            }
-
-            // 4: 告警中心
-            AlarmCenterPage {
-                id: alarmCenterPage
-
-                alarmListModel: alarmModel
-                isDark: root.isDark
-                ruleListModel: ruleModel
-            }
-
-            // 5: 分组详情
-            GroupDetailPage {
-                id: groupDetailPage
-
-                deviceData: deviceModel
-                groupDetailManager: dataManager
-                isDark: root.isDark
-            }
-        }
-    }
-
-    // Connect signals
+    // ===== 数据信号接线 =====
     Connections {
+        target: dataManager
+
         function onConnectionStatusChanged(status) {
             if (status === "connected") {
                 loginDialog.close();
@@ -263,60 +189,20 @@ ApplicationWindow {
                 loginDialog.open();
             }
         }
-        function onDataPointArrived(deviceId, metric, value, timestamp) {
-            dashboardPage.addDataPoint(metric, value, timestamp);
-            detailPage.addDataPoint(deviceId, metric, value, timestamp);
-        }
-        function onDeviceUpdated(device) {
-            deviceModel.updateDevice(device);
-        }
         function onErrorOccurred(error) {
             loginDialog.errorMsg = error;
         }
-        function onNewAlarm(alarm) {
-            alarmModel.addRecord(alarm);
-        }
-
-        target: dataManager
     }
+
     Connections {
-        function onDataPointHistoryFetched(points) {
-            historyDataModel.clear();
-            for (var i = 0; i < points.length; i++) {
-                var p = points[i];
-                var dt = new Date(p.ts * 1000);
-                historyDataModel.append({
-                    time: Qt.formatDateTime(dt, "yyyy-MM-dd HH:mm:ss"),
-                    value: p.value
-                });
-            }
-        }
+        target: dataManager ? dataManager.httpClient : null
+
         function onShadowFetched(deviceId, shadow) {
-            if (detailPage.currentDevice && detailPage.currentDevice.id === deviceId) {
-                detailPage.shadowDesiredText = JSON.stringify(shadow.desired || {}, null, 2);
-                detailPage.shadowReportedText = JSON.stringify(shadow.reported || {}, null, 2);
-            }
+            detailView.shadowDesiredText = JSON.stringify(shadow.desired || {}, null, 2);
+            detailView.shadowReportedText = JSON.stringify(shadow.reported || {}, null, 2);
         }
-
-        target: dataManager ? dataManager.httpClient : null
-    }
-    Connections {
-        function onGroupCreated(groupId) {
-            console.log("[Group] created:", groupId);
-            dataManager.refreshGroups();
-        }
-        function onGroupDeleted(groupId) {
-            console.log("[Group] deleted:", groupId);
-            dataManager.refreshGroups();
-        }
-        function onGroupOperationError(error) {
-            console.log("[Group] error:", error);
-        }
-        function onGroupUpdated(groupId) {
-            console.log("[Group] updated:", groupId);
-            dataManager.refreshGroups();
-        }
-
-        target: dataManager ? dataManager.httpClient : null
+        function onGroupCreated(groupId) { dataManager.refreshGroups(); }
+        function onGroupDeleted(groupId) { dataManager.refreshGroups(); }
+        function onGroupUpdated(groupId) { dataManager.refreshGroups(); }
     }
 }

@@ -9,7 +9,6 @@
 #include "models/rulemodel.h"
 #include "models/groupmodel.h"
 #include "main/datamanager.h"
-#include "theme/theme.h"
 
 int main(int argc, char *argv[])
 {
@@ -21,7 +20,6 @@ int main(int argc, char *argv[])
     QQuickStyle::setStyle("Basic");  // QtShadcn 要求 Basic style（自绘 token）
 
     DataManager dataManager;
-    ThemeManager *themeManager = ThemeManager::instance();
 
     QQmlApplicationEngine engine;
 
@@ -30,7 +28,11 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("alarmModel", dataManager.alarmModel());
     engine.rootContext()->setContextProperty("groupModel", dataManager.groupModel());
     engine.rootContext()->setContextProperty("ruleModel", dataManager.ruleModel());
-    engine.rootContext()->setContextProperty("themeManager", themeManager);
+
+    // QtShadcn QML 模块导入路径 (build 目录下 third_party 产物)
+#ifdef QTSHADCN_IMPORT_PATH
+    engine.addImportPath(QStringLiteral(QTSHADCN_IMPORT_PATH));
+#endif
 
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

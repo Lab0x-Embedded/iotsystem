@@ -559,8 +559,15 @@ void HttpClient::fetchDataPointHistory(const QString &deviceId, const QString &m
                              QJsonDocument(body).toJson());
 
     handleReply(reply,
-        [this](const QJsonObject &obj) {
-            QJsonArray points = obj["data"].toArray();
+        [this, metric](const QJsonObject &obj) {
+            // 给每个点打上 metric 标签, 便于图表区分多指标
+            QJsonArray raw = obj["data"].toArray();
+            QJsonArray points;
+            for (auto it = raw.begin(); it != raw.end(); ++it) {
+                QJsonObject p = it->toObject();
+                p["metric"] = metric;
+                points.append(p);
+            }
             emit dataPointHistoryFetched(points);
         },
         [this](const QString &error) {

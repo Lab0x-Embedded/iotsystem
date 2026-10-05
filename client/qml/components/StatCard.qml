@@ -1,36 +1,42 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Layouts
+import QtShadcn
 
-Rectangle {
+// 统计卡片: 标题 + 大字数值 + 可选状态点
+ShadcnCard {
     id: root
 
-    property color accentColor: "#3874F7"
-    property bool isDark: true
     property string title: ""
-    property int value: 0
+    property string value: "0"
+    property color valueColor: theme.foreground
+    property int dotStatus: ShadcnStatusDot.Status.None  // ShadcnStatusDot.Status.*
 
-    border.color: isDark ? "#45475a" : "#e0e0e0"
-    border.width: 1
-    color: isDark ? "#313244" : "#ffffff"
-    height: 100
-    radius: 12
+    QtShadcnTheme { id: theme }
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 16
-        spacing: 8
+    ShadcnCardContent {
+        spacing: 4
 
-        Label {
-            color: root.isDark ? "#a6adc8" : "#666666"
-            font.pixelSize: 13
-            text: root.title
+        RowLayout {
+            width: parent.width
+            spacing: 6
+
+            ShadcnLabel {
+                text: root.title
+                size: ShadcnLabel.Size.Small
+                variant: ShadcnLabel.Variant.Muted
+            }
+            Item { Layout.fillWidth: true }
+            ShadcnStatusDot {
+                status: root.dotStatus
+                size: 8
+                visible: root.dotStatus !== ShadcnStatusDot.Status.None
+            }
         }
-        Label {
-            color: root.accentColor
-            font.bold: true
-            font.pixelSize: 28
-            text: root.value.toString()
+
+        ShadcnLabel {
+            text: root.value
+            size: ShadcnLabel.Size.Large
+            color: root.valueColor
         }
     }
 }

@@ -60,6 +60,7 @@ target_link_libraries(IoTDeviceManager PRIVATE
 )
 
 # QML import path so `import QtShadcn` resolves at runtime
-set_target_properties(IoTDeviceManager PROPERTIES
-    QT_QML_IMPORT_PATH "${CMAKE_BINARY_DIR}/third_party/qtshadcn/src"
+# 编译期注入 QtShadcn QML 模块路径，main_qml.cpp 中 addImportPath 使用
+target_compile_definitions(IoTDeviceManager PRIVATE
+    QTSHADCN_IMPORT_PATH="${CMAKE_BINARY_DIR}/third_party/qtshadcn/src"
 )
