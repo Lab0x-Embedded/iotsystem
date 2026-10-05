@@ -10,37 +10,53 @@ Rectangle {
 
     property var alarmListModel: null
     property var ruleListModel: null
-    property var selectedIds: ({})
+    // 两张表各自独立的选择集合（原来共用一个，切换 tab 时选择会串）
+    property var selectedAlarmIds: ({})
+    property var selectedRuleIds: ({})
 
     QtShadcnTheme { id: theme }
 
     color: theme.background
 
-    function selectedCount() {
+    function countOf(map) {
         var c = 0;
-        for (var k in selectedIds)
-            if (selectedIds[k]) c++;
+        for (var k in map)
+            if (map[k]) c++;
         return c;
     }
-    function clearSelection() {
-        selectedIds = {};
+    function alarmSelectedCount() { return countOf(selectedAlarmIds); }
+    function ruleSelectedCount()  { return countOf(selectedRuleIds); }
+
+    // 表头「全选」用 imperative 回写：
+    // 控件被点击时会自己写 checked，声明式绑定会被破坏，之后程序改状态不生效。
+    function syncAlarmSelectAll() {
+        if (alarmSelectAll) alarmSelectAll.checked = allAlarmsSelected();
     }
-    function toggleSelection(id) {
-        var m = selectedIds;
-        if (m[id]) delete m[id];
-        else m[id] = true;
-        selectedIds = m;
+    function syncRuleSelectAll() {
+        if (ruleSelectAll) ruleSelectAll.checked = allRulesSelected();
     }
 
-    // ---- 告警记录: 批量确认 / 解决 ----
+    // ---- 告警记录 ----
+    function toggleAlarm(id) {
+        var m = selectedAlarmIds;
+        if (m[id]) delete m[id];
+        else m[id] = true;
+        selectedAlarmIds = m;
+        syncAlarmSelectAll();
+    }
+    function clearAlarmSelection() {
+        selectedAlarmIds = {};
+        syncAlarmSelectAll();
+    }
     function toggleSelectAllAlarms(checked) {
         if (!alarmListModel) return;
-        if (!checked) { clearSelection(); return; }
+        if (!checked) { clearAlarmSelection(); return; }
         var m = {};
         var ids = alarmListModel.ids();
         for (var i = 0; i < ids.length; i++)
             if (alarmListModel.isRowSelectable(i)) m[ids[i]] = true;
-        selectedIds = m;
+        selectedAlarmIds = m;
+        syncAlarmSelectAll();
     }
     function allAlarmsSelected() {
         if (!alarmListModel) return false;
@@ -49,7 +65,7 @@ Rectangle {
         for (var i = 0; i < ids.length; i++) {
             if (!alarmListModel.isRowSelectable(i)) continue;
             any = true;
-            if (!selectedIds[ids[i]]) return false;
+            if (!selectedAlarmIds[ids[i]]) return false;
         }
         return any;
     }
@@ -57,49 +73,61 @@ Rectangle {
         if (!alarmListModel) return;
         var ids = alarmListModel.ids();
         for (var i = 0; i < ids.length; i++)
-            if (selectedIds[ids[i]] && alarmListModel.isRowSelectable(i))
+            if (selectedAlarmIds[ids[i]] && alarmListModel.isRowSelectable(i))
                 alarmListModel.acknowledge(i);
-        clearSelection();
+        clearAlarmSelection();
     }
     function resolveSelected() {
         if (!alarmListModel) return;
         var ids = alarmListModel.ids();
         for (var i = 0; i < ids.length; i++)
-            if (selectedIds[ids[i]] && alarmListModel.isRowSelectable(i))
+            if (selectedAlarmIds[ids[i]] && alarmListModel.isRowSelectable(i))
                 alarmListModel.resolve(i);
-        clearSelection();
+        clearAlarmSelection();
     }
 
-    // ---- 告警规则: 批量启用 / 禁用 / 删除 ----
+    // ---- 告警规则 ----
+    function toggleRuleSelection(id) {
+        var m = selectedRuleIds;
+        if (m[id]) delete m[id];
+        else m[id] = true;
+        selectedRuleIds = m;
+        syncRuleSelectAll();
+    }
+    function clearRuleSelection() {
+        selectedRuleIds = {};
+        syncRuleSelectAll();
+    }
     function toggleSelectAllRules(checked) {
         if (!ruleListModel) return;
-        if (!checked) { clearSelection(); return; }
+        if (!checked) { clearRuleSelection(); return; }
         var m = {};
         var ids = ruleListModel.ids();
         for (var i = 0; i < ids.length; i++) m[ids[i]] = true;
-        selectedIds = m;
+        selectedRuleIds = m;
+        syncRuleSelectAll();
     }
     function allRulesSelected() {
         if (!ruleListModel) return false;
         var ids = ruleListModel.ids();
         if (ids.length === 0) return false;
         for (var i = 0; i < ids.length; i++)
-            if (!selectedIds[ids[i]]) return false;
+            if (!selectedRuleIds[ids[i]]) return false;
         return true;
     }
     function setSelectedRulesEnabled(enabled) {
         if (!ruleListModel || !dataManager) return;
         var ids = ruleListModel.ids();
         for (var i = 0; i < ids.length; i++)
-            if (selectedIds[ids[i]]) dataManager.toggleRule(ids[i], enabled);
-        clearSelection();
+            if (selectedRuleIds[ids[i]]) dataManager.toggleRule(ids[i], enabled);
+        clearRuleSelection();
     }
     function deleteSelectedRules() {
         if (!ruleListModel || !dataManager) return;
         var ids = ruleListModel.ids();
         for (var i = 0; i < ids.length; i++)
-            if (selectedIds[ids[i]]) dataManager.deleteRule(ids[i]);
-        clearSelection();
+            if (selectedRuleIds[ids[i]]) dataManager.deleteRule(ids[i]);
+        clearRuleSelection();
     }
 
     ColumnLayout {
@@ -169,22 +197,22 @@ Rectangle {
                     }
                     Item { Layout.fillWidth: true }
                     ShadcnLabel {
-                        text: "已选 " + root.selectedCount() + " 条"
+                        text: "已选 " + root.alarmSelectedCount() + " 条"
                         size: ShadcnLabel.Size.Small
                         variant: ShadcnLabel.Variant.Muted
-                        visible: root.selectedCount() > 0
+                        visible: root.alarmSelectedCount() > 0
                     }
                     ShadcnButton {
                         text: "确认选中"
                         size: ShadcnButton.Size.Small
                         variant: ShadcnButton.Variant.Outline
-                        enabled: root.selectedCount() > 0
+                        enabled: root.alarmSelectedCount() > 0
                         onClicked: root.acknowledgeSelected()
                     }
                     ShadcnButton {
                         text: "解决选中"
                         size: ShadcnButton.Size.Small
-                        enabled: root.selectedCount() > 0
+                        enabled: root.alarmSelectedCount() > 0
                         onClicked: root.resolveSelected()
                     }
                 }
@@ -203,6 +231,7 @@ Rectangle {
                             spacing: 10
 
                             ShadcnCheckbox {
+                                id: alarmSelectAll
                                 checked: root.allAlarmsSelected()
                                 onToggled: root.toggleSelectAllAlarms(checked)
                             }
@@ -250,9 +279,9 @@ Rectangle {
                                 spacing: 10
 
                                 ShadcnCheckbox {
-                                    checked: !!root.selectedIds[model.id]
+                                    checked: !!root.selectedAlarmIds[model.id]
                                     enabled: model.status !== 2
-                                    onToggled: root.toggleSelection(model.id)
+                                    onToggled: root.toggleAlarm(model.id)
                                 }
                                 ShadcnBadge {
                                     Layout.preferredWidth: 88
@@ -345,30 +374,30 @@ Rectangle {
 
                     // 批量操作（选中后出现）
                     ShadcnLabel {
-                        text: "已选 " + root.selectedCount() + " 条"
+                        text: "已选 " + root.alarmSelectedCount() + " 条"
                         size: ShadcnLabel.Size.Small
                         variant: ShadcnLabel.Variant.Muted
-                        visible: root.selectedCount() > 0
+                        visible: root.alarmSelectedCount() > 0
                     }
                     ShadcnButton {
                         text: "批量启用"
                         size: ShadcnButton.Size.Small
                         variant: ShadcnButton.Variant.Outline
-                        visible: root.selectedCount() > 0
+                        visible: root.ruleSelectedCount() > 0
                         onClicked: root.setSelectedRulesEnabled(true)
                     }
                     ShadcnButton {
                         text: "批量禁用"
                         size: ShadcnButton.Size.Small
                         variant: ShadcnButton.Variant.Outline
-                        visible: root.selectedCount() > 0
+                        visible: root.ruleSelectedCount() > 0
                         onClicked: root.setSelectedRulesEnabled(false)
                     }
                     ShadcnButton {
                         text: "批量删除"
                         size: ShadcnButton.Size.Small
                         variant: ShadcnButton.Variant.Destructive
-                        visible: root.selectedCount() > 0
+                        visible: root.ruleSelectedCount() > 0
                         onClicked: root.deleteSelectedRules()
                     }
 
@@ -397,6 +426,7 @@ Rectangle {
                             spacing: 10
 
                             ShadcnCheckbox {
+                                id: ruleSelectAll
                                 checked: root.allRulesSelected()
                                 onToggled: root.toggleSelectAllRules(checked)
                             }
@@ -443,8 +473,8 @@ Rectangle {
                                 spacing: 10
 
                                 ShadcnCheckbox {
-                                    checked: !!root.selectedIds[model.id]
-                                    onToggled: root.toggleSelection(model.id)
+                                    checked: !!root.selectedRuleIds[model.id]
+                                    onToggled: root.toggleRuleSelection(model.id)
                                 }
                                 ShadcnLabel {
                                     Layout.preferredWidth: 130
@@ -484,14 +514,16 @@ Rectangle {
                                     variant: ShadcnButton.Variant.Ghost
                                     iconName: "pencil"
                                     onClicked: {
+                                        // 注意：RuleModel 的 severity role 返回中文文案(信息/警告/严重)，
+                                        // 不是 INFO/WARNING，映射必须按中文来
                                         addRuleDialog.editingRule = {
                                             "id": model.id,
-                                            "deviceId": model.deviceId,
+                                            "deviceId": model.deviceId === "*" ? "" : model.deviceId,
                                             "metric": model.metric,
                                             "threshold": model.threshold,
-                                            "opIndex": [">", "<", "==", ">=", "<="].indexOf(model.op),
-                                            "severityIndex": model.severity === "INFO" ? 0
-                                                           : model.severity === "WARNING" ? 1 : 2
+                                            "opIndex": Math.max(0, [">", "<", "==", ">=", "<="].indexOf(model.op)),
+                                            "severityIndex": model.severity === "信息" ? 0
+                                                           : model.severity === "警告" ? 1 : 2
                                         };
                                         addRuleDialog.open();
                                     }
@@ -543,6 +575,26 @@ Rectangle {
         property var editingRule: null
 
         modal: true
+
+        // 打开时回显（编辑）或重置（新增）—— 原版有这段逻辑，重写时漏掉了
+        onOpened: {
+            if (editingRule) {
+                ruleDeviceField.text    = editingRule.deviceId || "";
+                ruleMetricField.text    = editingRule.metric || "";
+                ruleThresholdField.text = String(editingRule.threshold !== undefined ? editingRule.threshold : 0);
+                ruleOpCombo.currentIndex = (editingRule.opIndex >= 0) ? editingRule.opIndex : 0;
+                ruleSeverityCombo.currentIndex = (editingRule.severityIndex >= 0)
+                                                 ? editingRule.severityIndex : 1;
+            } else {
+                ruleDeviceField.text    = "";
+                ruleMetricField.text    = "";
+                ruleThresholdField.text = "0";
+                ruleOpCombo.currentIndex = 0;
+                ruleSeverityCombo.currentIndex = 1;
+            }
+        }
+
+        onClosed: editingRule = null
 
         ShadcnDialogContent {
             ShadcnDialogHeader {
