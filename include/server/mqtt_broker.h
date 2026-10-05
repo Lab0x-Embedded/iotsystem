@@ -46,6 +46,15 @@ void mqtt_broker_unregister(mqtt_connection_t *conn);
 mqtt_connection_t *mqtt_broker_find_conn(const char *client_id);
 
 /**
+ * 按 device_id 查找在线连接 (线程安全).
+ *
+ * 注意: 连接的 client_id 与 device_id 通常不同
+ *   (例如 client_id="esp8266_dev_001", device_id="dev_001")。
+ * HTTP 指令接口拿到的是 device_id，必须用本函数查找。
+ */
+mqtt_connection_t *mqtt_broker_find_conn_by_device(const char *device_id);
+
+/**
  * 向在线设备发送一条 QoS 1 命令 (PUBLISH).
  *
  *  @param conn         目标连接 (必须在线)

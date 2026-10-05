@@ -185,6 +185,21 @@ mqtt_connection_t *mqtt_broker_find_conn(const char *client_id) {
     return NULL;
 }
 
+mqtt_connection_t *mqtt_broker_find_conn_by_device(const char *device_id) {
+    if (!device_id) return NULL;
+    pthread_mutex_lock(&g_conn_mutex);
+    for (int i = 0; i < g_conn_count; i++) {
+        mqtt_connection_t *conn = g_conns[i];
+        if (conn && conn->connected && conn->device_id[0] &&
+            strcmp(conn->device_id, device_id) == 0) {
+            pthread_mutex_unlock(&g_conn_mutex);
+            return conn;
+        }
+    }
+    pthread_mutex_unlock(&g_conn_mutex);
+    return NULL;
+}
+
 int mqtt_broker_send_cmd(mqtt_connection_t *conn,
                          const char *topic,
                          const uint8_t *app_payload,
@@ -224,7 +239,8 @@ int mqtt_broker_send_cmd(mqtt_connection_t *conn,
 /* 设备重连后, 重放离线命令 */
 static void replay_offline_commands(mqtt_connection_t *conn) {
     if (!conn || !conn->connected) return;
-    offline_cmd_t *list = cmd_mgr_dequeue_all(conn->client_id);
+    /* 队列 key 用 device_id：handler_command 入队时用的就是 device_id */
+    offline_cmd_t *list = cmd_mgr_dequeue_all(conn->device_id);
     if (!list) return;
     LOG_INFO("replay %d offline cmds for client=%s", 0, conn->client_id);
     /* count first */
@@ -660,9 +676,14 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     LOG_INFO("PUBLISH from fd=%d topic=%s payload_len=%u",
              conn->fd, topic, len - 2 - tlen);
 
-    /* 主线程: 解析 JSON 并提交后台任务 + SSE 广播 */
+    /* QoS>0 的 PUBLISH 在 topic 之后还有一个 2 字节 packet_id，
+     * 应用层 payload 必须跳过它，否则 JSON 从 packet_id 开始解析必然失败。 */
+    uint8_t pub_qos = (pkt->fix_header.flags >> 1) & 0x03;
+    uint32_t app_off = 2 + tlen + (pub_qos > 0 ? 2 : 0);
+
+    /* 主线程: 解析 JSON 并提交后台任务 */
     {
-        uint32_t payload_off = 2 + tlen;
+        uint32_t payload_off = app_off;
         uint32_t payload_len = len - payload_off;
         if (payload_len > 0) {
             char *json_str = (char *)malloc(payload_len + 1);
@@ -720,13 +741,29 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
 
         for (int si = 0; si < target->sub_count; si++) {
             if (mqtt_topic_match(target->subs[si].topic, topic)) {
-                /* 构造转发的 PUBLISH 报文 (保留原 topic + payload) */
-                mqtt_packet_t fwd = {0};
-                fwd.fix_header.type  = MQTT_PUBLISH;
-                fwd.fix_header.flags = 0;  /* QoS 0, no retain */
-                fwd.payload     = data;
-                fwd.payload_len = len;
-                send_packet(target->fd, &fwd);
+                /* 向下游转发时统一以 QoS0 重新组包：
+                 * 原报文若为 QoS1/2，topic 之后有 2 字节 packet_id，
+                 * 直接透传会让订阅者把 packet_id 当成数据的一部分。 */
+                {
+                    uint32_t app_len = len - app_off;            /* 应用层 payload 长度 */
+                    uint32_t fwd_len = 2 + tlen + app_len;
+                    uint8_t *fwd_raw = malloc(fwd_len);
+                    if (!fwd_raw) continue;
+
+                    fwd_raw[0] = data[0];                        /* topic 长度(原样) */
+                    fwd_raw[1] = data[1];
+                    memcpy(fwd_raw + 2, data + 2, tlen);         /* topic */
+                    memcpy(fwd_raw + 2 + tlen, data + app_off, app_len);  /* 跳过 packet_id */
+
+                    mqtt_packet_t fwd = {0};
+                    fwd.fix_header.type  = MQTT_PUBLISH;
+                    fwd.fix_header.flags = 0;                    /* QoS 0, no retain */
+                    fwd.payload     = fwd_raw;
+                    fwd.payload_len = fwd_len;
+
+                    send_packet(target->fd, &fwd);
+                    free(fwd_raw);
+                }
                 LOG_INFO("  -> fwd to fd=%d sub='%s'", target->fd, target->subs[si].topic);
                 break; /* 每个连接最多转发一次 (匹配一个 subscription) */
             }
