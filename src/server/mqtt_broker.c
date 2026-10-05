@@ -259,9 +259,15 @@ static void replay_offline_commands(mqtt_connection_t *conn) {
 /* CONNECT                                                              */
 /* ------------------------------------------------------------------ */
 static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
-    /* 协议层检查 */
+    /* 协议层检查
+     * 注意: 解析器按 MQTT 3.1.1 的定长可变头实现(协议名固定 4 字节 "MQTT"、
+     * keepalive 之后直接是 Client ID)。MQTT 3.1(协议名 "MQIsdp") 与 MQTT 5
+     * (keepalive 后有 properties) 的布局不同，仅放宽这里的判断会导致报文解析错位，
+     * 所以仍要求 3.1.1(level=4)，但给出可操作的提示。 */
     if (pkt->vh.connect.protocol_level != 4) {
-        LOG_ERROR("unsupported protocol level %d", pkt->vh.connect.protocol_level);
+        LOG_ERROR("unsupported MQTT protocol level %d (broker only supports 3.1.1 / level 4; "
+                  "please set your client to MQTT 3.1.1)",
+                  pkt->vh.connect.protocol_level);
         goto refused;
     }
     if (memcmp(pkt->vh.connect.protocol_name, "MQTT", 4) != 0) {
@@ -272,9 +278,9 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     uint32_t remain = pkt->payload_len;
     uint32_t off;
     uint16_t cid_len;
-    char client_id[65];
-    char username[65] = {0};
-    char password[65] = {0};
+    char client_id[MQTT_ID_MAX];
+    char username[MQTT_ID_MAX] = {0};
+    char password[MQTT_ID_MAX] = {0};
     uint8_t cflags;
 
     if (remain < 10) {
@@ -347,13 +353,13 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     /* 数据库认证: 查 devices 表校验 product_key + device_secret
      * (username/password 已转义; 顺带取回 device_id 供 presence 标记) */
     int ok = 0;
-    char auth_device_id[65] = {0};
+    char auth_device_id[MQTT_ID_MAX] = {0};
     {
         db_conn_t *db = db_pool_get();
         if (db) {
-            char esc_user[SQL_ESC_CAP(65)];
-            char esc_pw[SQL_ESC_CAP(65)];
-            char auth_sql[512];
+            char esc_user[SQL_ESC_CAP(128)];
+            char esc_pw[SQL_ESC_CAP(128)];
+            char auth_sql[768];
             if (sql_escape_conn(db, esc_user, sizeof(esc_user), username) != 0 ||
                 sql_escape_conn(db, esc_pw, sizeof(esc_pw), password) != 0) {
                 LOG_WARN("CONNECT auth: username/password too long");
@@ -381,6 +387,18 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     if (!ok) {
         LOG_ERROR("auth failed for user=%s", username);
         goto refused;
+    }
+
+    /* 同 client_id 的旧连接: 踢掉。
+     * ESP8266 等模组断线重连时 client_id 不变，若不处理，旧连接会一直挂在
+     * g_conns 里(直到 keepalive 超时)，导致 find_conn 命中已死的连接。 */
+    {
+        mqtt_connection_t *old = mqtt_broker_find_conn(client_id);
+        if (old && old != conn) {
+            LOG_INFO("kick duplicate client_id=%s: close old fd=%d", client_id, old->fd);
+            old->connected = 0;
+            shutdown(old->fd, SHUT_RDWR);
+        }
     }
 
     /* 存储 session */

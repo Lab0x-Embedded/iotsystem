@@ -42,7 +42,7 @@ typedef struct inflight_entry {
 /* 离线命令节点 (STAILQ)                                               */
 /* ----------------------------------------------------------------- */
 typedef struct offline_cmd {
-    char    client_id[65];
+    char    client_id[129];   /* 与 MQTT_ID_MAX 对齐(该头文件不引 mqtt_types.h, 故写字面量) */
     char    cmd_name[64];
     char    cmd_payload[CMD_BODY_LEN];
     char    command_id[CMD_ID_LEN];
