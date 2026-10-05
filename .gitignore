@@ -9,3 +9,12 @@ doc
 E2_面试题_200道.md
 # 部署配置（含敏感凭证）
 deploy/config.json
+
+# Qt 客户端构建产物 / IDE
+client/build/
+client/.qtcreator/
+*.app
+*.user
+
+# 编译数据库缓存
+compile_commands.json
