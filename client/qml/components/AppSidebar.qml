@@ -85,7 +85,7 @@ Rectangle {
                         anchors.fill: parent
                         radius: theme.radius
                         color: root.currentIndex === navDelegate.index
-                               ? theme.accent
+                               ? theme.primary
                                : navMouse.containsMouse ? theme.muted : "transparent"
 
                         RowLayout {

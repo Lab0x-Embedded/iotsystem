@@ -48,6 +48,9 @@ Rectangle {
     QtShadcnTheme { id: theme }
     color: theme.background
 
+    // 历史数据模型 (Tab 3)
+    ListModel { id: historyDataModel }
+
     // 历史轮询定时器 (30s)
     Timer {
         interval: 30000
@@ -351,7 +354,7 @@ Rectangle {
                                         var span = spans[historyRange.currentIndex] || 3600;
                                         dataManager.fetchDataPointHistory(
                                             root.currentDevice.id,
-                                            historyMetric.model[historyRange.currentIndex] ? historyMetric.model[historyMetric.currentIndex] : "temperature",
+                                            historyMetric.model[historyMetric.currentIndex] || "temperature",
                                             now - span, now, 200);
                                     }
                                 }
@@ -466,6 +469,19 @@ Rectangle {
                 root.showToast("保存成功", theme.success);
         }
         function onDataPointHistoryFetched(points) {
+            // 填充历史列表 (Tab 3)
+            if (root.currentDevice) {
+                historyDataModel.clear();
+                for (var i = 0; i < points.length; i++) {
+                    var p = points[i];
+                    var dt = new Date(p.ts * 1000);
+                    historyDataModel.append({
+                        "time": Qt.formatDateTime(dt, "yyyy-MM-dd HH:mm:ss"),
+                        "value": p.value
+                    });
+                }
+            }
+            // 实时曲线 (Tab 0)
             detailChart.clearData();
             var temp = [], hum = [];
             for (var i = 0; i < points.length; i++) {

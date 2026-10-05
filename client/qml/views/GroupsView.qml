@@ -104,7 +104,7 @@ Rectangle {
                             height: 60
                             radius: theme.radius
                             color: root.selectedGroupId === model.groupId
-                                   ? theme.accent
+                                   ? theme.primary
                                    : groupMouse.containsMouse ? theme.muted : "transparent"
 
                             required property int index
