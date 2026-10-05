@@ -31,6 +31,18 @@ Rectangle {
         else rows[index] = true;
         selectedRows = rows;
     }
+    function toggleSelectAll(checked) {
+        if (!alarmListModel) return;
+        if (!checked) { clearSelection(); return; }
+        var rows = {};
+        for (var i = 0; i < alarmListModel.rowCount(); i++)
+            if (alarmListModel.isRowSelectable(i)) rows[i] = true;
+        selectedRows = rows;
+    }
+    function allSelected() {
+        if (!alarmListModel || alarmListModel.rowCount() === 0) return false;
+        return selectedCount() >= alarmListModel.rowCount();
+    }
     function acknowledgeSelected() {
         for (var i = 0; i < alarmListModel.rowCount(); i++)
             if (selectedRows[i] && alarmListModel.isRowSelectable(i))
@@ -135,9 +147,34 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    ListView {
-                        id: alarmList
+                    ColumnLayout {
                         anchors.fill: parent
+                        spacing: 8
+
+                        // ===== 表头 =====
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+
+                            ShadcnCheckbox {
+                                checked: root.allSelected()
+                                onToggled: root.toggleSelectAll(checked)
+                            }
+                            ShadcnLabel { Layout.preferredWidth: 88;  text: "级别";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 120; text: "设备";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 100; text: "指标";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 70;  text: "当前值";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 140; text: "触发时间"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { text: "状态"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            Item { Layout.fillWidth: true }
+                            ShadcnLabel { text: "确认人"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        }
+                        ShadcnSeparator { Layout.fillWidth: true }
+
+                        ListView {
+                        id: alarmList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
                         clip: true
                         model: root.alarmListModel
                         spacing: 2
@@ -237,6 +274,7 @@ Rectangle {
                                 variant: ShadcnLabel.Variant.Muted
                             }
                         }
+                        }
                     }
                 }
             }
@@ -273,9 +311,29 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    ListView {
-                        id: ruleList
+                    ColumnLayout {
                         anchors.fill: parent
+                        spacing: 8
+
+                        // ===== 表头（规则为逐行操作，无批量选择）=====
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+
+                            ShadcnLabel { Layout.preferredWidth: 130; text: "设备";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 100; text: "指标";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 80;  text: "条件";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { text: "级别"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { text: "启用"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            Item { Layout.fillWidth: true }
+                            ShadcnLabel { text: "操作"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        }
+                        ShadcnSeparator { Layout.fillWidth: true }
+
+                        ListView {
+                        id: ruleList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
                         clip: true
                         model: root.ruleListModel
                         spacing: 2
@@ -386,6 +444,7 @@ Rectangle {
                                 text: "暂无告警规则"
                                 variant: ShadcnLabel.Variant.Muted
                             }
+                        }
                         }
                     }
                 }

@@ -86,6 +86,20 @@ Rectangle {
 
                     ShadcnSeparator { Layout.fillWidth: true }
 
+                    // 表头
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Item { Layout.preferredWidth: 8 }   // 与行的状态点对齐
+                        ShadcnLabel { Layout.preferredWidth: 110; text: "设备 ID";  size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.fillWidth: true;    text: "名称";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.preferredWidth: 210; text: "最新数据"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.preferredWidth: 130; text: "最后上报"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { text: "操作"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                    }
+                    ShadcnSeparator { Layout.fillWidth: true }
+
                     // 列表
                     ListView {
                         id: deviceList
