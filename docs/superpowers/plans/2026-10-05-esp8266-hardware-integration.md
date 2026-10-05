@@ -20,6 +20,38 @@
 
 ---
 
+## 进度快照（2026-10-06）
+
+| Phase | 状态 | 说明 |
+|---|---|---|
+| A: SSE → 轮询 | ✅ 完成 | 服务端删 SSE 模块；新增 `query_latest`；客户端 `WsClient` 删除，改 3s `QTimer` 轮询 |
+| B: QtShadcn UI | ✅ 完成（方案有调整） | 见下方「Phase B 实际落地」 |
+| C: ESP8266 接入 | 🔄 进行中 | 下一步 |
+
+### Phase B 实际落地（与原计划不同之处）
+
+原计划是「逐页面把 QML 换成 Shadcn 组件」，实际做的时候发现原结构本身有不合理处，于是做了信息架构重构：
+
+- 6 个页面 → **3 个视图 + 1 个详情页**：`DevicesView` / `AlarmsView` / `GroupsView` / `DeviceDetailView`
+- 原 `OverviewPage + DashboardPage` 首页数据是**写死的假数据**（`rand()`、硬编码 gauge），已改为 `query_latest` 真实数据
+- 原 `GroupManagePage + GroupDetailPage` 合并为单页 master-detail
+- 新增 `components/Panel.qml`：`ShadcnCard` 的 `implicitHeight` 依赖内部 Column，列表用 `anchors.fill` 会形成尺寸环（表现 CPU 100% 卡死），列表/图表容器统一改用 Panel
+- 新增 `components/AppSidebar.qml`，导航不再用魔法数字 `currentIndex` 跳转
+- 指标不再写死：`DataManager` 新增 `metricNamesFor/latestValue/metricSummary/metricLabel/metricUnit`
+- 修复：`ShadcnDialogFooter` 必须挂在 `ShadcnDialogContent` 上（挂在 `ShadcnDialog` 上会落到 `QQC.Dialog` 自己的 footer，不右对齐）
+- 恢复被重写时丢失的表头；选择状态由「行号」改为「id」（模型 5s 轮询重置后行号会错位）
+
+### 待办（Backlog，非阻塞）
+
+- [ ] **规则表批量删除的 N 次请求**：现在批量删除 N 条规则会发 N 次 HTTP。
+      规则量大时给服务端加批量 action（如 `/api/alarm {"action":"delete_rules","ids":[...]}`）
+- [ ] 客户端 TLS（MQTT 1883 / HTTP 8080 目前明文）
+- [ ] 设备影子 delta 在客户端的可视化（目前只展示 reported/desired 原文）
+
+---
+
+---
+
 # Phase A: SSE → 轮询
 
 ### Task A1: 服务端删除 SSE 模块
@@ -29,11 +61,11 @@
 - Modify: `src/main.c`（删 include + sse_handler_init 调用）
 - Modify: `src/server/mqtt_broker.c`（删 include + sse_broadcast_datapoint 调用）
 
-- [ ] 删除 sse_handler.c/h
-- [ ] main.c 删 `#include "server/sse_handler.h"` 和 sse_handler_init 块
-- [ ] mqtt_broker.c 删 include 和 sse_broadcast_datapoint 调用（保留周围的 datapoint 处理逻辑）
-- [ ] `make build` 通过
-- [ ] 提交 `refactor(server): 删除 SSE 模块，客户端改用 HTTP 轮询`
+- [x] 删除 sse_handler.c/h
+- [x] main.c 删 `#include "server/sse_handler.h"` 和 sse_handler_init 块
+- [x] mqtt_broker.c 删 include 和 sse_broadcast_datapoint 调用（保留周围的 datapoint 处理逻辑）
+- [x] `make build` 通过
+- [x] 提交 `refactor(server): 删除 SSE 模块，客户端改用 HTTP 轮询`
 
 ### Task A2: 服务端新增 query_latest 接口
 
@@ -43,9 +75,9 @@
 **Interfaces:**
 - Produces: `POST /api/device {"action":"query_latest"}` → `{"data":[{"device_id":"...","metric":"...","value":...,"ts":...},...],"total":N}`（一次读全 device_latest_data 表）
 
-- [ ] handler_device.c 新增 query_latest 分支：`SELECT device_id, metric, value, ts FROM device_latest_data`
-- [ ] `make build` + curl 验证
-- [ ] 提交 `feat(api): 新增 query_latest 返回全量设备最新数据点`
+- [x] handler_device.c 新增 query_latest 分支：`SELECT device_id, metric, value, ts FROM device_latest_data`
+- [x] `make build` + curl 验证
+- [x] 提交 `feat(api): 新增 query_latest 返回全量设备最新数据点`
 
 ### Task A3: 客户端删除 WsClient + 加轮询
 
@@ -56,11 +88,11 @@
 - Modify: `client/src/main/main_qml.cpp`（移除 wsclient 注册）
 - Modify: `client/qml/main.qml`（连接状态改 HTTP 成功标记）
 
-- [ ] httpclient 新增 `fetchLatest()` Q_INVOKABLE 调用 `/api/device action=query_latest`
-- [ ] DataManager 加 `QTimer m_pollTimer`（3s），connect 到 fetchDevices + fetchLatest + fetchAlarms
-- [ ] 删除 wsclient 文件 + main_qml.cpp 里的注册 + main.qml 里 wsclient 引用
-- [ ] `cd client && cmake --build build` 通过
-- [ ] 提交 `refactor(client): 删除 SSE WsClient，改为 3s QTimer 轮询 REST`
+- [x] httpclient 新增 `fetchLatest()` Q_INVOKABLE 调用 `/api/device action=query_latest`
+- [x] DataManager 加 `QTimer m_pollTimer`（3s），connect 到 fetchDevices + fetchLatest + fetchAlarms
+- [x] 删除 wsclient 文件 + main_qml.cpp 里的注册 + main.qml 里 wsclient 引用
+- [x] `cd client && cmake --build build` 通过
+- [x] 提交 `refactor(client): 删除 SSE WsClient，改为 3s QTimer 轮询 REST`
 
 ---
 
@@ -74,12 +106,12 @@
 - Modify: `client/src/main/main_qml.cpp`
 - Modify: `Makefile`（client target 加 QML_IMPORT_PATH）
 
-- [ ] `git submodule add https://github.com/QtShadcn/qtshadcn.git client/third_party/qtshadcn`
-- [ ] client/CMakeLists.txt: find_package 加 Svg；`add_subdirectory(third_party/qtshadcn)`；target_link_libraries 加 QtShadcn；cmake_minimum_required 改 3.24
-- [ ] main_qml.cpp: `QQuickStyle::setStyle("Basic")`（替换 Material）
-- [ ] Makefile client/client-dev: 加 `QML_IMPORT_PATH=$(pwd)/client/build/third_party/qtshadcn/src`
-- [ ] `cd client && cmake -B build && cmake --build build` 通过
-- [ ] 提交 `feat(client): 引入 QtShadcn submodule + Basic style + CMake 接线`
+- [x] `git submodule add https://github.com/QtShadcn/qtshadcn.git client/third_party/qtshadcn`
+- [x] client/CMakeLists.txt: find_package 加 Svg；`add_subdirectory(third_party/qtshadcn)`；target_link_libraries 加 QtShadcn；cmake_minimum_required 改 3.24
+- [x] main_qml.cpp: `QQuickStyle::setStyle("Basic")`（替换 Material）
+- [x] Makefile client/client-dev: 加 `QML_IMPORT_PATH=$(pwd)/client/build/third_party/qtshadcn/src`
+- [x] `cd client && cmake -B build && cmake --build build` 通过
+- [x] 提交 `feat(client): 引入 QtShadcn submodule + Basic style + CMake 接线`
 
 ### Task B2: main.qml 主题入口 + 替换 Material
 
@@ -87,13 +119,13 @@
 - Modify: `client/qml/main.qml`
 - Modify: `client/qml/qml.qrc`
 
-- [ ] main.qml: 删 Material import，`import QtShadcn`，加 `QtShadcnTheme { id: theme }`
-- [ ] 颜色属性改为绑定 theme token（theme.background / theme.card / theme.border 等）
-- [ ] 删除本地 isDark/cardBg/accentColor 等重复属性
-- [ ] client/src/theme/ThemeManager 用法替换（QML 引用改到 QtShadcn 的 theme 对象）
-- [ ] qml.qrc 保留（main.qml 不用改入口方式）
-- [ ] 编译通过 + `make client` 手动验证窗口能打开
-- [ ] 提交 `refactor(client/main): QtShadcnTheme 主题入口替换 Material 样式`
+- [x] main.qml: 删 Material import，`import QtShadcn`，加 `QtShadcnTheme { id: theme }`
+- [x] 颜色属性改为绑定 theme token（theme.background / theme.card / theme.border 等）
+- [x] 删除本地 isDark/cardBg/accentColor 等重复属性
+- [x] client/src/theme/ThemeManager 用法替换（QML 引用改到 QtShadcn 的 theme 对象）
+- [x] qml.qrc 保留（main.qml 不用改入口方式）
+- [x] 编译通过 + `make client` 手动验证窗口能打开
+- [x] 提交 `refactor(client/main): QtShadcnTheme 主题入口替换 Material 样式`
 
 ### Task B3: Overview 页面迁移
 
@@ -102,24 +134,24 @@
 - Modify: `client/qml/components/StatCard.qml`（重写为 ShadcnCard 组合）
 - Modify: `client/qml/components/TopDevicesTable.qml`（重写为 ShadcnTable）
 
-- [ ] StatCard → ShadcnCard { Header: ShadcnCardTitle + CardDescription; Content: 大字数值 + ShadcnBadge 状态 }
-- [ ] TopDevicesTable → ShadcnTable + ShadcnTableModel（C++ model 不变，只换 QML 视图）
-- [ ] StatusIndicator → ShadcnStatusDot
-- [ ] RoundedButton → ShadcnButton
-- [ ] 编译通过 + 页面渲染正常
-- [ ] 提交 `refactor(client/overview): Overview 页迁移到 QtShadcn`
+- [x] StatCard → ShadcnCard { Header: ShadcnCardTitle + CardDescription; Content: 大字数值 + ShadcnBadge 状态 }
+- [x] TopDevicesTable → ShadcnTable + ShadcnTableModel（C++ model 不变，只换 QML 视图）
+- [x] StatusIndicator → ShadcnStatusDot
+- [x] RoundedButton → ShadcnButton
+- [x] 编译通过 + 页面渲染正常
+- [x] 提交 `refactor(client/overview): Overview 页迁移到 QtShadcn`
 
 ### Task B4: Detail 页面迁移
 
 **Files:**
 - Modify: `client/qml/pages/DetailPage.qml`（912 行）
 
-- [ ] 数据卡片 → ShadcnCard 组合
-- [ ] GaugeCard/GaugeWidget 保留 Qt Charts/Canvas 绘图但外壳换 ShadcnCard
-- [ ] 指令发送按钮 → ShadcnButton
-- [ ] 阈值输入 → ShadcnInput + ShadcnSlider
-- [ ] 编译通过
-- [ ] 提交 `refactor(client/detail): Detail 页迁移到 QtShadcn`
+- [x] 数据卡片 → ShadcnCard 组合
+- [x] GaugeCard/GaugeWidget 保留 Qt Charts/Canvas 绘图但外壳换 ShadcnCard
+- [x] 指令发送按钮 → ShadcnButton
+- [x] 阈值输入 → ShadcnInput + ShadcnSlider
+- [x] 编译通过
+- [x] 提交 `refactor(client/detail): Detail 页迁移到 QtShadcn`
 
 ### Task B5: AlarmCenter 页面迁移
 
@@ -127,12 +159,12 @@
 - Modify: `client/qml/pages/AlarmCenterPage.qml`
 - Modify: `client/qml/components/AddAlarmRuleDialog.qml`
 
-- [ ] 告警列表 → ShadcnTable 或 ShadcnCard 列表 + ShadcnBadge 状态标签
-- [ ] AddAlarmRuleDialog → ShadcnDialog + ShadcnInput/Select/Slider
-- [ ] 确认/解决按钮 → ShadcnButton（variant primary / destructive）
-- [ ] 规则启用开关 → ShadcnSwitch
-- [ ] 编译通过
-- [ ] 提交 `refactor(client/alarm): AlarmCenter 页迁移到 QtShadcn`
+- [x] 告警列表 → ShadcnTable 或 ShadcnCard 列表 + ShadcnBadge 状态标签
+- [x] AddAlarmRuleDialog → ShadcnDialog + ShadcnInput/Select/Slider
+- [x] 确认/解决按钮 → ShadcnButton（variant primary / destructive）
+- [x] 规则启用开关 → ShadcnSwitch
+- [x] 编译通过
+- [x] 提交 `refactor(client/alarm): AlarmCenter 页迁移到 QtShadcn`
 
 ### Task B6: Dashboard / GroupManage / GroupDetail 迁移
 
@@ -141,11 +173,11 @@
 - Modify: `client/qml/pages/GroupManagePage.qml`
 - Modify: `client/qml/pages/GroupDetailPage.qml`
 
-- [ ] Dashboard: MetricCard → ShadcnCard，RealtimeChart 外壳 → ShadcnCard
-- [ ] GroupManage: 分组列表 → ShadcnCard + ShadcnButton 操作，创建对话框 → ShadcnDialog
-- [ ] GroupDetail: 同 Detail 模式
-- [ ] 编译通过
-- [ ] 提交 `refactor(client/pages): Dashboard/GroupManage/GroupDetail 迁移到 QtShadcn`
+- [x] Dashboard: MetricCard → ShadcnCard，RealtimeChart 外壳 → ShadcnCard
+- [x] GroupManage: 分组列表 → ShadcnCard + ShadcnButton 操作，创建对话框 → ShadcnDialog
+- [x] GroupDetail: 同 Detail 模式
+- [x] 编译通过
+- [x] 提交 `refactor(client/pages): Dashboard/GroupManage/GroupDetail 迁移到 QtShadcn`
 
 ### Task B7: 清理旧组件 + theme 模块
 
@@ -155,11 +187,11 @@
 - Modify: `client/qml/qml.qrc`
 - Modify: `client/src/main/main_qml.cpp`（删 themeManager 注册）
 
-- [ ] 删除已被 Shadcn 替换的旧 QML 组件
-- [ ] 删除项目自己的 ThemeManager（QtShadcn 自带）
-- [ ] 更新 qml.qrc 和 main_qml.cpp
-- [ ] 编译通过
-- [ ] 提交 `chore(client): 清理被 QtShadcn 替换的旧组件和 ThemeManager`
+- [x] 删除已被 Shadcn 替换的旧 QML 组件
+- [x] 删除项目自己的 ThemeManager（QtShadcn 自带）
+- [x] 更新 qml.qrc 和 main_qml.cpp
+- [x] 编译通过
+- [x] 提交 `chore(client): 清理被 QtShadcn 替换的旧组件和 ThemeManager`
 
 ---
 
