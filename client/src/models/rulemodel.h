@@ -4,6 +4,7 @@
 #include <QAbstractListModel>
 #include <QVector>
 #include <QString>
+#include <QVariantList>
 
 enum class RuleSeverity { Info = 0, Warning = 1, Critical = 2 };
 enum class RuleOp { Gt = 0, Lt, Eq, Gte, Lte };
@@ -60,6 +61,9 @@ public:
     void clear();
 
     Q_INVOKABLE void setDeviceFilter(const QString &deviceId);
+
+    /** 当前可见行(已按过滤)的规则 id, 顺序与行号一致. 供 QML 做 id 维度选择. */
+    Q_INVOKABLE QVariantList ids() const;
     QString deviceFilter() const { return m_deviceFilter; }
 
 private:

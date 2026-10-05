@@ -169,3 +169,11 @@ void AlarmModel::setSeverityFilter(int severityIndex) {
     rebuildFilter();
     endResetModel();
 }
+
+QVariantList AlarmModel::ids() const
+{
+    QVariantList out;
+    for (int r = 0; r < m_filteredIndices.size(); ++r)
+        out << QVariant::fromValue<qulonglong>(m_records[m_filteredIndices[r]].id);
+    return out;
+}

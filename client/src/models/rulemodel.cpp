@@ -70,3 +70,11 @@ void RuleModel::setDeviceFilter(const QString &deviceId) {
     rebuildFilter();
     endResetModel();
 }
+
+QVariantList RuleModel::ids() const
+{
+    QVariantList out;
+    for (int r = 0; r < m_filteredIndices.size(); ++r)
+        out << QVariant::fromValue<qulonglong>(m_rules[m_filteredIndices[r]].id);
+    return out;
+}

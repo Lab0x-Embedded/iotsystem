@@ -3,6 +3,7 @@
 
 #include <QAbstractListModel>
 #include <QVector>
+#include <QVariantList>
 #include <QString>
 
 enum class AlarmSeverity { Info = 0, Warning = 1, Critical = 2 };
@@ -91,6 +92,9 @@ public:
     Q_INVOKABLE void resolve(int row);
     Q_INVOKABLE void setDeviceFilter(const QString &deviceId);
     Q_INVOKABLE bool isRowSelectable(int row) const;
+
+    /** 当前可见行(已按过滤)的告警 id, 顺序与行号一致. */
+    Q_INVOKABLE QVariantList ids() const;
     QString deviceFilter() const;
     Q_INVOKABLE void setSeverityFilter(int severityIndex);
     int severityFilter() const { return m_severityFilter; }

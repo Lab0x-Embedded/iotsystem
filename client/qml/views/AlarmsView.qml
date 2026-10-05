@@ -10,7 +10,7 @@ Rectangle {
 
     property var alarmListModel: null
     property var ruleListModel: null
-    property var selectedRows: ({})
+    property var selectedIds: ({})
 
     QtShadcnTheme { id: theme }
 
@@ -18,41 +18,87 @@ Rectangle {
 
     function selectedCount() {
         var c = 0;
-        for (var k in selectedRows)
-            if (selectedRows[k]) c++;
+        for (var k in selectedIds)
+            if (selectedIds[k]) c++;
         return c;
     }
     function clearSelection() {
-        selectedRows = {};
+        selectedIds = {};
     }
-    function toggleSelection(index) {
-        var rows = selectedRows;
-        if (rows[index]) delete rows[index];
-        else rows[index] = true;
-        selectedRows = rows;
+    function toggleSelection(id) {
+        var m = selectedIds;
+        if (m[id]) delete m[id];
+        else m[id] = true;
+        selectedIds = m;
     }
-    function toggleSelectAll(checked) {
+
+    // ---- 告警记录: 批量确认 / 解决 ----
+    function toggleSelectAllAlarms(checked) {
         if (!alarmListModel) return;
         if (!checked) { clearSelection(); return; }
-        var rows = {};
-        for (var i = 0; i < alarmListModel.rowCount(); i++)
-            if (alarmListModel.isRowSelectable(i)) rows[i] = true;
-        selectedRows = rows;
+        var m = {};
+        var ids = alarmListModel.ids();
+        for (var i = 0; i < ids.length; i++)
+            if (alarmListModel.isRowSelectable(i)) m[ids[i]] = true;
+        selectedIds = m;
     }
-    function allSelected() {
-        if (!alarmListModel || alarmListModel.rowCount() === 0) return false;
-        return selectedCount() >= alarmListModel.rowCount();
+    function allAlarmsSelected() {
+        if (!alarmListModel) return false;
+        var ids = alarmListModel.ids();
+        var any = false;
+        for (var i = 0; i < ids.length; i++) {
+            if (!alarmListModel.isRowSelectable(i)) continue;
+            any = true;
+            if (!selectedIds[ids[i]]) return false;
+        }
+        return any;
     }
     function acknowledgeSelected() {
-        for (var i = 0; i < alarmListModel.rowCount(); i++)
-            if (selectedRows[i] && alarmListModel.isRowSelectable(i))
+        if (!alarmListModel) return;
+        var ids = alarmListModel.ids();
+        for (var i = 0; i < ids.length; i++)
+            if (selectedIds[ids[i]] && alarmListModel.isRowSelectable(i))
                 alarmListModel.acknowledge(i);
         clearSelection();
     }
     function resolveSelected() {
-        for (var i = 0; i < alarmListModel.rowCount(); i++)
-            if (selectedRows[i] && alarmListModel.isRowSelectable(i))
+        if (!alarmListModel) return;
+        var ids = alarmListModel.ids();
+        for (var i = 0; i < ids.length; i++)
+            if (selectedIds[ids[i]] && alarmListModel.isRowSelectable(i))
                 alarmListModel.resolve(i);
+        clearSelection();
+    }
+
+    // ---- 告警规则: 批量启用 / 禁用 / 删除 ----
+    function toggleSelectAllRules(checked) {
+        if (!ruleListModel) return;
+        if (!checked) { clearSelection(); return; }
+        var m = {};
+        var ids = ruleListModel.ids();
+        for (var i = 0; i < ids.length; i++) m[ids[i]] = true;
+        selectedIds = m;
+    }
+    function allRulesSelected() {
+        if (!ruleListModel) return false;
+        var ids = ruleListModel.ids();
+        if (ids.length === 0) return false;
+        for (var i = 0; i < ids.length; i++)
+            if (!selectedIds[ids[i]]) return false;
+        return true;
+    }
+    function setSelectedRulesEnabled(enabled) {
+        if (!ruleListModel || !dataManager) return;
+        var ids = ruleListModel.ids();
+        for (var i = 0; i < ids.length; i++)
+            if (selectedIds[ids[i]]) dataManager.toggleRule(ids[i], enabled);
+        clearSelection();
+    }
+    function deleteSelectedRules() {
+        if (!ruleListModel || !dataManager) return;
+        var ids = ruleListModel.ids();
+        for (var i = 0; i < ids.length; i++)
+            if (selectedIds[ids[i]]) dataManager.deleteRule(ids[i]);
         clearSelection();
     }
 
@@ -157,8 +203,8 @@ Rectangle {
                             spacing: 10
 
                             ShadcnCheckbox {
-                                checked: root.allSelected()
-                                onToggled: root.toggleSelectAll(checked)
+                                checked: root.allAlarmsSelected()
+                                onToggled: root.toggleSelectAllAlarms(checked)
                             }
                             ShadcnLabel { Layout.preferredWidth: 88;  text: "级别";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             ShadcnLabel { Layout.preferredWidth: 120; text: "设备";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
@@ -198,9 +244,9 @@ Rectangle {
                                 spacing: 10
 
                                 ShadcnCheckbox {
-                                    checked: model.status !== 2 && !!root.selectedRows[index]
+                                    checked: !!root.selectedIds[model.id]
                                     enabled: model.status !== 2
-                                    onToggled: root.toggleSelection(index)
+                                    onToggled: root.toggleSelection(model.id)
                                 }
                                 ShadcnBadge {
                                     Layout.preferredWidth: 88
@@ -296,6 +342,36 @@ Rectangle {
                         }
                     }
                     Item { Layout.fillWidth: true }
+
+                    // 批量操作（选中后出现）
+                    ShadcnLabel {
+                        text: "已选 " + root.selectedCount() + " 条"
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        visible: root.selectedCount() > 0
+                    }
+                    ShadcnButton {
+                        text: "批量启用"
+                        size: ShadcnButton.Size.Small
+                        variant: ShadcnButton.Variant.Outline
+                        visible: root.selectedCount() > 0
+                        onClicked: root.setSelectedRulesEnabled(true)
+                    }
+                    ShadcnButton {
+                        text: "批量禁用"
+                        size: ShadcnButton.Size.Small
+                        variant: ShadcnButton.Variant.Outline
+                        visible: root.selectedCount() > 0
+                        onClicked: root.setSelectedRulesEnabled(false)
+                    }
+                    ShadcnButton {
+                        text: "批量删除"
+                        size: ShadcnButton.Size.Small
+                        variant: ShadcnButton.Variant.Destructive
+                        visible: root.selectedCount() > 0
+                        onClicked: root.deleteSelectedRules()
+                    }
+
                     ShadcnButton {
                         text: "添加规则"
                         iconName: "plus"
@@ -315,11 +391,15 @@ Rectangle {
                         anchors.fill: parent
                         spacing: 8
 
-                        // ===== 表头（规则为逐行操作，无批量选择）=====
+                        // ===== 表头（支持全选 + 批量启用/禁用/删除）=====
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 10
 
+                            ShadcnCheckbox {
+                                checked: root.allRulesSelected()
+                                onToggled: root.toggleSelectAllRules(checked)
+                            }
                             ShadcnLabel { Layout.preferredWidth: 130; text: "设备";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             ShadcnLabel { Layout.preferredWidth: 100; text: "指标";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             ShadcnLabel { Layout.preferredWidth: 80;  text: "条件";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
@@ -356,6 +436,10 @@ Rectangle {
                                 anchors.rightMargin: 8
                                 spacing: 10
 
+                                ShadcnCheckbox {
+                                    checked: !!root.selectedIds[model.id]
+                                    onToggled: root.toggleSelection(model.id)
+                                }
                                 ShadcnLabel {
                                     Layout.preferredWidth: 130
                                     text: model.deviceId === "*" ? "所有设备" : model.deviceId
