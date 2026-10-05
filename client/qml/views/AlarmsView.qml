@@ -458,32 +458,37 @@ Rectangle {
                     model: ["INFO", "WARNING", "CRITICAL"]
                     currentIndex: 1
                 }
-            }
-        }
 
-        footer: ShadcnDialogFooter {
-            ShadcnButton {
-                text: "取消"
-                variant: ShadcnButton.Variant.Outline
-                size: ShadcnButton.Size.Small
-                onClicked: addRuleDialog.close()
-            }
-            ShadcnButton {
-                text: addRuleDialog.editingRule ? "保存" : "添加"
-                size: ShadcnButton.Size.Small
-                onClicked: {
-                    var dev = ruleDeviceField.text.trim();
-                    var met = ruleMetricField.text.trim();
-                    if (met === "" || !dataManager) return;
-                    var opIdx = ruleOpCombo.currentIndex;
-                    var thr = parseFloat(ruleThresholdField.text) || 0;
-                    var sevIdx = ruleSeverityCombo.currentIndex;
-                    if (addRuleDialog.editingRule)
-                        dataManager.editRule(addRuleDialog.editingRule.id, dev, met, opIdx, thr, sevIdx);
-                    else
-                        dataManager.addAlarmRule(dev, met, opIdx, thr, sevIdx);
-                    addRuleDialog.editingRule = null;
-                    addRuleDialog.close();
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    spacing: 8
+
+                    Item { Layout.fillWidth: true }
+                    ShadcnButton {
+                        text: "取消"
+                        variant: ShadcnButton.Variant.Outline
+                        size: ShadcnButton.Size.Small
+                        onClicked: addRuleDialog.close()
+                    }
+                    ShadcnButton {
+                        text: addRuleDialog.editingRule ? "保存" : "添加"
+                        size: ShadcnButton.Size.Small
+                        onClicked: {
+                            var dev = ruleDeviceField.text.trim();
+                            var met = ruleMetricField.text.trim();
+                            if (met === "" || !dataManager) return;
+                            var opIdx = ruleOpCombo.currentIndex;
+                            var thr = parseFloat(ruleThresholdField.text) || 0;
+                            var sevIdx = ruleSeverityCombo.currentIndex;
+                            if (addRuleDialog.editingRule)
+                                dataManager.editRule(addRuleDialog.editingRule.id, dev, met, opIdx, thr, sevIdx);
+                            else
+                                dataManager.addAlarmRule(dev, met, opIdx, thr, sevIdx);
+                            addRuleDialog.editingRule = null;
+                            addRuleDialog.close();
+                        }
+                    }
                 }
             }
         }
@@ -499,28 +504,38 @@ Rectangle {
         modal: true
 
         ShadcnDialogContent {
-            ShadcnDialogHeader {
-                ShadcnDialogTitle { text: "确认删除" }
-                ShadcnDialogDescription {
-                    text: "确定要删除规则【" + deleteConfirmDialog.ruleDesc + "】吗？此操作不可撤销。"
-                }
-            }
-        }
+            ColumnLayout {
+                width: parent.width
+                spacing: 16
 
-        footer: ShadcnDialogFooter {
-            ShadcnButton {
-                text: "取消"
-                variant: ShadcnButton.Variant.Outline
-                size: ShadcnButton.Size.Small
-                onClicked: deleteConfirmDialog.close()
-            }
-            ShadcnButton {
-                text: "删除"
-                size: ShadcnButton.Size.Small
-                variant: ShadcnButton.Variant.Destructive
-                onClicked: {
-                    if (dataManager) dataManager.deleteRule(deleteConfirmDialog.ruleId);
-                    deleteConfirmDialog.close();
+                ShadcnDialogHeader {
+                    Layout.fillWidth: true
+                    ShadcnDialogTitle { text: "确认删除" }
+                    ShadcnDialogDescription {
+                        text: "确定要删除规则【" + deleteConfirmDialog.ruleDesc + "】吗？此操作不可撤销。"
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Item { Layout.fillWidth: true }
+                    ShadcnButton {
+                        text: "取消"
+                        variant: ShadcnButton.Variant.Outline
+                        size: ShadcnButton.Size.Small
+                        onClicked: deleteConfirmDialog.close()
+                    }
+                    ShadcnButton {
+                        text: "删除"
+                        size: ShadcnButton.Size.Small
+                        variant: ShadcnButton.Variant.Destructive
+                        onClicked: {
+                            if (dataManager) dataManager.deleteRule(deleteConfirmDialog.ruleId);
+                            deleteConfirmDialog.close();
+                        }
+                    }
                 }
             }
         }
