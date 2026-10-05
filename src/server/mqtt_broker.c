@@ -20,7 +20,6 @@
 #include "common/log.h"
 #include <cJSON.h>
 #include "business/alarm_service.h"
-#include "server/sse_handler.h"
 #include "data/db_pool.h"
 #include "data/sql_escape.h"
 
@@ -666,9 +665,6 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                             if (metric && metric->valuestring && value) {
                                 double val = value->valuedouble;
                                 uint64_t ts_val = ts ? (uint64_t)ts->valuedouble : (uint64_t)time(NULL);
-
-                                /* SSE 广播保留在主线程 (evhttp 线程安全限制) */
-                                sse_broadcast_datapoint(id->valuestring, metric->valuestring, val, ts_val);
 
                                 /* 把 DB+告警 任务提交到线程池 */
                                 if (g_thread_pool) {
