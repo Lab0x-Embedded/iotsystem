@@ -25,6 +25,13 @@ find_package(Qt6 REQUIRED COMPONENTS ${QT_COMPONENTS})
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "src/*.h" "src/*.hpp")
 
+# QTP0001: Qt 6.5+ QML 模块默认资源前缀统一为 ':/qt/qml/'
+# 第三方库(QtShadcn)自己没设，会在 configure 时刷 author 警告；在 add_subdirectory
+# 之前设置好，策略会向下继承到子目录。
+if(COMMAND qt_policy)
+    qt_policy(SET QTP0001 NEW)
+endif()
+
 # QtShadcn UI 组件库 (third_party submodule, 作为子项目不编 showcase)
 add_subdirectory(third_party/qtshadcn)
 

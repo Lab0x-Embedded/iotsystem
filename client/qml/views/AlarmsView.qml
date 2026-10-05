@@ -183,7 +183,7 @@ Rectangle {
                         onCurrentIndexChanged: {
                             if (root.alarmListModel) {
                                 root.alarmListModel.setSeverityFilter(currentIndex - 1);
-                                root.clearSelection();
+                                root.clearAlarmSelection();
                             }
                         }
                     }
