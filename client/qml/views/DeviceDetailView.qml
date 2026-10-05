@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QtShadcn
 import "../components"
 
-// 设备详情: 头部信息 + 指标卡 + Tabs(实时/影子/指令/历史)
+// 设备详情：头部 + 动态指标卡 + Tabs(实时 / 影子 / 指令 / 历史)
 Rectangle {
     id: root
 
@@ -13,15 +13,22 @@ Rectangle {
     property string shadowReportedText: '{\n  "temperature": 23.5\n}'
     property string toastText: ""
     property color toastColor: theme.primary
-    property int realtimeCount: 0
+
+    signal backRequested()
+
+    QtShadcnTheme { id: theme }
+
+    color: theme.background
+
+    ListModel { id: historyDataModel }
 
     function showDevice(deviceId) {
         for (var i = 0; i < deviceModel.rowCount(); i++) {
             var device = deviceModel.deviceAt(i);
             if (device.id === deviceId) {
                 currentDevice = device;
-                realtimeCount = 0;
                 detailChart.clearData();
+                historyDataModel.clear();
                 alarmModel.setDeviceFilter(deviceId);
                 if (dataManager && dataManager.online)
                     dataManager.httpClient.getShadow(deviceId);
@@ -39,23 +46,18 @@ Rectangle {
     function refreshHistory() {
         if (!currentDevice || !dataManager || !dataManager.online) return;
         var now = Math.floor(Date.now() / 1000);
-        dataManager.fetchDataPointHistory(currentDevice.id, "temperature", now - 3600, now, 120);
-        dataManager.fetchDataPointHistory(currentDevice.id, "humidity", now - 3600, now, 120);
+        detailChart.clearData();
+        var names = dataManager.metricNamesFor(currentDevice.id);
+        if (names.length === 0) names = ["temperature", "humidity"];
+        for (var i = 0; i < Math.min(names.length, 2); ++i)
+            dataManager.fetchDataPointHistory(currentDevice.id, names[i], now - 3600, now, 120);
     }
 
-    signal backRequested()
-
-    QtShadcnTheme { id: theme }
-    color: theme.background
-
-    // 历史数据模型 (Tab 3)
-    ListModel { id: historyDataModel }
-
-    // 历史轮询定时器 (30s)
+    // 30s 轮询历史
     Timer {
         interval: 30000
-        running: root.currentDevice !== null && dataManager && dataManager.online
         repeat: true
+        running: root.currentDevice !== null && dataManager && dataManager.online
         onTriggered: root.refreshHistory()
     }
 
@@ -76,9 +78,9 @@ Rectangle {
 
                 ShadcnButton {
                     text: "返回"
-                    variant: ShadcnButton.Variant.Ghost
-                    size: ShadcnButton.Size.Small
                     iconName: "arrow-left"
+                    size: ShadcnButton.Size.Small
+                    variant: ShadcnButton.Variant.Ghost
                     onClicked: {
                         root.currentDevice = null;
                         alarmModel.setDeviceFilter("");
@@ -87,6 +89,7 @@ Rectangle {
                 }
                 ColumnLayout {
                     spacing: 0
+
                     ShadcnLabel {
                         text: root.currentDevice ? root.currentDevice.name : ""
                         size: ShadcnLabel.Size.Large
@@ -103,11 +106,10 @@ Rectangle {
 
                 ShadcnBadge {
                     visible: root.currentDevice !== null
-                    text: root.currentDevice
-                          ? (root.currentDevice.status === 1 ? "在线"
-                             : root.currentDevice.status === 2 ? "告警"
-                             : root.currentDevice.status === 3 ? "维护" : "离线")
-                          : ""
+                    text: !root.currentDevice ? ""
+                          : root.currentDevice.status === 1 ? "在线"
+                          : root.currentDevice.status === 2 ? "告警"
+                          : root.currentDevice.status === 3 ? "维护" : "离线"
                     variant: root.currentDevice && root.currentDevice.status === 1
                              ? ShadcnBadge.Variant.Default
                              : root.currentDevice && root.currentDevice.status === 2
@@ -115,64 +117,66 @@ Rectangle {
                                : ShadcnBadge.Variant.Secondary
                 }
                 ShadcnButton {
-                    visible: root.currentDevice && root.currentDevice.status === 1
                     text: "重启设备"
-                    variant: ShadcnButton.Variant.Outline
-                    size: ShadcnButton.Size.Small
                     iconName: "refresh-cw"
+                    size: ShadcnButton.Size.Small
+                    variant: ShadcnButton.Variant.Outline
+                    visible: root.currentDevice && root.currentDevice.status === 1
                     onClicked: {
-                        if (root.currentDevice)
+                        if (root.currentDevice && dataManager)
                             dataManager.httpClient.sendCommand(root.currentDevice.id, "reboot");
                     }
                 }
             }
 
-            // ===== 指标卡 =====
+            // ===== 动态指标卡（按设备实际上报的指标生成）=====
             RowLayout {
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
                 Layout.rightMargin: 20
                 spacing: 12
-                visible: root.currentDevice !== null
+                visible: root.currentDevice !== null && metricRepeater.count > 0
 
-                StatCard {
-                    Layout.fillWidth: true
-                    title: "温度"
-                    value: root.currentDevice ? root.currentDevice.temperature.toFixed(1) + " °C" : "--"
-                    valueColor: theme.destructive
-                    dotStatus: ShadcnStatusDot.Status.Warning
-                }
-                StatCard {
-                    Layout.fillWidth: true
-                    title: "湿度"
-                    value: root.currentDevice ? root.currentDevice.humidity.toFixed(0) + " %" : "--"
-                    valueColor: "#60a5fa"
-                }
-                StatCard {
-                    Layout.fillWidth: true
-                    title: "电量"
-                    value: root.currentDevice ? root.currentDevice.battery.toFixed(0) + " %" : "--"
-                    valueColor: theme.success
-                }
-                StatCard {
-                    Layout.fillWidth: true
-                    title: "上报次数"
-                    value: root.currentDevice ? (root.currentDevice.reportCount + root.realtimeCount) : "--"
+                Repeater {
+                    id: metricRepeater
+                    model: root.currentDevice && dataManager
+                           ? dataManager.metricNamesFor(root.currentDevice.id)
+                           : []
+
+                    StatCard {
+                        required property string modelData
+
+                        Layout.fillWidth: true
+                        title: dataManager ? dataManager.metricLabel(modelData) : modelData
+                        value: {
+                            if (!dataManager || !root.currentDevice) return "—";
+                            var v = dataManager.latestValue(root.currentDevice.id, modelData);
+                            if (isNaN(v)) return "—";
+                            return v.toFixed(1) + " " + dataManager.metricUnit(modelData);
+                        }
+                    }
                 }
             }
 
+            // 无指标数据提示
+            ShadcnLabel {
+                Layout.leftMargin: 20
+                text: "该设备尚未上报数据"
+                variant: ShadcnLabel.Variant.Muted
+                visible: root.currentDevice !== null && metricRepeater.count === 0
+            }
+
             // ===== Tabs =====
-            ShadcnCard {
+            Panel {
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
                 Layout.rightMargin: 20
                 Layout.bottomMargin: 20
                 Layout.preferredHeight: 480
 
-                ShadcnCardContent {
-                        width: parent.width
-                        height: parent.height
-                        implicitHeight: 0
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 12
 
                     ShadcnTabsList {
                         id: detailTabs
@@ -184,71 +188,74 @@ Rectangle {
                     }
 
                     StackLayout {
-                        width: parent.width
-                        height: 380
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
                         currentIndex: detailTabs.currentIndex
 
                         // ---- Tab 0: 实时数据 ----
-                        Item {
-                            RealtimeChart {
-                                id: detailChart
-                                width: parent.width
-                            height: parent.height
-                            }
+                        RealtimeChart {
+                            id: detailChart
                         }
 
                         // ---- Tab 1: 设备影子 ----
                         RowLayout {
                             spacing: 12
 
-                            // Reported
-                            ShadcnCard {
+                            Panel {
                                 Layout.fillHeight: true
                                 Layout.fillWidth: true
-                                size: ShadcnCard.Size.Small
 
-                                ShadcnCardHeader {
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    spacing: 8
+
                                     RowLayout {
-                                        width: parent.width
+                                        Layout.fillWidth: true
+                                        spacing: 6
                                         ShadcnStatusDot { status: ShadcnStatusDot.Status.Success }
-                                        ShadcnCardTitle { text: "Reported (上报状态)" }
+                                        ShadcnLabel { text: "Reported（上报状态）" }
                                         Item { Layout.fillWidth: true }
-                                        ShadcnBadge { text: "只读"; variant: ShadcnBadge.Variant.Secondary }
+                                        ShadcnBadge {
+                                            text: "只读"
+                                            variant: ShadcnBadge.Variant.Secondary
+                                        }
                                     }
-                                }
-                                ShadcnCardContent {
+
                                     QQC.ScrollView {
-                                        width: parent.width
-                            height: parent.height
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
                                         clip: true
+
                                         ShadcnLabel {
                                             width: parent.width
                                             text: root.shadowReportedText
-                                            size: ShadcnLabel.Size.Small
                                             color: theme.success
+                                            wrapMode: Text.Wrap
                                         }
                                     }
                                 }
                             }
 
-                            // Desired
-                            ShadcnCard {
+                            Panel {
                                 Layout.fillHeight: true
                                 Layout.fillWidth: true
-                                size: ShadcnCard.Size.Small
 
-                                ShadcnCardHeader {
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    spacing: 8
+
                                     RowLayout {
-                                        width: parent.width
+                                        Layout.fillWidth: true
+                                        spacing: 6
                                         ShadcnStatusDot { status: ShadcnStatusDot.Status.Online }
-                                        ShadcnCardTitle { text: "Desired (期望状态)" }
+                                        ShadcnLabel { text: "Desired（期望状态）" }
                                         Item { Layout.fillWidth: true }
                                         ShadcnButton {
-                                            visible: root.currentDevice && root.currentDevice.status === 1
                                             text: "保存"
-                                            variant: ShadcnButton.Variant.Outline
-                                            size: ShadcnButton.Size.ExtraSmall
                                             iconName: "check"
+                                            size: ShadcnButton.Size.ExtraSmall
+                                            variant: ShadcnButton.Variant.Outline
+                                            visible: root.currentDevice && root.currentDevice.status === 1
                                             onClicked: {
                                                 if (!root.currentDevice) return;
                                                 try {
@@ -261,21 +268,22 @@ Rectangle {
                                             }
                                         }
                                     }
-                                }
-                                ShadcnCardContent {
+
                                     QQC.TextArea {
                                         id: desiredEditor
-                                        width: parent.width
-                            height: parent.height
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
                                         text: root.shadowDesiredText
                                         color: theme.foreground
                                         selectByMouse: true
                                         wrapMode: QQC.TextArea.Wrap
                                         font.family: "Monaco"
                                         font.pixelSize: 12
+
                                         background: Rectangle {
                                             color: theme.input
                                             radius: theme.radius
+                                            border.width: 1
                                             border.color: theme.border
                                         }
                                     }
@@ -293,13 +301,13 @@ Rectangle {
 
                                 ShadcnInput {
                                     id: cmdNameField
-                                    Layout.preferredWidth: 120
+                                    Layout.preferredWidth: 140
                                     placeholderText: "指令名"
                                 }
                                 ShadcnInput {
                                     id: cmdPayloadField
                                     Layout.fillWidth: true
-                                    placeholderText: 'Payload JSON (如 {"speed":"high"})'
+                                    placeholderText: 'Payload JSON，如 {"relay":"on"}'
                                 }
                                 ShadcnButton {
                                     text: "发送"
@@ -307,8 +315,14 @@ Rectangle {
                                     onClicked: {
                                         if (cmdNameField.text && root.currentDevice) {
                                             var payload = {};
-                                            try { payload = JSON.parse(cmdPayloadField.text || "{}"); } catch (e) {}
-                                            dataManager.httpClient.sendCommand(root.currentDevice.id, cmdNameField.text, payload);
+                                            try {
+                                                payload = JSON.parse(cmdPayloadField.text || "{}");
+                                            } catch (e) {
+                                                root.showToast("Payload 不是合法 JSON", theme.destructive);
+                                                return;
+                                            }
+                                            dataManager.httpClient.sendCommand(root.currentDevice.id,
+                                                                               cmdNameField.text, payload);
                                             root.showToast("指令已发送");
                                         }
                                     }
@@ -316,9 +330,9 @@ Rectangle {
                             }
 
                             ShadcnAlert {
-                                width: parent.width
+                                Layout.fillWidth: true
                                 title: "指令通过 MQTT QoS 1 下发"
-                                description: "设备离线时指令进入队列，重连后自动重放。"
+                                description: "设备离线时指令进入队列，重连后自动重放；在线时等待 PUBACK 确认。"
                                 variant: ShadcnAlert.Variant.Default
                             }
                         }
@@ -334,13 +348,15 @@ Rectangle {
                                 ShadcnLabel { text: "指标:"; variant: ShadcnLabel.Variant.Muted }
                                 ShadcnSelect {
                                     id: historyMetric
-                                    width: 140
-                                    model: ["temperature", "humidity", "battery"]
+                                    width: 150
+                                    model: root.currentDevice && dataManager
+                                           ? dataManager.metricNamesFor(root.currentDevice.id)
+                                           : []
                                 }
                                 ShadcnLabel { text: "时间:"; variant: ShadcnLabel.Variant.Muted }
                                 ShadcnSelect {
                                     id: historyRange
-                                    width: 140
+                                    width: 130
                                     model: ["最近1小时", "最近6小时", "最近24小时", "最近7天"]
                                 }
                                 Item { Layout.fillWidth: true }
@@ -348,80 +364,72 @@ Rectangle {
                                     text: "查询"
                                     iconName: "search"
                                     onClicked: {
-                                        if (!root.currentDevice) return;
-                                        var now = Math.floor(Date.now() / 1000);
+                                        if (!root.currentDevice || !dataManager) return;
+                                        var metric = historyMetric.model[historyMetric.currentIndex];
+                                        if (!metric) metric = "temperature";
                                         var spans = [3600, 21600, 86400, 604800];
                                         var span = spans[historyRange.currentIndex] || 3600;
-                                        dataManager.fetchDataPointHistory(
-                                            root.currentDevice.id,
-                                            historyMetric.model[historyMetric.currentIndex] || "temperature",
-                                            now - span, now, 200);
+                                        var now = Math.floor(Date.now() / 1000);
+                                        dataManager.fetchDataPointHistory(root.currentDevice.id, metric,
+                                                                          now - span, now, 200);
                                     }
                                 }
                             }
 
-                            // 历史数据列表
-                            ShadcnCard {
+                            Panel {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                size: ShadcnCard.Size.Small
 
-                                ShadcnCardContent {
-                                    width: parent.width
-                                    height: parent.height
-                                    implicitHeight: 0
-                                    ListView {
-                                        id: historyList
-                                        width: parent.width
-                                        height: parent.height
-                                        clip: true
-                                        model: historyDataModel
-                                        spacing: 2
+                                ListView {
+                                    id: historyList
+                                    anchors.fill: parent
+                                    clip: true
+                                    model: historyDataModel
+                                    spacing: 2
 
-                                        delegate: RowLayout {
-                                            width: historyList.width
-                                            height: 32
+                                    delegate: RowLayout {
+                                        required property int index
+                                        required property string time
+                                        required property double value
 
-                                            required property int index
-                                            required property string time
-                                            required property double value
+                                        width: historyList.width
+                                        height: 32
 
-                                            ShadcnLabel {
-                                                Layout.preferredWidth: 36
-                                                text: index + 1
-                                                size: ShadcnLabel.Size.Small
-                                                variant: ShadcnLabel.Variant.Muted
-                                            }
-                                            ShadcnLabel {
-                                                Layout.fillWidth: true
-                                                text: time
-                                                size: ShadcnLabel.Size.Small
-                                            }
-                                            ShadcnLabel {
-                                                Layout.preferredWidth: 100
-                                                text: Number(value).toFixed(2)
-                                                size: ShadcnLabel.Size.Small
-                                                horizontalAlignment: Text.AlignRight
-                                            }
-                                        }
-                                    }
-
-                                    Column {
-                                        anchors.centerIn: parent
-                                        spacing: theme.spacingSm
-                                        visible: historyDataModel.count === 0
-
-                                        ShadcnIcon {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            name: "clock"
-                                            size: 28
-                                            color: theme.mutedForeground
-                                        }
                                         ShadcnLabel {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            text: "点击查询获取历史数据"
+                                            Layout.preferredWidth: 40
+                                            text: index + 1
+                                            size: ShadcnLabel.Size.Small
                                             variant: ShadcnLabel.Variant.Muted
                                         }
+                                        ShadcnLabel {
+                                            Layout.fillWidth: true
+                                            text: time
+                                            size: ShadcnLabel.Size.Small
+                                        }
+                                        ShadcnLabel {
+                                            Layout.preferredWidth: 100
+                                            text: Number(value).toFixed(2)
+                                            size: ShadcnLabel.Size.Small
+                                            horizontalAlignment: Text.AlignRight
+                                        }
+                                    }
+                                }
+
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: theme.spacingSm
+                                    visible: historyDataModel.count === 0
+
+                                    ShadcnIcon {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        name: "clock"
+                                        size: 28
+                                        color: theme.mutedForeground
+                                    }
+                                    ShadcnLabel {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: "点击查询获取历史数据"
+                                        variant: ShadcnLabel.Variant.Muted
                                     }
                                 }
                             }
@@ -440,10 +448,10 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         color: root.toastColor
         height: 36
-        opacity: root.toastText ? 1.0 : 0.0
-        radius: 8
-        visible: opacity > 0
         width: toastLabel.implicitWidth + 32
+        radius: 8
+        opacity: root.toastText ? 1.0 : 0.0
+        visible: opacity > 0
 
         Behavior on opacity { NumberAnimation { duration: 200 } }
 
@@ -451,7 +459,7 @@ Rectangle {
             id: toastLabel
             anchors.centerIn: parent
             text: root.toastText
-            color: theme.background
+            color: theme.primaryForeground
         }
         Timer {
             id: toastTimer
@@ -460,37 +468,35 @@ Rectangle {
         }
     }
 
-    // Shadow 信号
     Connections {
         target: dataManager ? dataManager.httpClient : null
-        function onShadowError(error) { root.showToast("保存失败: " + error, theme.destructive); }
+
+        function onShadowError(error) {
+            root.showToast("保存失败: " + error, theme.destructive);
+        }
         function onShadowUpdated(deviceId) {
             if (root.currentDevice && root.currentDevice.id === deviceId)
                 root.showToast("保存成功", theme.success);
         }
         function onDataPointHistoryFetched(points) {
-            // 填充历史列表 (Tab 3)
-            if (root.currentDevice) {
+            if (points.length === 0) return;
+            var m = points[0].metric || "value";
+
+            // 实时曲线：按指标分别灌入
+            detailChart.setPoints(m, points);
+
+            // 历史列表：只显示当前选中的指标，避免多指标混在一起
+            var selected = historyMetric.model[historyMetric.currentIndex];
+            if (selected && selected === m) {
                 historyDataModel.clear();
                 for (var i = 0; i < points.length; i++) {
-                    var p = points[i];
-                    var dt = new Date(p.ts * 1000);
+                    var dt = new Date(points[i].ts * 1000);
                     historyDataModel.append({
                         "time": Qt.formatDateTime(dt, "yyyy-MM-dd HH:mm:ss"),
-                        "value": p.value
+                        "value": points[i].value
                     });
                 }
             }
-            // 实时曲线 (Tab 0)
-            detailChart.clearData();
-            var temp = [], hum = [];
-            for (var i = 0; i < points.length; i++) {
-                var p = points[i];
-                if (p.metric === "temperature") temp.push(p);
-                else if (p.metric === "humidity") hum.push(p);
-            }
-            if (temp.length > 0) detailChart.setPoints("temperature", temp);
-            if (hum.length > 0) detailChart.setPoints("humidity", hum);
         }
     }
 }

@@ -2,6 +2,7 @@
 #define DATAMANAGER_H
 
 #include <QObject>
+#include <QStringList>
 #include <QTimer>
 #include "models/devicemodel.h"
 #include "models/alarmmodel.h"
@@ -54,6 +55,18 @@ public:
     Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
     Q_INVOKABLE void removeDeviceFromGroup(const QString &deviceId);
 
+    /* ---- 动态指标查询 (不再写死 temperature/humidity) ---- */
+    /** 某设备当前已上报的指标名列表 (已排序) */
+    Q_INVOKABLE QStringList metricNamesFor(const QString &deviceId) const;
+    /** 某指标最新值; 无数据返回 NaN */
+    Q_INVOKABLE double latestValue(const QString &deviceId, const QString &metric) const;
+    /** 指标中文名 (如 temperature -> 温度) */
+    Q_INVOKABLE QString metricLabel(const QString &metric) const;
+    /** 指标单位 (如 temperature -> °C) */
+    Q_INVOKABLE QString metricUnit(const QString &metric) const;
+    /** 一行的紧凑摘要, 如 "温度 23.5°C · 湿度 50%" */
+    Q_INVOKABLE QString metricSummary(const QString &deviceId, int maxItems = 2) const;
+
 signals:
     void onlineChanged();
     void serverUrlChanged();
@@ -89,7 +102,7 @@ private:
     HttpClient m_http;
     MockDataSource m_mock;
     QTimer m_refreshTimer;
-    QMap<QString, double> m_latestPoints;
+    QMap<QString, QMap<QString, double>> m_deviceMetrics;  // deviceId -> metric -> value
     bool m_online = false;
 };
 

@@ -1,5 +1,7 @@
 #include "datamanager.h"
 #include <QDebug>
+#include <QtMath>
+#include <QMap>
 #include "mock/mockdatasource.h"
 
 DataManager::DataManager(QObject *parent) : QObject(parent)
@@ -9,13 +11,15 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::loginFailed, this, &DataManager::onLoginFailed);
     connect(&m_http, &HttpClient::devicesFetched, this, &DataManager::onDevicesFetched);
     connect(&m_http, &HttpClient::latestFetched, this, [this](const QJsonArray &dps) {
-        m_latestPoints.clear();
+        m_deviceMetrics.clear();
         for (const auto &item : dps) {
             QJsonObject o = item.toObject();
-            QString key = o["device_id"].toString() + "/" + o["metric"].toString();
-            m_latestPoints[key] = o["value"].toDouble();
+            const QString dev = o["device_id"].toString();
+            const QString metric = o["metric"].toString();
+            if (dev.isEmpty() || metric.isEmpty()) continue;
+            m_deviceMetrics[dev][metric] = o["value"].toDouble();
         }
-        // 用最新数据刷新模型（取真实值替代随机数）
+        // 用最新数据刷新模型
         refreshDevices();
     });
     connect(&m_http, &HttpClient::groupsFetched, this, &DataManager::onGroupsFetched);
@@ -224,10 +228,11 @@ void DataManager::onDevicesFetched(const QJsonArray &devices)
             info.status = DeviceStatus::Offline;
         }
 
-        // 从 query_latest 轮询数据取真实值（无数据则显示 0）
-        info.temperature = m_latestPoints.value(info.id + "/temperature", 0.0);
-        info.humidity = m_latestPoints.value(info.id + "/humidity", 0.0);
-        info.battery = m_latestPoints.value(info.id + "/battery", 0.0);
+        // 从 query_latest 取真实值; 缺省用 NaN 表示"无数据"（视图显示 "—"）
+        const QMap<QString, double> &mm = m_deviceMetrics[info.id];
+        info.temperature = mm.value("temperature", qQNaN());
+        info.humidity = mm.value("humidity", qQNaN());
+        info.battery = mm.value("battery", qQNaN());
 
         qint64 ts = 0;
         if (obj.contains("last_online") && obj["last_online"].toDouble() > 0)
@@ -427,4 +432,72 @@ void DataManager::startAutoRefresh() {
 
 void DataManager::start() {
     m_refreshTimer.start(5000);
+}
+
+/* ================= 动态指标查询 ================= */
+
+QStringList DataManager::metricNamesFor(const QString &deviceId) const
+{
+    if (!m_deviceMetrics.contains(deviceId))
+        return {};
+    QStringList names = m_deviceMetrics.value(deviceId).keys();
+    names.sort();
+    return names;
+}
+
+double DataManager::latestValue(const QString &deviceId, const QString &metric) const
+{
+    if (!m_deviceMetrics.contains(deviceId))
+        return qQNaN();
+    return m_deviceMetrics.value(deviceId).value(metric, qQNaN());
+}
+
+QString DataManager::metricLabel(const QString &metric) const
+{
+    static const QMap<QString, QString> labels = {
+        { "temperature", QStringLiteral("温度") },
+        { "humidity",    QStringLiteral("湿度") },
+        { "pressure",    QStringLiteral("气压") },
+        { "voltage",     QStringLiteral("电压") },
+        { "current",     QStringLiteral("电流") },
+        { "power",       QStringLiteral("功率") },
+        { "energy",      QStringLiteral("电能") },
+        { "battery",     QStringLiteral("电量") },
+        { "co2",         QStringLiteral("CO2") },
+        { "pm25",        QStringLiteral("PM2.5") },
+    };
+    return labels.value(metric, metric);   // 未知指标原样显示
+}
+
+QString DataManager::metricUnit(const QString &metric) const
+{
+    static const QMap<QString, QString> units = {
+        { "temperature", QStringLiteral("°C") },
+        { "humidity",    QStringLiteral("%") },
+        { "pressure",    QStringLiteral("Pa") },
+        { "voltage",     QStringLiteral("V") },
+        { "current",     QStringLiteral("A") },
+        { "power",       QStringLiteral("W") },
+        { "energy",      QStringLiteral("kWh") },
+        { "battery",     QStringLiteral("%") },
+        { "co2",         QStringLiteral("ppm") },
+        { "pm25",        QStringLiteral("µg/m³") },
+    };
+    return units.value(metric, QString());
+}
+
+QString DataManager::metricSummary(const QString &deviceId, int maxItems) const
+{
+    const QStringList names = metricNamesFor(deviceId);
+    QStringList parts;
+    for (int i = 0; i < names.size() && parts.size() < maxItems; ++i) {
+        const QString &m = names[i];
+        const double v = latestValue(deviceId, m);
+        if (qIsNaN(v)) continue;
+        parts << QStringLiteral("%1 %2%3")
+                     .arg(metricLabel(m))
+                     .arg(QString::number(v, 'f', 1))
+                     .arg(metricUnit(m));
+    }
+    return parts.isEmpty() ? QStringLiteral("—") : parts.join(QStringLiteral(" · "));
 }

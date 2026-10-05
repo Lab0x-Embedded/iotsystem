@@ -4,25 +4,16 @@ import QtQuick.Layouts
 import QtShadcn
 import "../components"
 
-// 设备总览: 统计卡 + 搜索 + 设备表格 + 实时图表
+// 设备总览：统计卡 + 设备列表
 Rectangle {
     id: root
 
-    property var deviceData: null   // deviceModel
-    property string selectedDeviceId: ""
+    property var deviceData: null
     signal deviceSelected(string deviceId)
 
     QtShadcnTheme { id: theme }
 
     color: theme.background
-
-    // 搜索过滤
-    function _matchFilter(deviceId, deviceName) {
-        if (searchInput.text === "") return true;
-        var q = searchInput.text.toLowerCase();
-        return (deviceId || "").toLowerCase().indexOf(q) >= 0
-            || (deviceName || "").toLowerCase().indexOf(q) >= 0;
-    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -37,68 +28,73 @@ Rectangle {
             StatCard {
                 Layout.fillWidth: true
                 title: "设备总数"
-                value: deviceData ? deviceData.totalCount : "0"
+                value: root.deviceData ? root.deviceData.totalCount : "0"
             }
             StatCard {
                 Layout.fillWidth: true
                 title: "在线"
-                value: deviceData ? deviceData.onlineCount : "0"
+                value: root.deviceData ? root.deviceData.onlineCount : "0"
                 valueColor: theme.success
                 dotStatus: ShadcnStatusDot.Status.Online
             }
             StatCard {
                 Layout.fillWidth: true
                 title: "离线"
-                value: deviceData ? (deviceData.totalCount - deviceData.onlineCount - deviceData.alarmCount) : "0"
+                value: root.deviceData
+                       ? (root.deviceData.totalCount - root.deviceData.onlineCount - root.deviceData.alarmCount)
+                       : "0"
                 valueColor: theme.mutedForeground
                 dotStatus: ShadcnStatusDot.Status.Offline
             }
             StatCard {
                 Layout.fillWidth: true
                 title: "告警"
-                value: deviceData ? deviceData.alarmCount : "0"
+                value: root.deviceData ? root.deviceData.alarmCount : "0"
                 valueColor: theme.destructive
                 dotStatus: ShadcnStatusDot.Status.Danger
             }
         }
 
-        // ===== 主体: 左表格 + 右图表 =====
+        // ===== 主体 =====
         RowLayout {
             Layout.fillHeight: true
             Layout.fillWidth: true
             spacing: 16
 
-            // 设备表格
-            ShadcnCard {
+            // ---- 设备列表 ----
+            Panel {
                 Layout.fillHeight: true
                 Layout.fillWidth: true
 
-                ShadcnCardHeader {
-                    RowLayout {
-                        width: parent.width
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 12
 
-                        ShadcnCardTitle { text: "设备列表" }
+                    // 头部：标题 + 搜索
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        ShadcnLabel { text: "设备列表" }
                         Item { Layout.fillWidth: true }
                         ShadcnInputGroup {
-                            id: searchInput
                             Layout.preferredWidth: 220
                             prefixIcon: "search"
                             placeholderText: "搜索设备 ID / 名称..."
                         }
                     }
-                }
 
-                ShadcnCardContent {
-                        width: parent.width
-                        height: parent.height
-                        implicitHeight: 0
+                    ShadcnSeparator { Layout.fillWidth: true }
+
+                    // 列表
                     ListView {
                         id: deviceList
-                        width: parent.width
-                            height: parent.height
+
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
                         clip: true
                         model: root.deviceData
-                        spacing: 0
+                        spacing: 2
 
                         QQC.ScrollBar.vertical: QQC.ScrollBar {
                             active: true
@@ -106,68 +102,45 @@ Rectangle {
                         }
 
                         delegate: Rectangle {
-                            width: deviceList.width
-                            height: 48
-                            radius: theme.radius
-                            color: deviceMouse.containsMouse
-                                   ? theme.muted
-                                   : "transparent"
-
                             required property int index
                             required property string deviceId
                             required property string deviceName
-                            required property int status
                             required property string group
-                            required property double temperature
-                            required property double humidity
                             required property string lastSeen
 
-                            RowLayout {
-                                width: parent.width
-                            height: parent.height
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 12
-                                spacing: 12
+                            width: deviceList.width
+                            height: 48
+                            radius: theme.radius
+                            color: deviceHover.containsMouse ? theme.muted : "transparent"
 
-                                ShadcnStatusDot {
-                                    status: model.status === 1
-                                            ? ShadcnStatusDot.Status.Online
-                                            : model.status === 2
-                                              ? ShadcnStatusDot.Status.Danger
-                                              : ShadcnStatusDot.Status.Offline
-                                }
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 10
+
                                 ShadcnLabel {
                                     Layout.preferredWidth: 110
-                                    text: model.deviceId
+                                    text: deviceId
                                     size: ShadcnLabel.Size.Small
                                 }
                                 ShadcnLabel {
-                                    Layout.preferredWidth: 160
-                                    text: model.deviceName || "-"
+                                    Layout.fillWidth: true
+                                    text: deviceName || "-"
                                     size: ShadcnLabel.Size.Small
+                                    elide: Text.ElideRight
                                 }
-                                ShadcnBadge {
-                                    text: {
-                                        var g = model.group;
-                                        return groupModel && g ? groupModel.groupName(Number(g)) : "未分组";
-                                    }
-                                    variant: ShadcnBadge.Variant.Secondary
-                                }
+                                // 该设备真实上报的指标摘要（不再是写死的温湿度）
                                 ShadcnLabel {
-                                    Layout.preferredWidth: 70
-                                    text: model.temperature.toFixed(1) + "°C"
+                                    Layout.preferredWidth: 210
+                                    text: dataManager ? dataManager.metricSummary(deviceId, 2) : "—"
                                     size: ShadcnLabel.Size.Small
                                     variant: ShadcnLabel.Variant.Muted
+                                    elide: Text.ElideRight
                                 }
                                 ShadcnLabel {
-                                    Layout.preferredWidth: 60
-                                    text: model.humidity.toFixed(0) + "%"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                Item { Layout.fillWidth: true }
-                                ShadcnLabel {
-                                    text: model.lastSeen || ""
+                                    Layout.preferredWidth: 130
+                                    text: lastSeen || ""
                                     size: ShadcnLabel.Size.Small
                                     variant: ShadcnLabel.Variant.Muted
                                 }
@@ -175,91 +148,43 @@ Rectangle {
                                     text: "详情"
                                     size: ShadcnButton.Size.ExtraSmall
                                     variant: ShadcnButton.Variant.Ghost
-                                    onClicked: root.deviceSelected(model.deviceId || "")
+                                    onClicked: root.deviceSelected(deviceId)
                                 }
                             }
 
                             MouseArea {
-                                id: deviceMouse
-                                width: parent.width
-                            height: parent.height
+                                id: deviceHover
+                                anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.deviceSelected(model.deviceId || "")
+                                onClicked: root.deviceSelected(deviceId)
+                            }
+                        }
+
+                        // 空状态
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: theme.spacingSm
+                            visible: deviceList.count === 0
+
+                            ShadcnIcon {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                name: "monitor"
+                                size: 32
+                                color: theme.mutedForeground
+                            }
+                            ShadcnLabel {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "暂无设备"
+                                variant: ShadcnLabel.Variant.Muted
                             }
                         }
                     }
                 }
             }
 
-            // 实时图表
-            ShadcnCard {
-                Layout.fillHeight: true
-                Layout.preferredWidth: 420
 
-                ShadcnCardHeader {
-                    ShadcnCardTitle { text: "实时数据" }
-                    ShadcnCardDescription {
-                        text: root.selectedDeviceId
-                              ? "设备 " + root.selectedDeviceId + " 最近 1 小时"
-                              : "选择设备查看"
-                    }
-                }
-
-                ShadcnCardContent {
-                        width: parent.width
-                        height: parent.height
-                        implicitHeight: 0
-                    RealtimeChart {
-                        id: overviewChart
-                        width: parent.width
-                            height: parent.height
-                        visible: root.selectedDeviceId !== ""
-                    }
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: theme.spacingSm
-                        visible: root.selectedDeviceId === ""
-
-                        ShadcnIcon {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            name: "line-chart"
-                            size: 32
-                            color: theme.mutedForeground
-                        }
-                        ShadcnLabel {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "点击设备查看实时曲线"
-                            variant: ShadcnLabel.Variant.Muted
-                        }
-                    }
-                }
-            }
         }
     }
 
-    // 历史数据回调 (轮询图表数据)
-    Connections {
-        target: dataManager ? dataManager.httpClient : null
-        function onDataPointHistoryFetched(points) {
-            overviewChart.clearData();
-            var temp = [], hum = [];
-            for (var i = 0; i < points.length; i++) {
-                var p = points[i];
-                if (p.metric === "temperature") temp.push(p);
-                else if (p.metric === "humidity") hum.push(p);
-            }
-            if (temp.length > 0) overviewChart.setPoints("temperature", temp);
-            if (hum.length > 0) overviewChart.setPoints("humidity", hum);
-        }
-    }
-
-    // 选中设备后拉取历史
-    onSelectedDeviceIdChanged: {
-        if (selectedDeviceId === "" || !dataManager || !dataManager.online) return;
-        var now = Math.floor(Date.now() / 1000);
-        dataManager.fetchDataPointHistory(selectedDeviceId, "temperature", now - 3600, now, 120);
-        dataManager.fetchDataPointHistory(selectedDeviceId, "humidity", now - 3600, now, 120);
-    }
 }
