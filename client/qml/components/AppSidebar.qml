@@ -59,7 +59,7 @@ Rectangle {
             }
         }
 
-        ShadcnSeparator { width: parent.width }
+        ShadcnSeparator { Layout.fillWidth: true }
 
         // 导航项
         ColumnLayout {
@@ -128,7 +128,7 @@ Rectangle {
 
         Item { Layout.fillHeight: true; Layout.fillWidth: true }
 
-        ShadcnSeparator { width: parent.width }
+        ShadcnSeparator { Layout.fillWidth: true }
 
         // 主题切换
         Item {
@@ -153,9 +153,23 @@ Rectangle {
                     variant: ShadcnLabel.Variant.Muted
                 }
                 ShadcnSwitch {
+                    id: themeSwitch
+
                     size: ShadcnSwitch.Size.Small
-                    checked: theme.mode === "dark"
-                    onCheckedChanged: theme.mode = checked ? "dark" : "light"
+
+                    // 不用 `checked: ...` 绑定：控件交互时会写入 checked，
+                    // 破坏声明式绑定导致图标/文字与开关状态脱节。
+                    // 改为显式同步：用户操作 → 改 theme.mode；theme.mode 变 → 回写 checked。
+                    onToggled: theme.mode = checked ? "dark" : "light"
+
+                    Component.onCompleted: checked = (theme.mode === "dark")
+
+                    Connections {
+                        target: theme
+                        function onModeChanged() {
+                            themeSwitch.checked = (theme.mode === "dark");
+                        }
+                    }
                 }
             }
         }
