@@ -26,7 +26,7 @@
 |---|---|---|
 | A: SSE → 轮询 | ✅ 完成 | 服务端删 SSE 模块；新增 `query_latest`；客户端 `WsClient` 删除，改 3s `QTimer` 轮询 |
 | B: QtShadcn UI | ✅ 完成（方案有调整） | 见下方「Phase B 实际落地」 |
-| C: ESP8266 接入 | 🔄 进行中 | 下一步 |
+| C: ESP8266 接入 | ✅ 完成 | 固件示例 + 服务端兼容性 + e2e 脚本，全部验证通过 |
 
 ### Phase B 实际落地（与原计划不同之处）
 
@@ -195,6 +195,23 @@
 
 ---
 
+### Phase C 实际落地（与原计划不同之处）
+
+- **协议版本**：原计划写「接受 protocol_level 3~5」。实际解析器是按 MQTT 3.1.1 定长可变头硬编码的
+  （协议名固定 4 字节 `MQTT`、keepalive 之后直接是 Client ID），3.1（`MQIsdp`）与 5（多了 properties）
+  布局不同，仅放宽判断会让报文解析错位。ESP8266 + PubSubClient 用的正是 3.1.1，因此保持只支持 level 4，
+  改为输出可操作提示。
+- **C4 测试额外发现并修复了 3 个真实 bug**（原计划未预见，均已在指令链路上验证）：
+  1. `handler_command` 取 `payload->valuestring`：客户端发的是 JSON 对象，对象时该字段为 NULL，
+     `strlen(NULL)` 会崩溃 → 改为 cJSON 原样序列化
+  2. 在线判定用错 key：`mqtt_broker_find_conn()` 按 client_id 查，HTTP 传的是 device_id
+     （client_id 通常是 `esp8266_<device_id>`）→ 在线设备被误判为离线入队。新增 `mqtt_broker_find_conn_by_device()`
+  3. QoS>0 的 PUBLISH 未跳过 packet_id：JSON 从 packet_id 开始解析必然失败；转发给订阅者时也没剥掉
+     packet_id（订阅者会把它当成数据）
+  4. 离线队列 key 不一致：入队用 device_id、出队用 client_id，重放永远匹配不上 → 统一用 device_id
+
+---
+
 # Phase C: ESP8266 硬件接入
 
 ### Task C1: 服务端 MQTT 兼容性修补
@@ -206,11 +223,11 @@
 **Interfaces:**
 - Produces: client_id/product_key/device_id buffer 128B；protocol_level 3-5 接受；同 client_id 重复 CONNECT 踢旧连接。
 
-- [ ] mqtt_types.h: `char client_id[129]` / `product_key[129]` / `device_id[129]`
-- [ ] mqtt_broker.c handle_connect: buffer 同步放宽 + `protocol_level < 3 || > 5` 拒绝（而非只接受 4）
-- [ ] 同 client_id 重复连接: `mqtt_broker_find_conn` 找到旧连接 → `old->connected = 0; shutdown(old->fd, SHUT_RDWR);`
-- [ ] `make build` 通过
-- [ ] 提交 `feat(mqtt): 兼容 ESP8266 — buffer 128B / protocol_level 3-5 / 踢旧连接`
+- [x] mqtt_types.h: `char client_id[129]` / `product_key[129]` / `device_id[129]`
+- [x] mqtt_broker.c handle_connect: buffer 同步放宽 + `protocol_level < 3 || > 5` 拒绝（而非只接受 4）
+- [x] 同 client_id 重复连接: `mqtt_broker_find_conn` 找到旧连接 → `old->connected = 0; shutdown(old->fd, SHUT_RDWR);`
+- [x] `make build` 通过
+- [x] 提交 `feat(mqtt): 兼容 ESP8266 — buffer 128B / protocol_level 3-5 / 踢旧连接`
 
 ### Task C2: ESP8266 Arduino 客户端示例
 
@@ -218,32 +235,32 @@
 - Create: `firmware/esp8266/esp8266_sensor_relay/esp8266_sensor_relay.ino`
 - Create: `firmware/esp8266/README.md`
 
-- [ ] .ino: WiFi 连接 + PubSubClient MQTT + DHT11 上报（topic `devices/{id}/data`）+ 订阅 `cmd/{id}/exec` 控制继电器
-- [ ] 认证: username=product_key, password=device_secret
-- [ ] README: 接线图 + 库安装 + 配置说明 + FAQ
-- [ ] 提交 `feat(firmware): ESP8266 温湿度上报 + 继电器控制示例`
+- [x] .ino: WiFi 连接 + PubSubClient MQTT + DHT11 上报（topic `devices/{id}/data`）+ 订阅 `cmd/{id}/exec` 控制继电器
+- [x] 认证: username=product_key, password=device_secret
+- [x] README: 接线图 + 库安装 + 配置说明 + FAQ
+- [x] 提交 `feat(firmware): ESP8266 温湿度上报 + 继电器控制示例`
 
 ### Task C3: 指令下发 payload 对齐
 
 **Files:**
 - Modify: `src/api/handlers/handler_command.c`
 
-- [ ] send_cmd 的 payload 包装为 `{"cmd":"...","payload":"..."}` JSON（当前直接发原始字符串）
-- [ ] `make build` 通过
-- [ ] 提交 `fix(command): payload 统一 JSON 包装`
+- [x] send_cmd 的 payload 包装为 `{"cmd":"...","payload":"..."}` JSON（当前直接发原始字符串）
+- [x] `make build` 通过
+- [x] 提交 `fix(command): payload 统一 JSON 包装`
 
 ### Task C4: 端到端模拟验证脚本
 
 **Files:**
 - Create: `deploy/scripts/esp8266_e2e_test.py`
 
-- [ ] 模拟 ESP8266: CONNECT(认证) → SUBSCRIBE(cmd topic) → PUBLISH(datapoints QoS1) → 验证 PUBACK
-- [ ] 提交 `test: ESP8266 接入端到端模拟脚本`
+- [x] 模拟 ESP8266: CONNECT(认证) → SUBSCRIBE(cmd topic) → PUBLISH(datapoints QoS1) → 验证 PUBACK
+- [x] 提交 `test: ESP8266 接入端到端模拟脚本`
 
 ### Task C5: README 更新
 
 **Files:**
 - Modify: `README.md`
 
-- [ ] 硬件接入章节补充 firmware 路径 + e2e 验证命令
-- [ ] 提交 `docs(readme): 补充 ESP8266 硬件接入说明`
+- [x] 硬件接入章节补充 firmware 路径 + e2e 验证命令
+- [x] 提交 `docs(readme): 补充 ESP8266 硬件接入说明`
