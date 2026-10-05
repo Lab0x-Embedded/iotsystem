@@ -246,6 +246,12 @@ Rectangle {
                             radius: theme.radius
                             color: devHover.containsMouse ? theme.muted : "transparent"
 
+                            MouseArea {
+                                id: devHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                            }
+
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 8
@@ -286,12 +292,6 @@ Rectangle {
                                         removeConfirmDialog.open();
                                     }
                                 }
-                            }
-
-                            MouseArea {
-                                id: devHover
-                                anchors.fill: parent
-                                hoverEnabled: true
                             }
                         }
 

@@ -127,6 +127,14 @@ Rectangle {
                             radius: theme.radius
                             color: deviceHover.containsMouse ? theme.muted : "transparent"
 
+                            MouseArea {
+                                id: deviceHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.deviceSelected(deviceId)
+                            }
+
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 8
@@ -164,14 +172,6 @@ Rectangle {
                                     variant: ShadcnButton.Variant.Ghost
                                     onClicked: root.deviceSelected(deviceId)
                                 }
-                            }
-
-                            MouseArea {
-                                id: deviceHover
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.deviceSelected(deviceId)
                             }
                         }
 

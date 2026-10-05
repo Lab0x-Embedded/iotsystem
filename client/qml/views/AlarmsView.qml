@@ -237,6 +237,12 @@ Rectangle {
                             radius: theme.radius
                             color: alarmHover.containsMouse ? theme.muted : "transparent"
 
+                            MouseArea {
+                                id: alarmHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                            }
+
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 8
@@ -294,12 +300,6 @@ Rectangle {
                                     size: ShadcnLabel.Size.Small
                                     variant: ShadcnLabel.Variant.Muted
                                 }
-                            }
-
-                            MouseArea {
-                                id: alarmHover
-                                anchors.fill: parent
-                                hoverEnabled: true
                             }
                         }
 
@@ -430,6 +430,12 @@ Rectangle {
                             radius: theme.radius
                             color: ruleHover.containsMouse ? theme.muted : "transparent"
 
+                            MouseArea {
+                                id: ruleHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                            }
+
                             RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: 8
@@ -503,12 +509,6 @@ Rectangle {
                                         deleteConfirmDialog.open();
                                     }
                                 }
-                            }
-
-                            MouseArea {
-                                id: ruleHover
-                                anchors.fill: parent
-                                hoverEnabled: true
                             }
                         }
 
