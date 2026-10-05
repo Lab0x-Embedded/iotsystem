@@ -335,30 +335,26 @@ Rectangle {
                 ShadcnLabel { text: "描述"; size: ShadcnLabel.Size.Small }
                 ShadcnInput { id: addGroupDesc; Layout.fillWidth: true; placeholderText: "请输入描述" }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 4
-                    spacing: 8
+            }
+        }
 
-                    Item { Layout.fillWidth: true }
-                    ShadcnButton {
-                        text: "取消"
-                        variant: ShadcnButton.Variant.Outline
-                        size: ShadcnButton.Size.Small
-                        onClicked: addGroupDialog.close()
+        footer: ShadcnDialogFooter {
+            ShadcnButton {
+                text: "取消"
+                variant: ShadcnButton.Variant.Outline
+                size: ShadcnButton.Size.Small
+                onClicked: addGroupDialog.close()
+            }
+            ShadcnButton {
+                text: "创建"
+                size: ShadcnButton.Size.Small
+                onClicked: {
+                    if (addGroupName.text && root.groupManager) {
+                        root.groupManager.httpClient.createGroup(addGroupName.text, addGroupDesc.text);
+                        addGroupName.text = "";
+                        addGroupDesc.text = "";
                     }
-                    ShadcnButton {
-                        text: "创建"
-                        size: ShadcnButton.Size.Small
-                        onClicked: {
-                            if (addGroupName.text && root.groupManager) {
-                                root.groupManager.httpClient.createGroup(addGroupName.text, addGroupDesc.text);
-                                addGroupName.text = "";
-                                addGroupDesc.text = "";
-                            }
-                            addGroupDialog.close();
-                        }
-                    }
+                    addGroupDialog.close();
                 }
             }
         }
@@ -370,40 +366,30 @@ Rectangle {
         modal: true
 
         ShadcnDialogContent {
-            ColumnLayout {
-                width: parent.width
-                spacing: 16
-
-                ShadcnDialogHeader {
-                    Layout.fillWidth: true
-                    ShadcnDialogTitle { text: "确认删除" }
-                    ShadcnDialogDescription {
-                        text: "确定要删除分组 \"" + root.selectedGroupName + "\" 吗？删除后无法恢复。"
-                    }
+            ShadcnDialogHeader {
+                ShadcnDialogTitle { text: "确认删除" }
+                ShadcnDialogDescription {
+                    text: "确定要删除分组 \"" + root.selectedGroupName + "\" 吗？删除后无法恢复。"
                 }
+            }
+        }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Item { Layout.fillWidth: true }
-                    ShadcnButton {
-                        text: "取消"
-                        variant: ShadcnButton.Variant.Outline
-                        size: ShadcnButton.Size.Small
-                        onClicked: deleteConfirmDialog.close()
-                    }
-                    ShadcnButton {
-                        text: "删除"
-                        size: ShadcnButton.Size.Small
-                        variant: ShadcnButton.Variant.Destructive
-                        onClicked: {
-                            if (root.groupManager && root.selectedGroupId > 0)
-                                root.groupManager.httpClient.deleteGroup(root.selectedGroupId);
-                            root.selectedGroupId = -1;
-                            deleteConfirmDialog.close();
-                        }
-                    }
+        footer: ShadcnDialogFooter {
+            ShadcnButton {
+                text: "取消"
+                variant: ShadcnButton.Variant.Outline
+                size: ShadcnButton.Size.Small
+                onClicked: deleteConfirmDialog.close()
+            }
+            ShadcnButton {
+                text: "删除"
+                size: ShadcnButton.Size.Small
+                variant: ShadcnButton.Variant.Destructive
+                onClicked: {
+                    if (root.groupManager && root.selectedGroupId > 0)
+                        root.groupManager.httpClient.deleteGroup(root.selectedGroupId);
+                    root.selectedGroupId = -1;
+                    deleteConfirmDialog.close();
                 }
             }
         }
@@ -474,29 +460,26 @@ Rectangle {
                     }
                 }
 
-                RowLayout {
-                    width: parent.width
-                    spacing: 8
+            }
+        }
 
-                    Item { Layout.fillWidth: true }
-                    ShadcnButton {
-                        text: "取消"
-                        variant: ShadcnButton.Variant.Outline
-                        size: ShadcnButton.Size.Small
-                        onClicked: addDeviceDialog.close()
+        footer: ShadcnDialogFooter {
+            ShadcnButton {
+                text: "取消"
+                variant: ShadcnButton.Variant.Outline
+                size: ShadcnButton.Size.Small
+                onClicked: addDeviceDialog.close()
+            }
+            ShadcnButton {
+                text: "添加"
+                size: ShadcnButton.Size.Small
+                onClicked: {
+                    if (root.groupManager) {
+                        for (var i = 0; i < addDeviceDialog.selectedIds.length; i++)
+                            root.groupManager.updateDeviceGroup(addDeviceDialog.selectedIds[i], root.selectedGroupId);
                     }
-                    ShadcnButton {
-                        text: "添加"
-                        size: ShadcnButton.Size.Small
-                        onClicked: {
-                            if (root.groupManager) {
-                                for (var i = 0; i < addDeviceDialog.selectedIds.length; i++)
-                                    root.groupManager.updateDeviceGroup(addDeviceDialog.selectedIds[i], root.selectedGroupId);
-                            }
-                            addDeviceDialog.selectedIds = [];
-                            addDeviceDialog.close();
-                        }
-                    }
+                    addDeviceDialog.selectedIds = [];
+                    addDeviceDialog.close();
                 }
             }
         }
@@ -511,41 +494,31 @@ Rectangle {
         modal: true
 
         ShadcnDialogContent {
-            ColumnLayout {
-                width: parent.width
-                spacing: 16
-
-                ShadcnDialogHeader {
-                    Layout.fillWidth: true
-                    ShadcnDialogTitle { text: "确认移除" }
-                    ShadcnDialogDescription {
-                        text: "确定要将 \""
-                              + (removeConfirmDialog.targetDeviceName || removeConfirmDialog.targetDeviceId)
-                              + "\" 从分组中移除吗？移除后设备将变为未分组状态。"
-                    }
+            ShadcnDialogHeader {
+                ShadcnDialogTitle { text: "确认移除" }
+                ShadcnDialogDescription {
+                    text: "确定要将 \""
+                          + (removeConfirmDialog.targetDeviceName || removeConfirmDialog.targetDeviceId)
+                          + "\" 从分组中移除吗？移除后设备将变为未分组状态。"
                 }
+            }
+        }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Item { Layout.fillWidth: true }
-                    ShadcnButton {
-                        text: "取消"
-                        variant: ShadcnButton.Variant.Outline
-                        size: ShadcnButton.Size.Small
-                        onClicked: removeConfirmDialog.close()
-                    }
-                    ShadcnButton {
-                        text: "移除"
-                        size: ShadcnButton.Size.Small
-                        variant: ShadcnButton.Variant.Destructive
-                        onClicked: {
-                            if (root.groupManager)
-                                root.groupManager.removeDeviceFromGroup(removeConfirmDialog.targetDeviceId);
-                            removeConfirmDialog.close();
-                        }
-                    }
+        footer: ShadcnDialogFooter {
+            ShadcnButton {
+                text: "取消"
+                variant: ShadcnButton.Variant.Outline
+                size: ShadcnButton.Size.Small
+                onClicked: removeConfirmDialog.close()
+            }
+            ShadcnButton {
+                text: "移除"
+                size: ShadcnButton.Size.Small
+                variant: ShadcnButton.Variant.Destructive
+                onClicked: {
+                    if (root.groupManager)
+                        root.groupManager.removeDeviceFromGroup(removeConfirmDialog.targetDeviceId);
+                    removeConfirmDialog.close();
                 }
             }
         }

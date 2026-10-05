@@ -161,22 +161,21 @@ QQC.ApplicationWindow {
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                 }
+            }
+        }
 
-                // 登录框只有一个动作：做成表单内联的全宽主按钮，
-                // 比「满宽灰底栏里孤零零一个靠右小按钮」更合理
-                ShadcnButton {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 4
-                    text: loginDialog.connecting ? "连接中..." : "连接"
-                    loading: loginDialog.connecting
-                    enabled: !loginDialog.connecting
-                    onClicked: {
-                        loginDialog.connecting = true;
-                        loginDialog.errorMsg = "";
-                        dataManager.connectToServer(serverUrlField.text,
-                                                    usernameField.text,
-                                                    passwordField.text);
-                    }
+        footer: ShadcnDialogFooter {
+            // 靠右 + 垂直居中由组件自身保证：Row 右锚定，footerSlot 高度贴合按钮、上下各留 _pad
+            ShadcnButton {
+                text: loginDialog.connecting ? "连接中..." : "连接"
+                loading: loginDialog.connecting
+                enabled: !loginDialog.connecting
+                onClicked: {
+                    loginDialog.connecting = true;
+                    loginDialog.errorMsg = "";
+                    dataManager.connectToServer(serverUrlField.text,
+                                                usernameField.text,
+                                                passwordField.text);
                 }
             }
         }
