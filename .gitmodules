@@ -1,0 +1,3 @@
+[submodule "client/third_party/qtshadcn"]
+	path = client/third_party/qtshadcn
+	url = https://github.com/QtShadcn/qtshadcn.git

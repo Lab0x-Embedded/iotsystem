@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     app.setOrganizationName("E2IoT");
     app.setApplicationVersion("2.0");
 
-    QQuickStyle::setStyle("Material");
+    QQuickStyle::setStyle("Basic");  // QtShadcn 要求 Basic style（自绘 token）
 
     DataManager dataManager;
     ThemeManager *themeManager = ThemeManager::instance();
