@@ -89,14 +89,18 @@ Rectangle {
                 }
 
                 ShadcnCardContent {
+                        width: parent.width
+                        height: parent.height
+                        implicitHeight: 0
                     ListView {
                         id: deviceList
-                        anchors.fill: parent
+                        width: parent.width
+                            height: parent.height
                         clip: true
                         model: root.deviceData
                         spacing: 0
 
-                        ScrollBar.vertical: QQC.ScrollBar {
+                        QQC.ScrollBar.vertical: QQC.ScrollBar {
                             active: true
                             policy: QQC.ScrollBar.AsNeeded
                         }
@@ -119,7 +123,8 @@ Rectangle {
                             required property string lastSeen
 
                             RowLayout {
-                                anchors.fill: parent
+                                width: parent.width
+                            height: parent.height
                                 anchors.leftMargin: 12
                                 anchors.rightMargin: 12
                                 spacing: 12
@@ -176,7 +181,8 @@ Rectangle {
 
                             MouseArea {
                                 id: deviceMouse
-                                anchors.fill: parent
+                                width: parent.width
+                            height: parent.height
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: root.deviceSelected(model.deviceId || "")
@@ -189,7 +195,7 @@ Rectangle {
             // 实时图表
             ShadcnCard {
                 Layout.fillHeight: true
-                Layout.preferredWidth: parent.width * 0.38
+                Layout.preferredWidth: 420
 
                 ShadcnCardHeader {
                     ShadcnCardTitle { text: "实时数据" }
@@ -201,9 +207,13 @@ Rectangle {
                 }
 
                 ShadcnCardContent {
+                        width: parent.width
+                        height: parent.height
+                        implicitHeight: 0
                     RealtimeChart {
                         id: overviewChart
-                        anchors.fill: parent
+                        width: parent.width
+                            height: parent.height
                         visible: root.selectedDeviceId !== ""
                     }
 

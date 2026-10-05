@@ -14,29 +14,32 @@ ShadcnCard {
     QtShadcnTheme { id: theme }
 
     ShadcnCardContent {
-        spacing: 4
-
-        RowLayout {
+        ColumnLayout {
             width: parent.width
-            spacing: 6
+            spacing: 4
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                ShadcnLabel {
+                    text: root.title
+                    size: ShadcnLabel.Size.Small
+                    variant: ShadcnLabel.Variant.Muted
+                }
+                Item { Layout.fillWidth: true }
+                ShadcnStatusDot {
+                    status: root.dotStatus
+                    size: 8
+                    visible: root.dotStatus !== ShadcnStatusDot.Status.None
+                }
+            }
 
             ShadcnLabel {
-                text: root.title
-                size: ShadcnLabel.Size.Small
-                variant: ShadcnLabel.Variant.Muted
+                text: root.value
+                size: ShadcnLabel.Size.Large
+                color: root.valueColor
             }
-            Item { Layout.fillWidth: true }
-            ShadcnStatusDot {
-                status: root.dotStatus
-                size: 8
-                visible: root.dotStatus !== ShadcnStatusDot.Status.None
-            }
-        }
-
-        ShadcnLabel {
-            text: root.value
-            size: ShadcnLabel.Size.Large
-            color: root.valueColor
         }
     }
 }

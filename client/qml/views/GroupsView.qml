@@ -86,14 +86,18 @@ Rectangle {
                 }
 
                 ShadcnCardContent {
+                        width: parent.width
+                        height: parent.height
+                        implicitHeight: 0
                     ListView {
                         id: groupList
-                        anchors.fill: parent
+                        width: parent.width
+                            height: parent.height
                         clip: true
                         model: groupData
                         spacing: 4
 
-                        ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
+                        QQC.ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
 
                         delegate: Rectangle {
                             width: groupList.width
@@ -110,7 +114,8 @@ Rectangle {
                             required property int deviceCount
 
                             RowLayout {
-                                anchors.fill: parent
+                                width: parent.width
+                            height: parent.height
                                 anchors.leftMargin: 12
                                 anchors.rightMargin: 12
                                 spacing: 10
@@ -146,7 +151,8 @@ Rectangle {
 
                             MouseArea {
                                 id: groupMouse
-                                anchors.fill: parent
+                                width: parent.width
+                            height: parent.height
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
@@ -223,14 +229,18 @@ Rectangle {
                 }
 
                 ShadcnCardContent {
+                        width: parent.width
+                        height: parent.height
+                        implicitHeight: 0
                     ListView {
                         id: groupDeviceList
-                        anchors.fill: parent
+                        width: parent.width
+                            height: parent.height
                         clip: true
                         model: groupDeviceModel
                         spacing: 4
 
-                        ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
+                        QQC.ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
 
                         delegate: Rectangle {
                             width: groupDeviceList.width
@@ -246,7 +256,8 @@ Rectangle {
                             required property string statusText
 
                             RowLayout {
-                                anchors.fill: parent
+                                width: parent.width
+                            height: parent.height
                                 anchors.leftMargin: 12
                                 anchors.rightMargin: 12
                                 spacing: 10
@@ -279,7 +290,6 @@ Rectangle {
                                     text: "移除"
                                     size: ShadcnButton.Size.ExtraSmall
                                     variant: ShadcnButton.Variant.Ghost
-                                    color: theme.destructive
                                     onClicked: {
                                         removeConfirmDialog.targetDeviceId = model.deviceId;
                                         removeConfirmDialog.targetDeviceName = model.deviceName;
@@ -290,7 +300,8 @@ Rectangle {
 
                             MouseArea {
                                 id: deviceMouse
-                                anchors.fill: parent
+                                width: parent.width
+                            height: parent.height
                                 hoverEnabled: true
                             }
                         }

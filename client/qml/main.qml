@@ -3,8 +3,9 @@ import QtQuick.Controls as QQC
 import QtQuick.Layouts
 import QtShadcn
 import "views"
+import "components"
 
-ApplicationWindow {
+QQC.ApplicationWindow {
     id: root
 
     width: 1280

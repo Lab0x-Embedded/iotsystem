@@ -131,14 +131,18 @@ Rectangle {
                     Layout.fillWidth: true
 
                     ShadcnCardContent {
+                        width: parent.width
+                        height: parent.height
+                        implicitHeight: 0
                         ListView {
                             id: alarmList
-                            anchors.fill: parent
+                            width: parent.width
+                            height: parent.height
                             clip: true
                             model: alarmListModel
                             spacing: 4
 
-                            ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
+                            QQC.ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
 
                             delegate: Rectangle {
                                 width: alarmList.width
@@ -156,7 +160,8 @@ Rectangle {
                                 required property int status
 
                                 RowLayout {
-                                    anchors.fill: parent
+                                    width: parent.width
+                            height: parent.height
                                     anchors.leftMargin: 12
                                     anchors.rightMargin: 12
                                     spacing: 10
@@ -215,7 +220,8 @@ Rectangle {
 
                                 MouseArea {
                                     id: rowMouse
-                                    anchors.fill: parent
+                                    width: parent.width
+                            height: parent.height
                                     hoverEnabled: true
                                 }
                             }
@@ -276,14 +282,18 @@ Rectangle {
                     Layout.fillWidth: true
 
                     ShadcnCardContent {
+                        width: parent.width
+                        height: parent.height
+                        implicitHeight: 0
                         ListView {
                             id: ruleList
-                            anchors.fill: parent
+                            width: parent.width
+                            height: parent.height
                             clip: true
                             model: ruleListModel
                             spacing: 4
 
-                            ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
+                            QQC.ScrollBar.vertical: QQC.ScrollBar { active: true; policy: QQC.ScrollBar.AsNeeded }
 
                             delegate: Rectangle {
                                 width: ruleList.width
@@ -301,7 +311,8 @@ Rectangle {
                                 required property int id
 
                                 RowLayout {
-                                    anchors.fill: parent
+                                    width: parent.width
+                            height: parent.height
                                     anchors.leftMargin: 12
                                     anchors.rightMargin: 12
                                     spacing: 10
@@ -358,7 +369,6 @@ Rectangle {
                                         size: ShadcnButton.Size.ExtraSmall
                                         variant: ShadcnButton.Variant.Ghost
                                         iconName: "trash-2"
-                                        color: theme.destructive
                                         onClicked: {
                                             deleteConfirmDialog.ruleId = model.id;
                                             deleteConfirmDialog.ruleDesc = (model.deviceId === "*" ? "所有设备" : model.deviceId)
@@ -370,7 +380,8 @@ Rectangle {
 
                                 MouseArea {
                                     id: ruleMouse
-                                    anchors.fill: parent
+                                    width: parent.width
+                            height: parent.height
                                     hoverEnabled: true
                                 }
                             }

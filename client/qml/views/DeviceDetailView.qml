@@ -56,7 +56,7 @@ Rectangle {
         onTriggered: root.refreshHistory()
     }
 
-    ScrollView {
+    QQC.ScrollView {
         anchors.fill: parent
         clip: true
         contentWidth: availableWidth
@@ -167,7 +167,9 @@ Rectangle {
                 Layout.preferredHeight: 480
 
                 ShadcnCardContent {
-                    spacing: theme.spacingMd
+                        width: parent.width
+                        height: parent.height
+                        implicitHeight: 0
 
                     ShadcnTabsList {
                         id: detailTabs
@@ -187,7 +189,8 @@ Rectangle {
                         Item {
                             RealtimeChart {
                                 id: detailChart
-                                anchors.fill: parent
+                                width: parent.width
+                            height: parent.height
                             }
                         }
 
@@ -212,7 +215,8 @@ Rectangle {
                                 }
                                 ShadcnCardContent {
                                     QQC.ScrollView {
-                                        anchors.fill: parent
+                                        width: parent.width
+                            height: parent.height
                                         clip: true
                                         ShadcnLabel {
                                             width: parent.width
@@ -258,7 +262,8 @@ Rectangle {
                                 ShadcnCardContent {
                                     QQC.TextArea {
                                         id: desiredEditor
-                                        anchors.fill: parent
+                                        width: parent.width
+                            height: parent.height
                                         text: root.shadowDesiredText
                                         color: theme.foreground
                                         selectByMouse: true
@@ -359,9 +364,13 @@ Rectangle {
                                 size: ShadcnCard.Size.Small
 
                                 ShadcnCardContent {
+                                    width: parent.width
+                                    height: parent.height
+                                    implicitHeight: 0
                                     ListView {
                                         id: historyList
-                                        anchors.fill: parent
+                                        width: parent.width
+                                        height: parent.height
                                         clip: true
                                         model: historyDataModel
                                         spacing: 2
