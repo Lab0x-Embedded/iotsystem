@@ -278,12 +278,14 @@ make client
         "host": "127.0.0.1",
         "port": 3306,
         "user": "admin",
-        "password": "123456",
+        "password": "CHANGE_ME",
         "database": "e2_iot",
         "pool_size": 4
     }
 }
 ```
+
+> **安全提示**: 数据库密码也可通过环境变量 `E2_DB_PASSWORD` 注入（优先级：命令行 `-W` > config.json > 环境变量），避免明文密码落盘。
 
 ---
 

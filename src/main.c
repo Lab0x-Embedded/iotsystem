@@ -78,7 +78,7 @@ static void usage(const char *argv0) {
         "  -D, --db-host HOST    MySQL host (default: 127.0.0.1)\n"
         "  -P, --db-port PORT    MySQL port (default: 3306)\n"
         "  -U, --db-user USER    MySQL user (default: root)\n"
-        "  -W, --db-password PWD MySQL password\n"
+        "  -W, --db-password PWD MySQL password (or env E2_DB_PASSWORD)\n"
         "  -N, --db-name DB      MySQL database (default: e2_iot)\n"
         "  -h, --help            Show this help\n"
         "\n"
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     cfg.db.host = "127.0.0.1";
     cfg.db.port = 3306;
     cfg.db.user = "root";
-    cfg.db.password = "your_password";
+    cfg.db.password = "";  /* 优先取环境变量 E2_DB_PASSWORD，或 config.json / -W 覆盖 */
     cfg.db.database = "e2_iot";
     cfg.db.pool_size = 4;
 
@@ -120,6 +120,14 @@ int main(int argc, char **argv) {
     if (rc != 0) {
         usage(argv[0]);
         return 1;
+    }
+
+    /* 密码优先级: 命令行 -W > config.json > 环境变量 E2_DB_PASSWORD > 空串 */
+    if (!cfg.db.password || cfg.db.password[0] == '\0') {
+        const char *env_pwd = getenv("E2_DB_PASSWORD");
+        if (env_pwd) {
+            cfg.db.password = env_pwd;
+        }
     }
 
     log_init(LOG_LEVEL_INFO);
