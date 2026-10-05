@@ -20,10 +20,19 @@
  * 从数据库验证用户登录
  * 返回 user_id，验证失败返回 -1
  */
+/**
+ * 校验用户登录.
+ *
+ *  @return >0  user_id
+ *          0   凭证错误(用户名/密码不对)
+ *         -1   内部错误(数据库不可用/查询失败) —— 必须与凭证错误区分开，
+ *              否则 DB 挂掉时只会报 401「密码错误」，排障时非常误导
+ */
 static int verify_user(const char *username, const char *password) {
     db_conn_t *conn = db_pool_get();
     if (!conn) {
-        LOG_ERROR("DB: no connection available");
+        LOG_ERROR("login: database unavailable (db_pool_get returned NULL); "
+                  "check deploy/config.json 的 database 配置与 MySQL 是否在运行");
         return -1;
     }
 
@@ -86,7 +95,7 @@ static int verify_user(const char *username, const char *password) {
     db_pool_free_result(result);
     db_pool_put(conn);
 
-    return ok ? user_id : -1;
+    return ok ? user_id : 0;
 }
 
 void handler_user(struct evhttp_request *req, void *ctx) {
@@ -107,6 +116,14 @@ void handler_user(struct evhttp_request *req, void *ctx) {
         }
 
         int user_id = verify_user(user->valuestring, pass->valuestring);
+        if (user_id < 0) {
+            /* 内部错误(DB 不可用等)：不能当成密码错误返回 401 */
+            http_reply_json(req, 503, "Service Unavailable",
+                            "{\"error\":\"database unavailable\"}");
+            LOG_ERROR("login failed: backend unavailable");
+            free(body); cJSON_Delete(root);
+            return;
+        }
         if (user_id > 0) {
             char token[256];
             auth_middleware_generate_token(user->valuestring, token, sizeof(token));

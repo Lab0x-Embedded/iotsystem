@@ -139,8 +139,13 @@ int main(int argc, char **argv) {
              cfg.db.user, cfg.db.host, cfg.db.port, cfg.db.database, cfg.db.pool_size);
     
     if (db_pool_init(&cfg.db) != 0) {
-        LOG_ERROR("db_pool_init failed, continuing without database");
-        // 不退出，允许无数据库运行（桩模式）
+        // 不退出（保留无数据库的桩模式），但必须把后果说清楚：
+        // 没有 DB 时所有用户登录都会失败，接口会返回 503。
+        LOG_ERROR("==========================================================");
+        LOG_ERROR("  数据库不可用：所有需要 DB 的接口都会失败（登录返回 503）");
+        LOG_ERROR("  排查：1) deploy/config.json 是否存在且 database.password 正确");
+        LOG_ERROR("        2) MySQL 是否在运行、库 %s 是否存在", cfg.db.database);
+        LOG_ERROR("==========================================================");
     } else {
         data_writer_init();
         LOG_INFO("database connected, data_writer ready");
