@@ -194,14 +194,38 @@ make client
 
 ## ESP8266 硬件接入
 
-支持通过 ESP8266 模组接入真实硬件设备（温湿度传感器 + 继电器控制）。
+用一块 ESP8266 + DHT11 接入平台：上报温湿度、接收指令控制继电器。
 
-详见 [firmware/esp8266/README.md](firmware/esp8266/README.md)。
+**接线 / 烧录 / 排错** → [firmware/esp8266/README.md](firmware/esp8266/README.md)
 
-快速验证（无硬件，模拟 ESP8266 接入）:
+**固件示例** → [firmware/esp8266/esp8266_sensor_relay/esp8266_sensor_relay.ino](firmware/esp8266/esp8266_sensor_relay/esp8266_sensor_relay.ino)
+
+设备侧需要遵守的约定：
+
+| 项 | 值 |
+|---|---|
+| MQTT 版本 | 3.1.1（level 4），服务端只支持 3.1.1 |
+| client_id | `esp8266_<device_id>`（保持稳定，重连时服务端会自动踢掉旧连接） |
+| username | `product_key`（与 `devices` 表一致） |
+| password | `device_secret` |
+| 上报 topic | `devices/<device_id>/data` |
+| 上报 payload | `{"device_id":"...","datapoints":[{"metric":"temperature","value":25.3,"ts":1696000000}]}` |
+| 指令 topic | `cmd/<device_id>/exec`（订阅，QoS 1） |
+| 指令 payload | `{"id":"cmd_...","cmd":"set_relay","payload":{"relay":"on"}}` |
+
+无硬件也能验证整条链路（模拟 ESP8266 走认证 → 订阅 → QoS1 上报 → 收指令）：
 
 ```bash
-python3 deploy/scripts/esp8266_e2e_test.py
+python3 deploy/scripts/esp8266_e2e_test.py                     # 默认 dev_001
+python3 deploy/scripts/esp8266_e2e_test.py -d dev_005 --pk smart_meter --secret secret_005
+```
+
+脚本会一直等到收到平台指令，期间可以在另一个终端下发一条命令来验证：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/command \
+  -H 'Content-Type: application/json' -H "Authorization: Bearer <token>" \
+  -d '{"device_id":"dev_005","cmd":"set_relay","payload":{"relay":"on"}}'
 ```
 
 ---
