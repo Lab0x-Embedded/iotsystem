@@ -2,6 +2,9 @@
  * @file config.c
  *
  * 配置文件加载 — cJSON 实现
+ *
+ * 数据库字符串字段使用 strdup 深拷贝，避免静态定长 buffer 截断；
+ * 由 config_free 负责释放（幂等，可重复调用）。
  */
 #include "common/config.h"
 #include "common/log.h"
@@ -9,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <getopt.h>
 #include <cjson/cJSON.h>
 
@@ -19,7 +23,7 @@ static char *read_file(const char *path) {
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
     fseek(f, 0, SEEK_SET);
-    char *buf = (char *)malloc(len + 1);
+    char *buf = (char *)malloc((size_t)len + 1);
     if (buf) {
         fread(buf, 1, len, f);
         buf[len] = '\0';
@@ -28,20 +32,49 @@ static char *read_file(const char *path) {
     return buf;
 }
 
+/** 标记 db 字符串当前是否为堆分配（由 strdup 产生） */
+static bool g_db_strings_owned = false;
+
+void config_free(app_config_t *cfg) {
+    if (!cfg) return;
+    if (g_db_strings_owned) {
+        free((void *)cfg->db.host);
+        free((void *)cfg->db.user);
+        free((void *)cfg->db.password);
+        free((void *)cfg->db.database);
+        g_db_strings_owned = false;
+    }
+    cfg->db.host = cfg->db.user = cfg->db.password = cfg->db.database = NULL;
+}
+
+/** 用 strdup 安全替换一个字符串字段；若已拥原则释放旧值 */
+static void set_str_field(const char **dst, const char *src) {
+    if (!dst || !src) return;
+    if (g_db_strings_owned)
+        free((void *)*dst);
+    char *dup = strdup(src);
+    if (dup)
+        *dst = dup;
+}
+
 int config_load(const char *path, app_config_t *cfg) {
     if (!path || !cfg) return -1;
 
-    // 默认值
+    /* 释放上一次 load 可能遗留的堆字符串，避免重复 load 泄漏 */
+    config_free(cfg);
+
+    // 默认值（全部 strdup，因此 g_db_strings_owned 随后设为 true）
     cfg->mqtt_port = 65080;
     cfg->http_port = 8080;
     cfg->workers = 4;
     cfg->backlog = 1024;
-    cfg->db.host = "127.0.0.1";
+    set_str_field(&cfg->db.host, "127.0.0.1");
+    set_str_field(&cfg->db.user, "root");
+    set_str_field(&cfg->db.password, "your_password");
+    set_str_field(&cfg->db.database, "e2_iot");
     cfg->db.port = 3306;
-    cfg->db.user = "root";
-    cfg->db.password = "your_password";
-    cfg->db.database = "e2_iot";
     cfg->db.pool_size = 4;
+    g_db_strings_owned = true;
 
     char *json_str = read_file(path);
     if (!json_str) {
@@ -67,33 +100,19 @@ int config_load(const char *path, app_config_t *cfg) {
     if ((item = cJSON_GetObjectItem(root, "backlog")))
         cfg->backlog = item->valueint;
 
-    // 数据库配置
+    // 数据库配置（strdup 覆盖默认值）
     cJSON *db = cJSON_GetObjectItem(root, "database");
     if (db) {
-        // host/user/password/database 需要复制，因为cJSON生命周期问题
-        static char db_host[64] = "127.0.0.1";
-        static char db_user[64] = "root";
-        static char db_pass[128] = "your_password";
-        static char db_name[64] = "e2_iot";
-        
-        if ((item = cJSON_GetObjectItem(db, "host"))) {
-            strncpy(db_host, item->valuestring, sizeof(db_host) - 1);
-            cfg->db.host = db_host;
-        }
+        if ((item = cJSON_GetObjectItem(db, "host")))
+            set_str_field(&cfg->db.host, item->valuestring);
         if ((item = cJSON_GetObjectItem(db, "port")))
             cfg->db.port = (uint16_t)item->valueint;
-        if ((item = cJSON_GetObjectItem(db, "user"))) {
-            strncpy(db_user, item->valuestring, sizeof(db_user) - 1);
-            cfg->db.user = db_user;
-        }
-        if ((item = cJSON_GetObjectItem(db, "password"))) {
-            strncpy(db_pass, item->valuestring, sizeof(db_pass) - 1);
-            cfg->db.password = db_pass;
-        }
-        if ((item = cJSON_GetObjectItem(db, "database"))) {
-            strncpy(db_name, item->valuestring, sizeof(db_name) - 1);
-            cfg->db.database = db_name;
-        }
+        if ((item = cJSON_GetObjectItem(db, "user")))
+            set_str_field(&cfg->db.user, item->valuestring);
+        if ((item = cJSON_GetObjectItem(db, "password")))
+            set_str_field(&cfg->db.password, item->valuestring);
+        if ((item = cJSON_GetObjectItem(db, "database")))
+            set_str_field(&cfg->db.database, item->valuestring);
         if ((item = cJSON_GetObjectItem(db, "pool_size")))
             cfg->db.pool_size = item->valueint;
     }
@@ -128,12 +147,12 @@ int config_apply_args(app_config_t *cfg, int argc, char **argv) {
             case 'w': cfg->workers = atoi(optarg); break;
             case 'b': cfg->backlog = atoi(optarg); break;
             case 'c': config_load(optarg, cfg); break;
-            case 'D': cfg->db.host = optarg; break;
+            case 'D': set_str_field(&cfg->db.host, optarg); break;
             case 'P': cfg->db.port = (uint16_t)atoi(optarg); break;
-            case 'U': cfg->db.user = optarg; break;
-            case 'W': cfg->db.password = optarg; break;
-            case 'N': cfg->db.database = optarg; break;
-            case 'h': return -2;  // 显示帮助
+            case 'U': set_str_field(&cfg->db.user, optarg); break;
+            case 'W': set_str_field(&cfg->db.password, optarg); break;
+            case 'N': set_str_field(&cfg->db.database, optarg); break;
+            case 'h': return -2;
             default: return -1;
         }
     }
