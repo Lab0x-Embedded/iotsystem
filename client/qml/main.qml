@@ -162,20 +162,19 @@ QQC.ApplicationWindow {
                     wrapMode: Text.Wrap
                 }
             }
-        }
-
-        footer: ShadcnDialogFooter {
-            // 靠右 + 垂直居中由组件自身保证：Row 右锚定，footerSlot 高度贴合按钮、上下各留 _pad
-            ShadcnButton {
-                text: loginDialog.connecting ? "连接中..." : "连接"
-                loading: loginDialog.connecting
-                enabled: !loginDialog.connecting
-                onClicked: {
-                    loginDialog.connecting = true;
-                    loginDialog.errorMsg = "";
-                    dataManager.connectToServer(serverUrlField.text,
-                                                usernameField.text,
-                                                passwordField.text);
+            footer: ShadcnDialogFooter {
+                // 靠右 + 垂直居中由组件自身保证：Row 右锚定，footerSlot 高度贴合按钮、上下各留 _pad
+                ShadcnButton {
+                    text: loginDialog.connecting ? "连接中..." : "连接"
+                    loading: loginDialog.connecting
+                    enabled: !loginDialog.connecting
+                    onClicked: {
+                        loginDialog.connecting = true;
+                        loginDialog.errorMsg = "";
+                        dataManager.connectToServer(serverUrlField.text,
+                                                    usernameField.text,
+                                                    passwordField.text);
+                    }
                 }
             }
         }

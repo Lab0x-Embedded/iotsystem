@@ -336,25 +336,24 @@ Rectangle {
                 ShadcnInput { id: addGroupDesc; Layout.fillWidth: true; placeholderText: "请输入描述" }
 
             }
-        }
-
-        footer: ShadcnDialogFooter {
-            ShadcnButton {
-                text: "取消"
-                variant: ShadcnButton.Variant.Outline
-                size: ShadcnButton.Size.Small
-                onClicked: addGroupDialog.close()
-            }
-            ShadcnButton {
-                text: "创建"
-                size: ShadcnButton.Size.Small
-                onClicked: {
-                    if (addGroupName.text && root.groupManager) {
-                        root.groupManager.httpClient.createGroup(addGroupName.text, addGroupDesc.text);
-                        addGroupName.text = "";
-                        addGroupDesc.text = "";
+            footer: ShadcnDialogFooter {
+                ShadcnButton {
+                    text: "取消"
+                    variant: ShadcnButton.Variant.Outline
+                    size: ShadcnButton.Size.Small
+                    onClicked: addGroupDialog.close()
+                }
+                ShadcnButton {
+                    text: "创建"
+                    size: ShadcnButton.Size.Small
+                    onClicked: {
+                        if (addGroupName.text && root.groupManager) {
+                            root.groupManager.httpClient.createGroup(addGroupName.text, addGroupDesc.text);
+                            addGroupName.text = "";
+                            addGroupDesc.text = "";
+                        }
+                        addGroupDialog.close();
                     }
-                    addGroupDialog.close();
                 }
             }
         }
@@ -372,24 +371,23 @@ Rectangle {
                     text: "确定要删除分组 \"" + root.selectedGroupName + "\" 吗？删除后无法恢复。"
                 }
             }
-        }
-
-        footer: ShadcnDialogFooter {
-            ShadcnButton {
-                text: "取消"
-                variant: ShadcnButton.Variant.Outline
-                size: ShadcnButton.Size.Small
-                onClicked: deleteConfirmDialog.close()
-            }
-            ShadcnButton {
-                text: "删除"
-                size: ShadcnButton.Size.Small
-                variant: ShadcnButton.Variant.Destructive
-                onClicked: {
-                    if (root.groupManager && root.selectedGroupId > 0)
-                        root.groupManager.httpClient.deleteGroup(root.selectedGroupId);
-                    root.selectedGroupId = -1;
-                    deleteConfirmDialog.close();
+            footer: ShadcnDialogFooter {
+                ShadcnButton {
+                    text: "取消"
+                    variant: ShadcnButton.Variant.Outline
+                    size: ShadcnButton.Size.Small
+                    onClicked: deleteConfirmDialog.close()
+                }
+                ShadcnButton {
+                    text: "删除"
+                    size: ShadcnButton.Size.Small
+                    variant: ShadcnButton.Variant.Destructive
+                    onClicked: {
+                        if (root.groupManager && root.selectedGroupId > 0)
+                            root.groupManager.httpClient.deleteGroup(root.selectedGroupId);
+                        root.selectedGroupId = -1;
+                        deleteConfirmDialog.close();
+                    }
                 }
             }
         }
@@ -461,25 +459,24 @@ Rectangle {
                 }
 
             }
-        }
-
-        footer: ShadcnDialogFooter {
-            ShadcnButton {
-                text: "取消"
-                variant: ShadcnButton.Variant.Outline
-                size: ShadcnButton.Size.Small
-                onClicked: addDeviceDialog.close()
-            }
-            ShadcnButton {
-                text: "添加"
-                size: ShadcnButton.Size.Small
-                onClicked: {
-                    if (root.groupManager) {
-                        for (var i = 0; i < addDeviceDialog.selectedIds.length; i++)
-                            root.groupManager.updateDeviceGroup(addDeviceDialog.selectedIds[i], root.selectedGroupId);
+            footer: ShadcnDialogFooter {
+                ShadcnButton {
+                    text: "取消"
+                    variant: ShadcnButton.Variant.Outline
+                    size: ShadcnButton.Size.Small
+                    onClicked: addDeviceDialog.close()
+                }
+                ShadcnButton {
+                    text: "添加"
+                    size: ShadcnButton.Size.Small
+                    onClicked: {
+                        if (root.groupManager) {
+                            for (var i = 0; i < addDeviceDialog.selectedIds.length; i++)
+                                root.groupManager.updateDeviceGroup(addDeviceDialog.selectedIds[i], root.selectedGroupId);
+                        }
+                        addDeviceDialog.selectedIds = [];
+                        addDeviceDialog.close();
                     }
-                    addDeviceDialog.selectedIds = [];
-                    addDeviceDialog.close();
                 }
             }
         }
@@ -502,23 +499,22 @@ Rectangle {
                           + "\" 从分组中移除吗？移除后设备将变为未分组状态。"
                 }
             }
-        }
-
-        footer: ShadcnDialogFooter {
-            ShadcnButton {
-                text: "取消"
-                variant: ShadcnButton.Variant.Outline
-                size: ShadcnButton.Size.Small
-                onClicked: removeConfirmDialog.close()
-            }
-            ShadcnButton {
-                text: "移除"
-                size: ShadcnButton.Size.Small
-                variant: ShadcnButton.Variant.Destructive
-                onClicked: {
-                    if (root.groupManager)
-                        root.groupManager.removeDeviceFromGroup(removeConfirmDialog.targetDeviceId);
-                    removeConfirmDialog.close();
+            footer: ShadcnDialogFooter {
+                ShadcnButton {
+                    text: "取消"
+                    variant: ShadcnButton.Variant.Outline
+                    size: ShadcnButton.Size.Small
+                    onClicked: removeConfirmDialog.close()
+                }
+                ShadcnButton {
+                    text: "移除"
+                    size: ShadcnButton.Size.Small
+                    variant: ShadcnButton.Variant.Destructive
+                    onClicked: {
+                        if (root.groupManager)
+                            root.groupManager.removeDeviceFromGroup(removeConfirmDialog.targetDeviceId);
+                        removeConfirmDialog.close();
+                    }
                 }
             }
         }
