@@ -70,7 +70,7 @@ int config_load(const char *path, app_config_t *cfg) {
     cfg->backlog = 1024;
     set_str_field(&cfg->db.host, "127.0.0.1");
     set_str_field(&cfg->db.user, "root");
-    set_str_field(&cfg->db.password, "your_password");
+    set_str_field(&cfg->db.password, "");  /* 空密码，运行时优先取 E2_DB_PASSWORD */
     set_str_field(&cfg->db.database, "e2_iot");
     cfg->db.port = 3306;
     cfg->db.pool_size = 4;
