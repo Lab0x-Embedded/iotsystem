@@ -34,10 +34,17 @@ set(app_icon_macos "${CMAKE_SOURCE_DIR}/qml/assets/logo.icns")
 set_source_files_properties(${app_icon_macos} PROPERTIES
     MACOSX_PACKAGE_LOCATION "Resources")
 
-qt_add_executable(IoTDeviceManager
+qt_add_executable(IoTDeviceManager MACOSX_BUNDLE
     ${SOURCES}
     ${HEADERS}
     ${app_icon_macos}
+)
+
+set_target_properties(IoTDeviceManager PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME "IoTDeviceManager"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.e2iot.devicemanager"
+    MACOSX_BUNDLE_BUNDLE_VERSION "2.0"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "2.0"
 )
 
 # QML module (existing qrc-based approach)
