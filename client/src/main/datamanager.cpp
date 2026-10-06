@@ -9,6 +9,9 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     // HttpClient信号
     connect(&m_http, &HttpClient::loginSucceeded, this, &DataManager::onLoginSucceeded);
     connect(&m_http, &HttpClient::loginFailed, this, &DataManager::onLoginFailed);
+    /* serverUrl 属性 NOTIFY 转发：之前只声明未 emit，QML 绑定
+     * dataManager.serverUrl 会在创建时求值一次后永远不更新 */
+    connect(&m_http, &HttpClient::serverUrlChanged, this, &DataManager::serverUrlChanged);
     connect(&m_http, &HttpClient::devicesFetched, this, &DataManager::onDevicesFetched);
     connect(&m_http, &HttpClient::deviceRegistered, this,
         [this](const QString &deviceId, const QString &secret) {

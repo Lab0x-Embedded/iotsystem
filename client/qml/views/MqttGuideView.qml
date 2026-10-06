@@ -17,14 +17,41 @@ Rectangle {
     property string devPk: currentDevice ? (currentDevice.productKey || "{product_key}") : "{product_key}"
     property string devSecret: currentDevice ? currentDevice.deviceSecret : ""
 
-    // 从 serverUrl 提取 host（http://192.168.1.100:8080 -> 192.168.1.100），
-    // AT 指令 / mosquitto 命令里的服务器地址按它自动填充，即拷即用
-    property string serverHost: {
-        if (!dataManager || !dataManager.serverUrl) return "";
-        var u = String(dataManager.serverUrl)
-                .replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-        return u.split(":")[0];
+    // 服务器 host：不能直接用绑定（serverUrl 很可能没有 NOTIFY 信号，
+    // 或 dataManager 是后注册的 context property），改成显式更新。
+    property string serverHost: ""
+
+    function refreshServerHost() {
+        var host = "";
+        if (dataManager && dataManager.serverUrl) {
+            var u = String(dataManager.serverUrl)
+                    .replace(/^https?:\/\//, "")   // 去掉协议
+                    .replace(/\/.*$/, "");         // 去掉路径
+            var idx = u.indexOf(":");              // 去掉端口（IPv6 暂不支持）
+            host = idx >= 0 ? u.substring(0, idx) : u;
+        }
+        if (host !== root.serverHost)
+            root.serverHost = host;
     }
+
+    Component.onCompleted: refreshServerHost()
+
+    // 情况 1：serverUrl 有 NOTIFY 信号 —— 走这条通路即可
+    Connections {
+        target: dataManager
+        ignoreUnknownSignals: true     // 若没有 serverUrlChanged 信号，安静忽略
+        function onServerUrlChanged() { root.refreshServerHost() }
+    }
+
+    // 情况 2/3 兜底：不管有没有 NOTIFY、dataManager 何时就绪，
+    // 低频轮询都能把值最终同步上来。开销极小。
+    Timer {
+        interval: 1500
+        running: true
+        repeat: true
+        onTriggered: root.refreshServerHost()
+    }
+
     readonly property bool hostIsLoopback: serverHost === "" || serverHost === "127.0.0.1" || serverHost === "localhost"
     readonly property string hostText: serverHost !== "" ? serverHost : "<服务器IP>"
 
