@@ -9,6 +9,8 @@ Rectangle {
     id: root
 
     property var deviceData: null
+    // 活跃告警记录模型（与底部状态栏同源），用于顶部"告警"卡片
+    property var alarmData: null
 
     // 搜索关键字（真正用于过滤列表，之前这个搜索框是摆设）
     property string searchText: ""
@@ -209,9 +211,13 @@ Rectangle {
             StatCard {
                 Layout.fillWidth: true
                 title: "告警"
-                value: root.deviceData ? root.deviceData.alarmCount : "0"
-                valueColor: theme.destructive
-                dotStatus: ShadcnStatusDot.Status.Danger
+                // 与底部状态栏/告警中心同源：活跃告警记录数。
+                // 服务端设备状态机没有"告警态"，deviceData.alarmCount 恒为 0，勿用。
+                value: root.alarmData ? root.alarmData.activeCount : "0"
+                valueColor: root.alarmData && root.alarmData.activeCount > 0
+                            ? theme.destructive : theme.mutedForeground
+                dotStatus: root.alarmData && root.alarmData.activeCount > 0
+                           ? ShadcnStatusDot.Status.Danger : ShadcnStatusDot.Status.Offline
             }
         }
 

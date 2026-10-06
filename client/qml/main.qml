@@ -89,6 +89,7 @@ QQC.ApplicationWindow {
             // 0: 设备总览
             DevicesView {
                 deviceData: deviceModel
+                alarmData: alarmModel
                 onDeviceSelected: function(deviceId) {
                     detailView.showDevice(deviceId);
                     root.currentView = 4;
