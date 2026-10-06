@@ -2,7 +2,7 @@
 
 简易 IoT 设备管理平台，支持设备接入、数据采集、告警管理、设备影子、指令下发。
 
-**服务端**: C (libevent + cJSON + MySQL) | **客户端**: Qt6 / QML | **协议**: MQTT 3.1.1 + HTTP REST + SSE
+**服务端**: C (libevent + cJSON + MySQL) | **客户端**: Qt6 / QML | **协议**: MQTT 3.1.1 + HTTP REST
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey.svg)](https://github.com)
@@ -16,13 +16,12 @@
 graph TB
     subgraph Client["客户端层"]
         Qt["Qt/QML 桌面客户端<br/>设备总览 | 设备详情 | 告警中心 | 数据面板 | 分组管理"]
-        Net["HttpClient (REST) + WsClient (SSE)"]
+        Net["HttpClient (REST 轮询)"]
     end
 
     subgraph Server["服务端 (C)"]
         MQTT["MQTT Broker :1883"]
         HTTP["HTTP API :8080"]
-        SSE["SSE 推送"]
         Biz["告警引擎 | 设备影子 | 指令下发 | 数据分片"]
         DBPool["MySQL 连接池"]
     end
@@ -32,8 +31,7 @@ graph TB
     end
 
     Qt --> Net
-    Net -->|"HTTP :8080 + SSE"| HTTP
-    Net -->|"SSE"| SSE
+    Net -->|"HTTP :8080"| HTTP
     HTTP --> Biz
     MQTT --> Biz
     Biz --> DBPool
@@ -50,13 +48,12 @@ graph TB
 |------|------|
 | **MQTT Broker** | 自定义协议解析、设备认证、数据上报、指令下发、遗嘱消息 |
 | **REST API** | 设备/告警/影子/分组/指令 CRUD，action 路由模式 |
-| **SSE 实时推送** | 设备数据点、告警事件实时推送到客户端 |
-| **告警引擎** | 规则评估 (GT/LT/EQ/GTE/LTE)、告警记录、确认/解决流程 |
+| **告警引擎** | 规则评估 (GT/LT/EQ/GTE/LTE)、连续 N 次判定、告警记录、确认/解决流程、回落自动 resolve |
 | **设备影子** | desired/reported/delta 三段式架构、批量更新、delta 计算、DB 持久化 |
 | **指令下发** | 在线设备实时推送、离线设备队列缓存 |
 | **数据分片** | 按月分表 (data_reports_YYYYMM)、自动建表、历史查询 |
 | **设备分组** | 一级分组管理、按组查询、设备迁移 |
-| **Qt 客户端** | 6 个页面、实时图表、暗色/亮色主题、SSE 自动重连 |
+| **Qt 客户端** | 6 个页面、实时图表、暗色/亮色主题、REST 轮询刷新 |
 
 ---
 
@@ -66,7 +63,7 @@ graph TB
 |----|------|
 | **服务端** | C11, libevent (evhttp + bufferevent), cJSON, MySQL Connector/C |
 | **客户端** | C++17, Qt 6 (QML + Qt Quick + Material), Qt Charts |
-| **协议** | MQTT 3.1.1 + HTTP/1.1 + SSE |
+| **协议** | MQTT 3.1.1 + HTTP/1.1 |
 | **构建** | CMake 3.16+ / GNU Make |
 | **脚本** | Python 3 (模拟上报) |
 
@@ -105,8 +102,8 @@ make build
 ### 3. 启动服务端
 
 ```bash
-make server
-# MQTT: 1883  HTTP: 8080
+make server        # 编译(如有改动)并启动; MQTT: 1883  HTTP: 8080
+make server-stop   # 停止服务端 (SIGTERM 优雅退出, 3s 后仍存活升级 SIGKILL)
 ```
 
 ### 4. 启动 MQTT 模拟上报
@@ -134,6 +131,7 @@ make client
 |------|------|
 | `make build` | 编译服务端 |
 | `make server` | 启动服务端 |
+| `make server-stop` | 停止服务端 (精确匹配 iot-broker 进程) |
 | `make client` | 编译并启动 Qt 客户端 |
 | `make client-dev` | 启动 Qt 调试客户端 |
 | `make db_init` | 初始化数据库 (表结构+测试数据) |
@@ -186,7 +184,8 @@ make client
 | `POST /api/shadow` | set_desired, update, delta, (查询) |
 | `POST /api/command` | (直接下发) |
 | `POST /api/group` | query_all, create, update, delete |
-| `GET /api/sse` | SSE 实时推送 (datapoint, alarm) |
+
+> 注: `GET /api/sse` 未实现，客户端为纯 REST 轮询（见 docs/KNOWN_ISSUES.md M1）。
 
 详细文档: [docs/E2_API文档.md](docs/E2_API文档.md)
 

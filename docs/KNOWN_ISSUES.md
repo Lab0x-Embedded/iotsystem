@@ -22,12 +22,13 @@
 | M5 | ~~ MQTT SUBSCRIBE 不去重 ~~ | `mqtt_broker.c` handle_subscribe | ✅ 已修复：同连接同 topic 重复订阅改为覆盖 qos，不再占槽 |
 | M6 | ~~ device_latest_data 无 ts 新旧比较 ~~ | `mqtt_broker.c` publish_worker | ✅ 已修复：upsert 加比较（`ts=GREATEST`，value 仅在 ts 更新时覆盖），旧时间戳不再回退最新值 |
 | M7 | register 自动创建产品 | `handler_device.c` → bfac03c | 注册新产品 key 自动建产品（外键兜底），可能产生垃圾产品行，与产品管理页语义重叠 |
+| M8 | ~~ 上报压死连接池（嵌套占用 + 锁内等池）~~ | `mqtt_broker.c` publish_worker → `thing_model.c` | ✅ 已修复(2026-10-07)：publish_worker 已持 1 条池连接，`thing_model_check` 又在 `g_mtx` 锁内 `db_pool_get()` 抢第二条（cache_load），4 worker × 2 > 池 4 条；且持锁等池最多 3s 串死全部上报线程，加载失败时 `loaded` 保持 0 → 每条上报重试查库，恶性循环（设备上报期间持续 `db_pool: 4/4 in use, timeout waiting 3s`）。修复：新增 `thing_model_check_with_conn()` 复用调用方已持连接加载缓存、DB 访问移出 `g_mtx`、加载失败退避 5s；顺带修掉 TTL 到期 cache_load 连调两次。auto-resolve 的 UPDATE 仅 `mysql_affected_rows>0` 时打日志（原每条回落上报刷一条） |
 
 ## 🟢 低（性能/整洁）
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|
-| L6 | ~~ 动态绑定内引用 QtShadcn 枚举首轮 undefined ~~ | 各 View 的 `variant:` 三元绑定 | ✅ 已缓解(2026-10-07)：qmlcachegen 只编译期解析**静态**枚举赋值，`cond ? ShadcnButton.Variant.Default : ...` 这类**动态绑定里的枚举引用**首轮运行期求值为 undefined → 每次启动刷 4~6 条 `Unable to assign [undefined] to int`。已在 Devices/Products/Alarms 三处改用整数序数+注释（`? 0 /* Default=0 */`）。**规范：动态绑定内不要引用 QtShadcn 枚举**；上游正解是让 qmlcachegen 支持动态枚举解析 |
+| L6 | ~~ 动态绑定内引用 QtShadcn 枚举首轮 undefined ~~ | 各 View 的 `variant:` 三元绑定 | ✅ 已缓解(2026-10-07)：qmlcachegen 只编译期解析**静态**枚举赋值，`cond ? ShadcnButton.Variant.Default : ...` 这类**动态绑定里的枚举引用**首轮运行期求值为 undefined → 每次启动刷 4~6 条 `Unable to assign [undefined] to int`，且 undefined 写回 int 被跳过、属性保持原值（表现为筛选 chip 无选中态）。已统一改用整数序数+注释。序数对照 `ShadcnButton` 枚举：**Primary=0, Secondary=1, Outline=2, Ghost=3, Destructive=4, Link=5**（历史写法 `? 0 : 1 /* Outline */` 的 1 实为 Secondary，已纠正为 `? 0 : 2`）。**规范：动态绑定内不要引用 QtShadcn 枚举，改用序数+注释**；上游正解是让 qmlcachegen 支持动态枚举解析 |
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|

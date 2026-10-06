@@ -339,33 +339,28 @@ Rectangle {
                         ShadcnButton {
                             text: "全部 (" + root.countAll + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: root.statusFilter === "all"
-                                     ? ShadcnButton.Variant.Primary
-                                     : ShadcnButton.Variant.Outline
+                            /* 动态绑定内不引用 QtShadcn 枚举(qmlcachegen 不解析,
+                             * 首轮 undefined → 选中态丢失): 用整数序数.
+                             * Variant: Primary=0, Outline=2 */
+                            variant: root.statusFilter === "all" ? 0 : 2
                             onClicked: { root.statusFilter = "all"; root.refreshRows(); }
                         }
                         ShadcnButton {
                             text: "在线 (" + root.countOnline + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: root.statusFilter === "online"
-                                     ? ShadcnButton.Variant.Primary
-                                     : ShadcnButton.Variant.Outline
+                            variant: root.statusFilter === "online" ? 0 : 2
                             onClicked: { root.statusFilter = "online"; root.refreshRows(); }
                         }
                         ShadcnButton {
                             text: "离线 (" + root.countOffline + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: root.statusFilter === "offline"
-                                     ? ShadcnButton.Variant.Primary
-                                     : ShadcnButton.Variant.Outline
+                            variant: root.statusFilter === "offline" ? 0 : 2
                             onClicked: { root.statusFilter = "offline"; root.refreshRows(); }
                         }
                         ShadcnButton {
                             text: "告警 (" + root.countAlarm + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: root.statusFilter === "alarm"
-                                     ? ShadcnButton.Variant.Primary
-                                     : ShadcnButton.Variant.Outline
+                            variant: root.statusFilter === "alarm" ? 0 : 2
                             onClicked: { root.statusFilter = "alarm"; root.refreshRows(); }
                         }
                         Item { Layout.fillWidth: true }
