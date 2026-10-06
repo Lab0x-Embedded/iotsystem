@@ -22,14 +22,14 @@
 | M5 | ~~ MQTT SUBSCRIBE 不去重 ~~ | `mqtt_broker.c` handle_subscribe | ✅ 已修复：同连接同 topic 重复订阅改为覆盖 qos，不再占槽 |
 | M6 | ~~ device_latest_data 无 ts 新旧比较 ~~ | `mqtt_broker.c` publish_worker | ✅ 已修复：upsert 加比较（`ts=GREATEST`，value 仅在 ts 更新时覆盖），旧时间戳不再回退最新值 |
 | M7 | ~~ register 自动创建产品 ~~ | `handler_device.c` → bfac03c | ❌ 决定不做(2026-10-07)：保留自动建产品作为外键兜底（注册新产品 key 时自动创建，避免注册失败）。客户端注册界面已引导先建产品，垃圾产品行风险可控 |
-| M9 | 同产品设备可互相冒充上报 | `mqtt_broker.c` handle_publish / `init_data.sql` | datapoints 路径 device_id 取自 payload 而非连接认证身份；同产品设备共享 device_secret（init_data 每产品一个密钥），dev_001 的连接可自称 dev_002 上报（跨产品会被 publish_worker 的 pk 配对校验拦截）。协议级修复需：每设备独立密钥 + payload device_id 与认证身份绑定校验——会破坏现有固件契约与 e2_report.py 场景脚本（单连接报多设备），留待协议 v4 一并做 |
+| M9 | ~~ 同产品设备可互相冒充上报 ~~ | `mqtt_broker.c` handle_publish / onenet_property_ingest | ✅ 已修复(2026-10-07)：身份绑定——datapoints 的 payload device_id、$sys topic 的 did 段都必须等于连接认证身份（凭证 pk+secret 解析出的 device_id），否则丢弃 + WARN。init_data.sql 本就是每设备独立密钥（secret_001~010），真正共享凭证的是 e2_report.py——已改为每设备用自己的 pk+secret 连接（顺带修复其它产品设备 dev_004~007/009 此前被 pk 配对误丢的问题）。固件契约不变：设备本来就用自身密钥上报自身 id。已实测：冒充上报/$sys 冒充被拒、自身正常、场景全设备零 drop |
 | M8 | ~~ 上报压死连接池（嵌套占用 + 锁内等池）~~ | `mqtt_broker.c` publish_worker → `thing_model.c` | ✅ 已修复(2026-10-07)：publish_worker 已持 1 条池连接，`thing_model_check` 又在 `g_mtx` 锁内 `db_pool_get()` 抢第二条（cache_load），4 worker × 2 > 池 4 条；且持锁等池最多 3s 串死全部上报线程，加载失败时 `loaded` 保持 0 → 每条上报重试查库，恶性循环（设备上报期间持续 `db_pool: 4/4 in use, timeout waiting 3s`）。修复：新增 `thing_model_check_with_conn()` 复用调用方已持连接加载缓存、DB 访问移出 `g_mtx`、加载失败退避 5s；顺带修掉 TTL 到期 cache_load 连调两次。auto-resolve 的 UPDATE 仅 `mysql_affected_rows>0` 时打日志（原每条回落上报刷一条） |
 
 ## 🟢 低（性能/整洁）
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|
-| L7 | 入库表选择与查询分表路由不一致 | `mqtt_broker.c` publish_worker / `data/shard_router.c` | publish_worker 的月表名按**墙钟**当月选择（`CREATE TABLE IF NOT EXISTS data_reports_YYYYMM LIKE template` + INSERT），而 query_history 按**数据点 ts** 路由月表。补报历史 ts 的数据点会写进当前月表、按 ts 查询却路由到旧月表 → 查不到（total=-1 时通常是目标月表不存在）。修复方向：入库表名改由 datapoint ts 推导，或查询回退扫描相邻月表 |
+| L7 | ~~ 入库表选择与查询分表路由不一致 ~~ | `mqtt_broker.c` publish_worker / `data/shard_router.c` | ✅ 已修复(2026-10-07)：publish_worker 月表名改由数据点 ts 推导（`shard_router_table_by_time`，与查询路由同函数同 UTC），补报历史 ts 的数据点落入正确月表、按 ts 可查；顺带消除月初墙钟(localtime)与路由(UTC)差 8 小时导致的跨月错表。已实测：2025-10 老 ts 数据点入库后 query_history 按 ts 窗口查到 |
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|

@@ -23,6 +23,7 @@
 #include "business/thing_model.h"
 #include "data/db_pool.h"
 #include "data/sql_escape.h"
+#include "data/shard_router.h"
 
 #include <mysql.h>
 #include <stdlib.h>
@@ -790,13 +791,11 @@ static void publish_worker(void *arg) {
     /* 告警评估（复用当前连接，避免多连接死锁） */
     alarm_evaluate_with_conn(db, task->device_id, task->metric, task->value);
 
-    /* 写入 data_reports_YYYYMM */
-    time_t now = time(NULL);
-    struct tm tm_buf;
-    struct tm *tm_now = localtime_r(&now, &tm_buf);
+    /* 写入 data_reports_YYYYMM — 表名由数据点 ts 推导 (KNOWN_ISSUES L7:
+     * 原按墙钟选表而查询按 ts 路由, 补报历史 ts 会写进当前月表但按 ts
+     * 查不到; 且 shard_router 用 UTC, 墙钟 localtime 在月初还差 8 小时) */
     char tbl[64];
-    snprintf(tbl, sizeof(tbl), "data_reports_%04d%02d",
-             tm_now->tm_year + 1900, tm_now->tm_mon + 1);
+    shard_router_table_by_time((time_t)task->ts, tbl, sizeof(tbl));
 
     char sql[512];
     snprintf(sql, sizeof(sql),
@@ -905,6 +904,13 @@ static void onenet_property_ingest(mqtt_connection_t *conn,
     memcpy(dev_id, s1 + 1, (size_t)(s2 - s1 - 1));
     dev_id[s2 - s1 - 1] = '\0';
 
+    /* 身份绑定 (M9): topic 中的 did 必须等于本连接认证身份 */
+    if (!conn->device_id[0] || strcmp(dev_id, conn->device_id) != 0) {
+        LOG_WARN("ONENET property post denied: topic dev=%s != authenticated %s (cid=%s)",
+                 dev_id, conn->device_id[0] ? conn->device_id : "(none)", conn->client_id);
+        return;
+    }
+
     cJSON *root = cJSON_Parse(json_str);
     const cJSON *params = root ? cJSON_GetObjectItem(root, "params") : NULL;
     if (!cJSON_IsObject(params)) {
@@ -991,7 +997,17 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                 if (root) {
                     const cJSON *id = cJSON_GetObjectItem(root, "device_id");
                     const cJSON *dp = cJSON_GetObjectItem(root, "datapoints");
-                    if (id && id->valuestring && dp && cJSON_IsArray(dp)) {
+                    /* 身份绑定 (M9): 上报 device_id 必须等于本连接认证身份
+                     * (认证 = product_key + 该设备独立 secret), 防止同产品
+                     * 设备互相冒充; conn->device_id 由认证 SQL 从 devices
+                     * 表取回, 恒非空, 空值防御一并拒绝 */
+                    if (!conn->device_id[0] ||
+                        (id && id->valuestring && strcmp(id->valuestring, conn->device_id) != 0)) {
+                        LOG_WARN("PUBLISH dropped: identity mismatch (payload dev=%s, auth dev=%s cid=%s)",
+                                 id && id->valuestring ? id->valuestring : "(none)",
+                                 conn->device_id[0] ? conn->device_id : "(none)",
+                                 conn->client_id);
+                    } else if (id && id->valuestring && dp && cJSON_IsArray(dp)) {
                         cJSON *item;
                         cJSON_ArrayForEach(item, dp) {
                             const cJSON *metric = cJSON_GetObjectItem(item, "metric");

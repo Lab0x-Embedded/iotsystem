@@ -650,7 +650,10 @@ HTTP 直连的数据点同步入口（不经 MQTT）：
 
 **响应** `200 OK`: `{"status": "synced"}`
 
-**说明**: 仅触发心跳 + 告警评估，**不落库**（无分表写入）。
+**说明**: datapoint 经 `mqtt_broker_submit_datapoint()` 走与 MQTT 上报同一条
+publish_worker 链路——注册校验、物模型白名单、告警评估、月分表写入（表名由
+datapoint ts 推导）、latest 更新全部兼容；心跳照常触发。payload 可带 `ts`
+（Unix 秒），缺省用服务器时间。
 
 ---
 

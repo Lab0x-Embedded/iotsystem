@@ -33,24 +33,27 @@ import urllib.error
 # ────────────────────────────────────────────────────────────────
 MQTT_HOST = "127.0.0.1"
 MQTT_PORT = 1883
+# 兜底凭证: 仅用于 -d 指定了 DEVICES 之外的自定义设备
+# (服务端已强制上报身份绑定, 凭证必须对得上该设备才能上报成功)
 MQTT_USER = "factory_sensor"
 MQTT_PASS = "secret_001"
 
 HTTP_HOST = "127.0.0.1"
 HTTP_PORT = 8080
 
-# 设备列表（与 init_data.sql 保持一致）
+# 设备列表（与 init_data.sql 保持一致: 每台设备独立 pk+secret）
+# 服务端强制身份绑定: 连接凭证决定认证身份, 只能上报自己的数据
 DEVICES = [
-    {"id": "dev_001", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
-    {"id": "dev_002", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
-    {"id": "dev_003", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
-    {"id": "dev_004", "pk": "smart_meter",    "metrics": ["voltage", "current", "power"]},
-    {"id": "dev_005", "pk": "smart_meter",    "metrics": ["voltage", "current", "power"]},
-    {"id": "dev_006", "pk": "env_monitor",    "metrics": ["temperature", "humidity", "pressure"]},
-    {"id": "dev_007", "pk": "env_monitor",    "metrics": ["temperature", "humidity", "pressure"]},
-    {"id": "dev_008", "pk": "factory_sensor", "metrics": ["temperature"]},
-    {"id": "dev_009", "pk": "smart_meter",    "metrics": ["voltage", "current", "power"]},
-    {"id": "dev_010", "pk": "factory_sensor", "metrics": ["temperature", "humidity"]},
+    {"id": "dev_001", "pk": "factory_sensor", "secret": "secret_001", "metrics": ["temperature", "humidity"]},
+    {"id": "dev_002", "pk": "factory_sensor", "secret": "secret_002", "metrics": ["temperature", "humidity"]},
+    {"id": "dev_003", "pk": "factory_sensor", "secret": "secret_003", "metrics": ["temperature", "humidity"]},
+    {"id": "dev_004", "pk": "smart_meter",    "secret": "secret_004", "metrics": ["voltage", "current", "power"]},
+    {"id": "dev_005", "pk": "smart_meter",    "secret": "secret_005", "metrics": ["voltage", "current", "power"]},
+    {"id": "dev_006", "pk": "env_monitor",    "secret": "secret_006", "metrics": ["temperature", "humidity", "pressure"]},
+    {"id": "dev_007", "pk": "env_monitor",    "secret": "secret_007", "metrics": ["temperature", "humidity", "pressure"]},
+    {"id": "dev_008", "pk": "factory_sensor", "secret": "secret_008", "metrics": ["temperature"]},
+    {"id": "dev_009", "pk": "smart_meter",    "secret": "secret_009", "metrics": ["voltage", "current", "power"]},
+    {"id": "dev_010", "pk": "factory_sensor", "secret": "secret_010", "metrics": ["temperature", "humidity"]},
 ]
 
 # 指标基础值和波动范围（用于生成模拟数据）
@@ -182,9 +185,11 @@ def generate_datapoints(device, alarm_mode=False):
 # ────────────────────────────────────────────────────────────────
 
 def run_reporter(device, interval, alarm_mode=False):
-    """单设备上报循环"""
+    """单设备上报循环 — 用该设备自己的 pk+secret 连接 (身份绑定)"""
     client_id = f"e2_report_{device['id']}"
     label = device["id"]
+    pk = device.get("pk", MQTT_USER)
+    secret = device.get("secret", MQTT_PASS)
 
     while True:
         try:
@@ -192,8 +197,8 @@ def run_reporter(device, interval, alarm_mode=False):
             sock.settimeout(10)
             sock.connect((MQTT_HOST, MQTT_PORT))
 
-            if not mqtt_connect(sock, client_id):
-                print(f"  [{label}] MQTT 连接失败，3秒后重连...")
+            if not mqtt_connect(sock, client_id, username=pk, password=secret):
+                print(f"  [{label}] MQTT 连接失败 (凭证 pk={pk})，3秒后重连...")
                 sock.close()
                 time.sleep(3)
                 continue
@@ -224,6 +229,22 @@ def run_reporter(device, interval, alarm_mode=False):
 # 场景测试
 # ────────────────────────────────────────────────────────────────
 
+def publish_once(device, data, label=""):
+    """建立一次设备身份连接, 发布一帧, 关闭 (服务端强制身份绑定:
+    凭证决定认证身份, 只能上报自己的数据)"""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(10)
+    sock.connect((MQTT_HOST, MQTT_PORT))
+    ok = mqtt_connect(sock, f"e2_once_{device['id']}",
+                      username=device.get("pk", MQTT_USER),
+                      password=device.get("secret", MQTT_PASS))
+    if ok:
+        topic = f"devices/{device['id']}/data"
+        mqtt_publish(sock, topic, json.dumps(data, ensure_ascii=False))
+    sock.close()
+    return ok
+
+
 def scenario_full():
     """全流程场景测试"""
     print("=" * 60)
@@ -247,41 +268,34 @@ def scenario_full():
         print(f"  {dev['id']} {status}")
         time.sleep(0.1)
 
-    # Phase 2: 随机上报（正常数据）
+    # Phase 2: 随机上报（正常数据, 每台设备用自己的凭证连接）
     print("\n📊 Phase 2: 随机上报（正常数据）")
     print("-" * 40)
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(10)
-    sock.connect((MQTT_HOST, MQTT_PORT))
-    if not mqtt_connect(sock, "e2_scenario"):
-        print("MQTT 连接失败")
-        return
 
     for i in range(5):
         dev = random.choice(DEVICES)
         data = generate_datapoints(dev)
-        topic = f"devices/{dev['id']}/data"
-        payload = json.dumps(data, ensure_ascii=False)
-        mqtt_publish(sock, topic, payload)
-        metrics_str = "  ".join(
-            f"{dp['metric']}={dp['value']:.1f}" for dp in data["datapoints"]
-        )
-        print(f"  [{i+1}/5] {dev['id']} {metrics_str}")
+        if publish_once(dev, data):
+            metrics_str = "  ".join(
+                f"{dp['metric']}={dp['value']:.1f}" for dp in data["datapoints"]
+            )
+            print(f"  [{i+1}/5] {dev['id']} {metrics_str}")
+        else:
+            print(f"  [{i+1}/5] {dev['id']} MQTT 认证失败 (pk={dev.get('pk')})")
         time.sleep(1)
-    sock.close()
 
     # Phase 3: 触发告警
     print("\n🚨 Phase 3: 触发告警（dev_001 高温）")
     print("-" * 40)
 
     time.sleep(1)
+    alarm_dev = next(d for d in DEVICES if d["id"] == "dev_001")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(10)
     sock.connect((MQTT_HOST, MQTT_PORT))
-    mqtt_connect(sock, "e2_alarm")
+    mqtt_connect(sock, "e2_alarm",
+                 username=alarm_dev["pk"], password=alarm_dev["secret"])
 
-    alarm_dev = next(d for d in DEVICES if d["id"] == "dev_001")
     for i in range(3):
         data = generate_datapoints(alarm_dev, alarm_mode=True)
         topic = f"devices/{alarm_dev['id']}/data"
@@ -296,17 +310,11 @@ def scenario_full():
     print("\n✅ Phase 4: 恢复随机上报")
     print("")
     print("  📤 发送 dev_001 正常数据，自动解除告警...")
-    norm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    norm_sock.settimeout(10)
-    norm_sock.connect((MQTT_HOST, MQTT_PORT))
-    mqtt_connect(norm_sock, "e2_normalize")
     normal_data = generate_datapoints(alarm_dev, alarm_mode=False)
     for dp in normal_data["datapoints"]:
-        topic = f"devices/{alarm_dev['id']}/data"
         payload = json.dumps({"device_id": alarm_dev["id"], "datapoints": [dp]}, ensure_ascii=False)
-        mqtt_publish(norm_sock, topic, payload)
+        publish_once(alarm_dev, payload)
         print(f"    {dp['metric']}={dp['value']:.1f}")
-    norm_sock.close()
     time.sleep(1)
 
     print("")
@@ -314,15 +322,7 @@ def scenario_full():
         while True:
             dev = random.choice(DEVICES)
             data = generate_datapoints(dev)
-            topic = f"devices/{dev['id']}/data"
-            payload = json.dumps(data, ensure_ascii=False)
-
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(10)
-            sock.connect((MQTT_HOST, MQTT_PORT))
-            mqtt_connect(sock, "e2_resume")
-            mqtt_publish(sock, topic, payload)
-            sock.close()
+            publish_once(dev, data)
 
             metrics_str = "  ".join(
                 f"{dp['metric']}={dp['value']:.1f}" for dp in data["datapoints"]

@@ -48,6 +48,8 @@ LIMIT 1
 
 - 命中 → CONNACK 0x00，连接成功后 presence 异步标记在线
 - 凭证错误 / 设备未注册 / 状态不符 → CONNACK 0x04
+- DB 不可用 → 认证缓存（TTL 10 分钟，条目来自真实认证成功）命中则放行，未命中 CONNACK 0x03
+- **密钥按设备独立**：凭证 (product_key, device_secret) 唯一确定一台设备，连接认证身份即该 device_id，后续上报受身份绑定约束（见 §3.2 ⓪）
 - **DB 不可用** → CONNACK 0x03（server unavailable，与凭证错误区分）
 - **同 client_id 的旧连接会被新连接踢掉**（ESP8266 断线重连场景）
 
@@ -84,7 +86,7 @@ topic: devices/{device_id}/data
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| device_id | string | 是 | 已注册的设备 ID |
+| device_id | string | 是 | 已注册的设备 ID，**必须等于连接认证身份**（凭证解析出的 device_id），否则丢弃（身份绑定，防同产品设备冒充） |
 | datapoints[].metric | string | 是 | 指标名（受产品物模型白名单约束，见 §3.3） |
 | datapoints[].value | number | 是 | 指标值 |
 | datapoints[].ts | number | 否 | Unix 秒，缺省用服务器时间 |
@@ -94,6 +96,9 @@ topic: devices/{device_id}/data
 ```
 PUBLISH 收到（主线程解析 JSON）
   ↓
+⓪ 身份绑定校验：payload.device_id ≠ 连接认证身份 → 丢弃 + WARN
+   （cmd 指令 topic 的设备侧 PUBLISH 也在此前被拒，见 §5）
+  ↓
 ① 设备存在性校验：devices 表无此 (device_id, product_key) → 丢弃 + WARN
    （自动注册已移除，设备必须先经客户端/REST 注册）
   ↓
@@ -101,9 +106,10 @@ PUBLISH 收到（主线程解析 JSON）
    产品未定义任何属性 = 自由模式放行；
    定义后：白名单外 identifier 拒绝，bool 类型值非 0/1 拒绝
   ↓
-③ 告警规则评估（alarm_evaluate，复用当前 DB 连接）
+③ 告警规则评估（alarm_evaluate_with_conn，复用当前 DB 连接）
   ↓
-④ 写入月分表 data_reports_YYYYMM（不存在则自动建表）
+④ 写入月分表 data_reports_YYYYMM（表名由数据点 ts 推导，与查询分表路由
+   同规则同 UTC；不存在则自动建表）
   ↓
 ⑤ upsert device_latest_data（按 device_id+metric 覆盖 value/ts）
 ```
@@ -152,6 +158,9 @@ topic: cmd/{device_id}/exec   (QoS 1)
 
 - 设备**在线**：HTTP `POST /api/command` → 直接 PUBLISH，返回 `delivered`
 - 设备**离线**：入离线队列，设备重连并订阅后自动重放，返回 `queued`
+- **ACL**：cmd topic 只能订阅自己的（`cmd/<device_id>` 第 2 段 == 认证身份，
+  通配符 `cmd/+` 拒绝，违规 SUBACK 0x80）；设备侧 PUBLISH 到 cmd topic 一律
+  拒绝 —— 指令只由服务端直达目标连接注入，设备不可伪造下发给他设备
 
 ---
 
@@ -174,7 +183,10 @@ CONNECT 可携带 Will Topic/Payload；设备异常断开时 broker 将遗嘱按
 |------|------|
 | Protocol Level ≠ 4 | CONNACK 拒绝 |
 | 认证失败（凭证/未注册） | CONNACK 0x04 |
-| DB 不可用 | CONNACK 0x03 |
+| DB 不可用 | 认证缓存命中 → CONNACK 0x00；未命中 CONNACK 0x03 |
+| SUBSCRIBE 未认证 / cmd topic 非自身 | SUBACK 0x80 |
+| PUBLISH cmd topic（设备侧） | 拒绝 + WARN |
+| payload device_id ≠ 认证身份 | 丢弃 + WARN |
 | PUBLISH topic 含通配符 | 忽略 |
 | payload JSON 解析失败 | 记日志忽略 |
 | 设备未注册 | 丢弃 + WARN |
