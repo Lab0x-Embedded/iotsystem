@@ -370,9 +370,11 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     /* 数据库认证: 查 devices 表校验 product_key + device_secret
      * (username/password 已转义; 顺带取回 device_id 供 presence 标记) */
     int ok = 0;
+    int db_down = 0;
     char auth_device_id[MQTT_ID_MAX] = {0};
     {
         db_conn_t *db = db_pool_get();
+        if (!db) db_down = 1;
         if (db) {
             char esc_user[SQL_ESC_CAP(128)];
             char esc_pw[SQL_ESC_CAP(128)];
@@ -402,6 +404,12 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
         }
     }
     if (!ok) {
+        if (db_down) {
+            /* DB 不可用与凭证错误分开回码：0x03 server unavailable。
+             * 否则设备端把平台故障当成密钥错误，盲目重置密钥越描越黑。 */
+            LOG_ERROR("CONNECT auth unavailable: database down (user=%s)", username);
+            goto refused_db;
+        }
         LOG_ERROR("auth failed for user=%s", username);
         goto refused;
     }
@@ -453,6 +461,18 @@ refused:
         ack.vh.connack.return_code   = MQTT_CONNACK_REFUSED_BAD_CREDS;
         send_packet(conn->fd, &ack);
     }
+    return;
+
+refused_db:
+    {
+        mqtt_packet_t ack = {0};
+        ack.fix_header.type  = MQTT_CONNACK;
+        ack.fix_header.flags = 0;
+        ack.fix_header.remain_len = 2;
+        ack.vh.connack.session_present = 0;
+        ack.vh.connack.return_code   = MQTT_CONNACK_REFUSED_SERVER;
+        send_packet(conn->fd, &ack);
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -486,7 +506,23 @@ static void handle_subscribe(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
             continue;
         }
 
-        /* 存储 subscription */
+        /* 存储 subscription（同连接同 topic 去重：覆盖 qos 而非追加，
+         * 否则设备端重复 SUBSCRIBE 会耗尽 MAX_SUBS_PER_CONN 槽位） */
+        {
+            int dup = 0;
+            for (int di = 0; di < conn->sub_count; di++) {
+                if (strcmp(conn->subs[di].topic, tmp) == 0) {
+                    conn->subs[di].qos = qos;
+                    dup = 1;
+                    break;
+                }
+            }
+            if (dup) {
+                return_codes[rc_count++] = qos;
+                LOG_DEBUG("SUB duplicate topic='%s', qos updated", tmp);
+                continue;
+            }
+        }
         mqtt_subscription_t *sub = &conn->subs[conn->sub_count++];
         strncpy(sub->topic, tmp, sizeof(sub->topic) - 1);
         sub->qos = qos;
@@ -664,7 +700,9 @@ static void publish_worker(void *arg) {
         snprintf(upsert, 768,
             "INSERT INTO device_latest_data (device_id, metric, value, ts, updated_at) "
             "VALUES ('%s','%s',%.2f,%llu,NOW()) "
-            "ON DUPLICATE KEY UPDATE value=VALUES(value), ts=VALUES(ts), updated_at=NOW()",
+            "ON DUPLICATE KEY UPDATE "
+            "value=IF(ts<VALUES(ts),VALUES(value),value), "
+            "ts=GREATEST(ts,VALUES(ts)), updated_at=NOW()",
             esc_id, esc_metric, task->value,
             (unsigned long long)task->ts);
         db_pool_exec(db, upsert);

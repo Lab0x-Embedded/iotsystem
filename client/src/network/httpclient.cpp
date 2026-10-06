@@ -661,3 +661,57 @@ void HttpClient::deleteProduct(int id) {
         }
     );
 }
+
+void HttpClient::propList(const QString &productKey) {
+    QJsonObject body;
+    body["action"] = "prop_list";
+    body["product_key"] = productKey;
+
+    auto *reply = m_mgr.post(makeRequest("/api/product"),
+                             QJsonDocument(body).toJson());
+    handleReply(reply,
+        [this, productKey](const QJsonObject &obj) {
+            emit propListFetched(productKey, obj["data"].toArray());
+        },
+        [this](const QString &error) {
+            emit productOperationError(error);
+        });
+}
+
+void HttpClient::propAdd(const QString &productKey, const QString &identifier,
+                         const QString &propType, const QString &description) {
+    QJsonObject body;
+    body["action"] = "prop_add";
+    body["product_key"] = productKey;
+    body["identifier"] = identifier;
+    body["prop_type"] = propType;
+    if (!description.isEmpty())
+        body["description"] = description;
+
+    auto *reply = m_mgr.post(makeRequest("/api/product"),
+                             QJsonDocument(body).toJson());
+    handleReply(reply,
+        [this, productKey](const QJsonObject &obj) {
+            emit propChanged(productKey, obj.contains("status"));
+        },
+        [this, productKey](const QString &) {
+            emit propChanged(productKey, false);
+        });
+}
+
+void HttpClient::propDelete(const QString &productKey, const QString &identifier) {
+    QJsonObject body;
+    body["action"] = "prop_del";
+    body["product_key"] = productKey;
+    body["identifier"] = identifier;
+
+    auto *reply = m_mgr.post(makeRequest("/api/product"),
+                             QJsonDocument(body).toJson());
+    handleReply(reply,
+        [this, productKey](const QJsonObject &obj) {
+            emit propChanged(productKey, obj.contains("status"));
+        },
+        [this, productKey](const QString &) {
+            emit propChanged(productKey, false);
+        });
+}

@@ -61,6 +61,12 @@ public:
     Q_INVOKABLE void updateProduct(int id, const QString &productName, const QString &description);
     Q_INVOKABLE void deleteProduct(int id);
 
+    // 物模型属性白名单
+    Q_INVOKABLE void propList(const QString &productKey);
+    Q_INVOKABLE void propAdd(const QString &productKey, const QString &identifier,
+                             const QString &propType, const QString &description = QString());
+    Q_INVOKABLE void propDelete(const QString &productKey, const QString &identifier);
+
     // 设备影子
     Q_INVOKABLE void getShadow(const QString &deviceId);
     Q_INVOKABLE void updateShadow(const QString &deviceId, const QJsonObject &desired);
@@ -99,6 +105,8 @@ signals:
     void productCreated(const QString &productKey);
     void productUpdated(int id);
     void productDeleted(int id);
+    void propListFetched(const QString &productKey, const QJsonArray &props);
+    void propChanged(const QString &productKey, bool ok);
     void productOperationError(const QString &error);
     void deviceQueryResult(const QJsonObject &device);
     void deviceUpdated(const QString &deviceId, int groupId);

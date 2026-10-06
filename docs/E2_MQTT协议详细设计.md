@@ -2,7 +2,7 @@
 
 > **版本**: v3.0
 > **更新日期**: 2026-10-06
-> **协议版本**: MQTT 3.1 / 3.1.1 / 5.0 均可接入（Protocol Level 3~5）
+> **协议版本**: MQTT 3.1.1（Protocol Level 4，其他版本拒绝）
 > **端口**: 1883（config.json `mqtt_port`，启动日志会打印局域网 IP）
 
 ---
@@ -27,7 +27,7 @@
 ```
 Variable Header:
   Protocol Name: "MQTT"
-  Protocol Level: 3 / 4 / 5 均接受（其他值拒绝）
+  Protocol Level: 0x04（当前实现仅接受 3.1.1）
   Connect Flags: Username + Password 必须置位
   Keep Alive: 建议 30~120 秒
 
@@ -47,7 +47,8 @@ LIMIT 1
 ```
 
 - 命中 → CONNACK 0x00，连接成功后 presence 异步标记在线
-- 未命中（凭证错 / 设备未注册 / 状态不符 / **DB 不可用**）→ CONNACK 拒绝
+- 凭证错误 / 设备未注册 / 状态不符 → CONNACK 0x04
+- **DB 不可用** → CONNACK 0x03（server unavailable，与凭证错误区分）
 - **同 client_id 的旧连接会被新连接踢掉**（ESP8266 断线重连场景）
 
 ### 2.3 CONNACK 响应
@@ -55,9 +56,11 @@ LIMIT 1
 | 返回码 | 含义 |
 |--------|------|
 | 0x00 | 连接成功 |
-| 0x04 | 拒绝（当前实现对协议版本不支持/凭证错误/DB 不可用统一返回 0x04） |
+| 0x01 | 协议版本不支持（当前仅接受 level 4） |
+| 0x03 | 服务不可用（数据库不可用） |
+| 0x04 | 认证失败（凭证错误/设备未注册/状态不符） |
 
-> 注：错误码不区分原因属已知实现取舍，见 `docs/KNOWN_ISSUES.md`。
+> 注：协议版本不匹配当前实际也返回 0x04（见 KNOWN_ISSUES M2 备注）。
 
 ---
 
@@ -169,8 +172,9 @@ CONNECT 可携带 Will Topic/Payload；设备异常断开时 broker 将遗嘱按
 
 | 错误 | 处理 |
 |------|------|
-| Protocol Level 不在 3~5 | CONNACK 0x04 拒绝 |
-| 认证失败（凭证/未注册/DB 不可用） | CONNACK 0x04 拒绝 |
+| Protocol Level ≠ 4 | CONNACK 拒绝 |
+| 认证失败（凭证/未注册） | CONNACK 0x04 |
+| DB 不可用 | CONNACK 0x03 |
 | PUBLISH topic 含通配符 | 忽略 |
 | payload JSON 解析失败 | 记日志忽略 |
 | 设备未注册 | 丢弃 + WARN |

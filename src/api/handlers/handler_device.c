@@ -48,6 +48,8 @@ void handler_device(struct evhttp_request *req, void *ctx) {
     } else if (action && strcmp(action->valuestring, "register") == 0) {
         const cJSON *id = cJSON_GetObjectItem(root, "device_id");
         const cJSON *name = cJSON_GetObjectItem(root, "name");
+        if (!name)  /* 兼容 device_name 字段名（与返回字段一致） */
+            name = cJSON_GetObjectItem(root, "device_name");
         const cJSON *pk = cJSON_GetObjectItem(root, "product_key");
         const cJSON *dt = cJSON_GetObjectItem(root, "device_type");
         const cJSON *ds = cJSON_GetObjectItem(root, "device_secret");
