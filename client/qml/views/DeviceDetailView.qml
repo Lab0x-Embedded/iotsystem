@@ -402,11 +402,11 @@ Rectangle {
                                ? dataManager.productNameOf(root.currentDevice.productKey) : "—"
                     }
 
-                    InfoField {
-                        label: "状态"
-                        value: root.statusText()
-                        valueColor: root.statusColorOf()
-                    }
+                    // InfoField {
+                    //     label: "状态"
+                    //     value: root.statusText()
+                    //     valueColor: root.statusColorOf()
+                    // }
                     InfoField {
                         label: "上报次数"
                         value: root.currentDevice ? String(root.currentDevice.reportCount) : "—"
