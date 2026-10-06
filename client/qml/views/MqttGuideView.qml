@@ -17,6 +17,17 @@ Rectangle {
     property string devPk: currentDevice ? (currentDevice.productKey || "{product_key}") : "{product_key}"
     property string devSecret: currentDevice ? currentDevice.deviceSecret : ""
 
+    // 从 serverUrl 提取 host（http://192.168.1.100:8080 -> 192.168.1.100），
+    // AT 指令 / mosquitto 命令里的服务器地址按它自动填充，即拷即用
+    property string serverHost: {
+        if (!dataManager || !dataManager.serverUrl) return "";
+        var u = String(dataManager.serverUrl)
+                .replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+        return u.split(":")[0];
+    }
+    readonly property bool hostIsLoopback: serverHost === "" || serverHost === "127.0.0.1" || serverHost === "localhost"
+    readonly property string hostText: serverHost !== "" ? serverHost : "<服务器IP>"
+
     function showDevice(deviceId) {
         currentDevice = null;
         if (!deviceId || !deviceModel) return;
@@ -300,7 +311,16 @@ Rectangle {
 
                     FieldRow {
                         name: "Broker 地址"
-                        value: "tcp://<服务器IP>:1883"
+                        value: "tcp://" + root.hostText + ":1883"
+                    }
+
+                    ShadcnLabel {
+                        visible: root.hostIsLoopback
+                        Layout.fillWidth: true
+                        text: "当前客户端连的是回环地址（127.0.0.1），局域网设备无法访问 —— 请在左下角「连接服务器」里改用服务器的局域网 IP 登录，上面的地址会自动更新。"
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
                     }
 
                     Rectangle {
@@ -413,10 +433,10 @@ Rectangle {
 
                     CodeBlock {
                         code: root.currentDevice
-                              ? "mosquitto_sub -h <服务器IP> -p 1883 -i esp8266_" + root.devId
+                              ? "mosquitto_sub -h " + root.hostText + " -p 1883 -i esp8266_" + root.devId
                                 + " -u " + root.devPk + " -P " + (root.devSecret || "<secret>")
                                 + " -t 'cmd/" + root.devId + "/exec' -q 1"
-                              : "mosquitto_sub -h 127.0.0.1 -p 1883 -i dev_001 -u factory_sensor -P secret_001 -t 'cmd/dev_001/exec' -q 1"
+                              : "mosquitto_sub -h " + root.hostText + " -p 1883 -i dev_001 -u factory_sensor -P secret_001 -t 'cmd/dev_001/exec' -q 1"
                     }
 
                     ShadcnLabel {
@@ -429,11 +449,11 @@ Rectangle {
 
                     CodeBlock {
                         code: root.currentDevice
-                              ? "mosquitto_pub -h <服务器IP> -p 1883 -i esp8266_" + root.devId
+                              ? "mosquitto_pub -h " + root.hostText + " -p 1883 -i esp8266_" + root.devId
                                 + " -u " + root.devPk + " -P " + (root.devSecret || "<secret>")
                                 + " -t 'devices/" + root.devId + "/data' -q 1"
                                 + " -m '{\"device_id\":\"" + root.devId + "\",\"datapoints\":[{\"metric\":\"temperature\",\"value\":25.6,\"ts\":1759709400}]}'"
-                              : "mosquitto_pub -h 127.0.0.1 -p 1883 -i dev_001 -u factory_sensor -P secret_001 -t 'devices/dev_001/data' -q 1 -m '{\"device_id\":\"dev_001\",\"datapoints\":[{\"metric\":\"temperature\",\"value\":25.6,\"ts\":1759709400}]}'"
+                              : "mosquitto_pub -h " + root.hostText + " -p 1883 -i dev_001 -u factory_sensor -P secret_001 -t 'devices/dev_001/data' -q 1 -m '{\"device_id\":\"dev_001\",\"datapoints\":[{\"metric\":\"temperature\",\"value\":25.6,\"ts\":1759709400}]}'"
                     }
 
                     ShadcnLabel {
@@ -475,13 +495,13 @@ Rectangle {
                                 + root.devPk + "\",\""
                                 + (root.devSecret || "<device_secret>") + "\",0,0,\"\"\n"
                                 + "AT+MQTTCONNCFG=0,120,1,\"\",\"\",0,0\n"
-                                + "AT+MQTTCONN=0,\"<平台IP>\",1883,1\n"
+                                + "AT+MQTTCONN=0,\"" + root.hostText + "\",1883,1\n"
                                 + "AT+MQTTSUB=0,\"cmd/" + root.devId + "/exec\",1"
                               : "AT+CWMODE=1\n"
                                 + "AT+CWJAP=\"<WiFi名>\",\"<WiFi密码>\"\n"
                                 + "AT+MQTTUSERCFG=0,1,\"esp8266_dev_001\",\"factory_sensor\",\"secret_001\",0,0,\"\"\n"
                                 + "AT+MQTTCONNCFG=0,120,1,\"\",\"\",0,0\n"
-                                + "AT+MQTTCONN=0,\"<平台IP>\",1883,1\n"
+                                + "AT+MQTTCONN=0,\"" + root.hostText + "\",1883,1\n"
                                 + "AT+MQTTSUB=0,\"cmd/dev_001/exec\",1"
                     }
 
