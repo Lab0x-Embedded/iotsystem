@@ -85,8 +85,10 @@ static void alarm_auto_resolve_with_conn(db_conn_t *conn, const char *device_id,
     int rc = db_pool_exec(conn, sql);
     if (rc != 0)
         LOG_ERROR("ALERT auto-resolve FAILED: %s %s", device_id, metric);
-    else
-        LOG_WARN("ALERT auto-resolve executed: %s %s", device_id, metric);
+    else if (mysql_affected_rows((MYSQL *)db_pool_get_mysql(conn)) > 0)
+        /* 仅真正 resolve 了活跃告警才打日志: 每条回落上报都会跑这条 UPDATE,
+         * 0 行也打会刷屏（每 ~20s 一条） */
+        LOG_INFO("ALERT auto-resolved: %s %s", device_id, metric);
     /* 回落清零计数 */
     int idx = alarm_find_tracked(device_id, metric);
     if (idx >= 0) g_tracked[idx].count = 0;

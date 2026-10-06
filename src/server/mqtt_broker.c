@@ -648,9 +648,11 @@ static void publish_worker(void *arg) {
     }
 
     /* 物模型白名单（轻量）: 产品未定义任何属性 = 自由模式放行；
-     * 定义后，白名单外 identifier / bool 类型值不符 → 拒绝。 */
+     * 定义后，白名单外 identifier / bool 类型值不符 → 拒绝。
+     * 复用已持有的 db 连接, 不嵌套占用池连接 */
     {
-        tm_check_t tm = thing_model_check(task->product_key, task->metric, task->value);
+        tm_check_t tm = thing_model_check_with_conn(db, task->product_key,
+                                                    task->metric, task->value);
         if (tm != TM_OK && tm != TM_FREE) {
             LOG_WARN("publish dropped: metric '%s' %s (pk=%s dev=%s)",
                      task->metric,

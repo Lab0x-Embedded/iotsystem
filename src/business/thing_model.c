@@ -16,13 +16,15 @@
 #define TM_IDENT_MAX 64
 #define TM_CACHE_SLOTS 8
 #define TM_CACHE_TTL 30          /* 秒 */
+#define TM_RETRY_SEC  5          /* 加载失败退避: 期内不再查库, 避免每条上报都打连接池 */
 
 typedef struct {
     char product_key[65];
     int  count;
     char idents[32][TM_IDENT_MAX];
     char types[32][TM_TYPE_MAX];
-    time_t loaded;
+    time_t loaded;      /* 最近成功加载时刻; 0 = 未加载 */
+    time_t failed_at;   /* 最近加载失败时刻; 退避期内用旧缓存/放行 */
 } tm_cache_t;
 
 static tm_cache_t g_cache[TM_CACHE_SLOTS];
@@ -39,50 +41,113 @@ static int db_exec(const char *sql) {
     return rc;
 }
 
-/* 加载产品属性到缓存槽（返回槽指针；count 可能为 0 = 自由模式） */
-static tm_cache_t *cache_load(const char *product_key) {
-    /* 空槽复用 or 最旧槽淘汰 */
-    tm_cache_t *slot = &g_cache[0];
-    for (int i = 0; i < TM_CACHE_SLOTS; i++) {
-        if (g_cache[i].count >= 0 && g_cache[i].loaded > 0 &&
+/* ---- 内部: 缓存槽管理（持 g_mtx 调用） ---- */
+
+/* 按产品找槽; 没有则给空槽或最旧的槽 */
+static tm_cache_t *slot_for(const char *product_key) {
+    for (int i = 0; i < TM_CACHE_SLOTS; i++)
+        if (g_cache[i].product_key[0] &&
             strcmp(g_cache[i].product_key, product_key) == 0)
             return &g_cache[i];
+    for (int i = 0; i < TM_CACHE_SLOTS; i++)
+        if (!g_cache[i].product_key[0]) return &g_cache[i];
+    tm_cache_t *oldest = &g_cache[0];
+    for (int i = 1; i < TM_CACHE_SLOTS; i++) {
+        time_t a = g_cache[i].loaded ? g_cache[i].loaded : g_cache[i].failed_at;
+        time_t b = oldest->loaded ? oldest->loaded : oldest->failed_at;
+        if (a < b) oldest = &g_cache[i];
     }
-    for (int i = 0; i < TM_CACHE_SLOTS; i++) {
-        if (g_cache[i].loaded == 0) { slot = &g_cache[i]; goto found; }
-    }
-    for (int i = 1; i < TM_CACHE_SLOTS; i++)
-        if (g_cache[i].loaded < slot->loaded) slot = &g_cache[i];
-found:
-    memset(slot, 0, sizeof(*slot));
-    snprintf(slot->product_key, sizeof(slot->product_key), "%s", product_key);
+    return oldest;
+}
 
-    db_conn_t *conn = db_pool_get();
-    if (!conn) return slot;
+static void record_failure(const char *product_key) {
+    pthread_mutex_lock(&g_mtx);
+    slot_for(product_key)->failed_at = time(NULL);
+    pthread_mutex_unlock(&g_mtx);
+}
+
+/* 白名单判定（持 g_mtx 调用） */
+static tm_check_t check_slot(const tm_cache_t *slot, const char *identifier, double value) {
+    if (slot->count == 0) return TM_FREE;   /* 自由模式 */
+    const char *type = NULL;
+    for (int i = 0; i < slot->count; i++) {
+        if (strcmp(slot->idents[i], identifier) == 0) { type = slot->types[i]; break; }
+    }
+    if (!type) return TM_UNKNOWN;
+    if (strcmp(type, "bool") == 0 && value != 0.0 && value != 1.0)
+        return TM_TYPE_MISMATCH;
+    return TM_OK;
+}
+
+/* ---- 内部: 用调用方连接加载产品属性（不经过连接池） ---- */
+
+static void cache_load_conn(db_conn_t *conn, const char *product_key) {
+    tm_cache_t tmp;
+    memset(&tmp, 0, sizeof(tmp));
+    snprintf(tmp.product_key, sizeof(tmp.product_key), "%s", product_key);
+
     char esc[128], sql[256];
     if (sql_escape_conn(conn, esc, sizeof(esc), product_key) != 0) {
-        db_pool_put(conn);
-        return slot;
+        record_failure(product_key);
+        return;
     }
     snprintf(sql, sizeof(sql),
              "SELECT identifier, prop_type FROM product_properties "
              "WHERE product_key='%s' ORDER BY id", esc);
     void *result = db_pool_query(conn, sql);
-    if (result) {
-        MYSQL_ROW row;
-        while ((row = mysql_fetch_row((MYSQL_RES *)result)) != NULL &&
-               slot->count < 32) {
-            snprintf(slot->idents[slot->count], TM_IDENT_MAX, "%s",
-                     row[0] ? row[0] : "");
-            snprintf(slot->types[slot->count], TM_TYPE_MAX, "%s",
-                     row[1] ? row[1] : "number");
-            slot->count++;
-        }
-        db_pool_free_result(result);
+    if (!result) {
+        record_failure(product_key);
+        return;
     }
-    db_pool_put(conn);
-    slot->loaded = time(NULL);
-    return slot;
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row((MYSQL_RES *)result)) != NULL &&
+           tmp.count < 32) {
+        snprintf(tmp.idents[tmp.count], TM_IDENT_MAX, "%s",
+                 row[0] ? row[0] : "");
+        snprintf(tmp.types[tmp.count], TM_TYPE_MAX, "%s",
+                 row[1] ? row[1] : "number");
+        tmp.count++;
+    }
+    db_pool_free_result(result);
+    tmp.loaded = time(NULL);
+
+    pthread_mutex_lock(&g_mtx);
+    *slot_for(product_key) = tmp;
+    pthread_mutex_unlock(&g_mtx);
+}
+
+/* 缓存有效或退避期内直接返回; 否则加载.
+ * DB 访问在 g_mtx 之外：修复此前"持全局锁 db_pool_get 最多等 3s"卡死全部
+ * 上报线程、以及 publish_worker 已持连接再嵌套取连接把池压满的问题.
+ * conn 为 NULL 时自行从池取一条（自管连接, 用完归还）. */
+static void ensure_loaded(const char *product_key, db_conn_t *conn) {
+    time_t now = time(NULL);
+    pthread_mutex_lock(&g_mtx);
+    tm_cache_t *slot = slot_for(product_key);
+    int fresh   = slot->loaded > 0 && now - slot->loaded <= TM_CACHE_TTL;
+    int backoff = slot->failed_at > 0 && now - slot->failed_at < TM_RETRY_SEC;
+    pthread_mutex_unlock(&g_mtx);
+    if (fresh || backoff) return;
+
+    int owned = 0;
+    if (!conn) {
+        conn = db_pool_get();
+        if (!conn) { record_failure(product_key); return; }
+        owned = 1;
+    }
+    cache_load_conn(conn, product_key);
+    if (owned) db_pool_put(conn);
+}
+
+/* 从缓存判定（未加载 = 失败/退避中, 与旧版一致放行为自由模式） */
+static tm_check_t check_cached(const char *product_key,
+                               const char *identifier, double value) {
+    pthread_mutex_lock(&g_mtx);
+    tm_cache_t *slot = slot_for(product_key);
+    tm_check_t r = (slot->loaded > 0)
+        ? check_slot(slot, identifier, value) : TM_FREE;
+    pthread_mutex_unlock(&g_mtx);
+    return r;
 }
 
 /* ---- 对外接口 ---- */
@@ -110,27 +175,16 @@ int thing_model_init(void) {
 tm_check_t thing_model_check(const char *product_key,
                              const char *identifier, double value) {
     if (!g_table_ready || !product_key || !identifier) return TM_FREE;
+    ensure_loaded(product_key, NULL);
+    return check_cached(product_key, identifier, value);
+}
 
-    pthread_mutex_lock(&g_mtx);
-    tm_cache_t *slot = cache_load(product_key);
-    if (slot->count == 0) {                 /* 自由模式 */
-        pthread_mutex_unlock(&g_mtx);
-        return TM_FREE;
-    }
-    if (time(NULL) - slot->loaded > TM_CACHE_TTL) {
-        cache_load(product_key);            /* TTL 到期重载 */
-        slot = cache_load(product_key);
-    }
-    const char *type = NULL;
-    for (int i = 0; i < slot->count; i++) {
-        if (strcmp(slot->idents[i], identifier) == 0) { type = slot->types[i]; break; }
-    }
-    pthread_mutex_unlock(&g_mtx);
-
-    if (!type) return TM_UNKNOWN;
-    if (strcmp(type, "bool") == 0 && value != 0.0 && value != 1.0)
-        return TM_TYPE_MISMATCH;
-    return TM_OK;
+/* 已持有连接的调用方（publish_worker）：复用连接加载, 不再嵌套 db_pool_get */
+tm_check_t thing_model_check_with_conn(db_conn_t *conn, const char *product_key,
+                                       const char *identifier, double value) {
+    if (!g_table_ready || !product_key || !identifier) return TM_FREE;
+    ensure_loaded(product_key, conn);
+    return check_cached(product_key, identifier, value);
 }
 
 int thing_model_add(const char *product_key, const char *identifier,
@@ -160,7 +214,8 @@ int thing_model_add(const char *product_key, const char *identifier,
 
     pthread_mutex_lock(&g_mtx);
     for (int i = 0; i < TM_CACHE_SLOTS; i++)
-        if (strcmp(g_cache[i].product_key, product_key) == 0) g_cache[i].loaded = 0;
+        if (strcmp(g_cache[i].product_key, product_key) == 0)
+            memset(&g_cache[i], 0, sizeof(g_cache[i]));
     pthread_mutex_unlock(&g_mtx);
     return rc == 0 ? 0 : -1;
 }
@@ -183,7 +238,8 @@ int thing_model_delete(const char *product_key, const char *identifier) {
 
     pthread_mutex_lock(&g_mtx);
     for (int i = 0; i < TM_CACHE_SLOTS; i++)
-        if (strcmp(g_cache[i].product_key, product_key) == 0) g_cache[i].loaded = 0;
+        if (strcmp(g_cache[i].product_key, product_key) == 0)
+            memset(&g_cache[i], 0, sizeof(g_cache[i]));
     pthread_mutex_unlock(&g_mtx);
     return rc == 0 ? 1 : -1;
 }

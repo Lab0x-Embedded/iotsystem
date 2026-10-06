@@ -1,4 +1,4 @@
-.PHONY: build server db_init client client-dev report clean help
+.PHONY: build server server-stop db_init client client-dev report clean help
 
 # 编译服务端
 build:
@@ -7,6 +7,21 @@ build:
 # 启动服务端
 server: build
 	@./build/iot-broker --config deploy/config.json
+
+# 停止服务端 (SIGTERM, 3s 后仍存活则 SIGKILL)
+server-stop:
+	@pids=$$(pgrep -f "iot-broker --config deploy/config.json"); \
+	if [ -z "$$pids" ]; then \
+		echo "iot-broker 未在运行"; \
+	else \
+		kill $$pids 2>/dev/null; \
+		for i in 1 2 3; do sleep 1; pgrep -f "iot-broker --config deploy/config.json" >/dev/null || break; done; \
+		if pgrep -f "iot-broker --config deploy/config.json" >/dev/null; then \
+			echo "SIGTERM 无效, 强制杀死"; \
+			pkill -9 -f "iot-broker --config deploy/config.json"; \
+		fi; \
+		echo "iot-broker 已停止 (pid: $$pids)"; \
+	fi
 
 # 初始化数据库（表结构 + 测试数据）
 db_init:
@@ -64,6 +79,7 @@ help:
 	@echo "可用命令:"
 	@echo "  make build              - 编译 IoT Broker 服务端"
 	@echo "  make server             - 启动服务端"
+	@echo "  make server-stop        - 停止服务端"
 	@echo "  make client             - 编译并启动 Qt 客户端"
 	@echo "  make client-dev         - 启动 Qt 测试客户端"
 	@echo "  make db_init            - 初始化数据库 (表结构+测试数据)"

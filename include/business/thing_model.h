@@ -32,9 +32,18 @@ typedef enum {
 /** 启动时调用：自动建表（幂等）。DB 不可用时告警但不阻塞启动。 */
 int thing_model_init(void);
 
-/** 上报校验。publish_worker 收口处调用。 */
+/** 上报校验。自管连接（内部短时从连接池取一条）。
+ *  未持有连接的调用方用这个（如 OneNET REST 同步链路）。 */
 tm_check_t thing_model_check(const char *product_key,
                              const char *identifier, double value);
+
+struct db_conn;
+/** 上报校验（调用方已持有连接）：复用传入连接加载白名单缓存。
+ *  publish_worker 必须用这个 —— 上报路径已持有一条池连接, 若再走
+ *  thing_model_check 会嵌套占用第二条, 高并发时把池压满。 */
+tm_check_t thing_model_check_with_conn(struct db_conn *conn,
+                                       const char *product_key,
+                                       const char *identifier, double value);
 
 /* ---- REST 管理接口（handler_product 用） ---- */
 
