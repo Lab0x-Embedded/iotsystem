@@ -655,6 +655,87 @@ static void publish_worker(void *arg) {
     free(task);
 }
 
+/* ------------------------------------------------------------------ */
+/* OneNET 物模型兼容 (路线A): $sys/{pid}/{did}/thing/property/post      */
+/* ------------------------------------------------------------------ */
+
+/* 解析 $sys/{pid}/{did}/thing/property/post 的 OneJSON
+ * payload {"id":"..","params":{..}}，把 params 的每个键值转成 datapoint
+ * 提交线程池入库（与 devices/{id}/data 同一条链路）：
+ *   - number  直接取值
+ *   - bool    → 1/0
+ *   - string  仅识别 "on"/"off"/"true"/"false"（执行器状态），其余跳过
+ * device_id 取自 topic 第 3 段（OneNET 语义里与 client_id 一致），
+ * product_key 用连接认证时的 username。 */
+static void onenet_property_ingest(mqtt_connection_t *conn,
+                                   const char *topic, const char *json_str) {
+    char dev_id[MQTT_ID_MAX];
+    const char *p = topic + 5;                  /* 跳过 "$sys/" */
+    const char *s1 = strchr(p, '/');
+    const char *s2 = s1 ? strchr(s1 + 1, '/') : NULL;
+
+    if (!s1 || !s2 || s2 - s1 - 1 <= 0 ||
+        (size_t)(s2 - s1 - 1) >= sizeof(dev_id)) {
+        LOG_WARN("ONENET property post: bad topic '%s'", topic);
+        return;
+    }
+    memcpy(dev_id, s1 + 1, (size_t)(s2 - s1 - 1));
+    dev_id[s2 - s1 - 1] = '\0';
+
+    cJSON *root = cJSON_Parse(json_str);
+    const cJSON *params = root ? cJSON_GetObjectItem(root, "params") : NULL;
+    if (!cJSON_IsObject(params)) {
+        LOG_WARN("ONENET property post: missing params object (dev=%s)", dev_id);
+        cJSON_Delete(root);
+        return;
+    }
+
+    int ingested = 0;
+    cJSON *item;
+    cJSON_ArrayForEach(item, params) {
+        double val;
+
+        if (cJSON_IsNumber(item)) {
+            val = item->valuedouble;
+        } else if (cJSON_IsBool(item)) {
+            val = cJSON_IsTrue(item) ? 1.0 : 0.0;
+        } else if (cJSON_IsString(item) && item->valuestring) {
+            if (strcmp(item->valuestring, "on") == 0 ||
+                strcmp(item->valuestring, "true") == 0)
+                val = 1.0;
+            else if (strcmp(item->valuestring, "off") == 0 ||
+                     strcmp(item->valuestring, "false") == 0)
+                val = 0.0;
+            else {
+                LOG_DEBUG("ONENET param '%s' non-numeric, skip", item->string);
+                continue;
+            }
+        } else {
+            continue;
+        }
+        if (!item->string || !item->string[0]) continue;
+
+        if (g_thread_pool) {
+            publish_task_t *task = (publish_task_t *)calloc(1, sizeof(publish_task_t));
+            if (task) {
+                strncpy(task->product_key, conn->product_key, sizeof(task->product_key) - 1);
+                strncpy(task->device_id, dev_id, sizeof(task->device_id) - 1);
+                strncpy(task->metric, item->string, sizeof(task->metric) - 1);
+                task->value = val;
+                task->ts = (uint64_t)time(NULL);
+                if (thread_pool_submit(g_thread_pool, publish_worker, task) != 0) {
+                    LOG_WARN("thread_pool_submit failed, drop task");
+                    free(task);
+                } else {
+                    ingested++;
+                }
+            }
+        }
+    }
+    cJSON_Delete(root);
+    LOG_INFO("ONENET property post dev=%s ingested %d datapoint(s)", dev_id, ingested);
+}
+
 static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     uint8_t *data = pkt->payload; uint32_t len = pkt->payload_len;
     if (len < 2) return;
@@ -692,6 +773,13 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                 memcpy(json_str, data + payload_off, payload_len);
                 json_str[payload_len] = '\0';
 
+                /* OneNET 物模型兼容: $sys/{pid}/{did}/thing/property/post
+                 * 走 params 逐键值入库；其余按 devices/{id}/data 处理。
+                 * json_str 统一由块尾的 free 释放，分支内不得重复释放。 */
+                if (strncmp(topic, "$sys/", 5) == 0 &&
+                    strstr(topic, "/thing/property/post") != NULL) {
+                    onenet_property_ingest(conn, topic, json_str);
+                } else {
                 cJSON *root = cJSON_Parse(json_str);
                 if (root) {
                     const cJSON *id = cJSON_GetObjectItem(root, "device_id");
@@ -730,6 +818,7 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                 } else {
                     LOG_WARN("PUBLISH payload JSON parse failed");
                 }
+                } /* else: 非 OneNET topic 的 datapoints 路径 */
                 free(json_str);
             }
         }
