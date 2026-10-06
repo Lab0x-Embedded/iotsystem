@@ -86,8 +86,11 @@ Rectangle {
     }
 
     function refreshGroupChoices() {
-        var names = ["未分组"];
-        var ids   = [0];
+        // 分组选项以服务端列表为准：init SQL 预置了「未分组」(group_id=1)，
+        // 这里不再硬编码合成项，否则会出现两个"未分组"。
+        // 注册选「未分组」→ group_id=1；group_id<=0 服务端会写 NULL。
+        var names = [];
+        var ids   = [];
         if (groupModel) {
             var opts = groupModel.options();
             for (var i = 0; i < opts.length; ++i) {
