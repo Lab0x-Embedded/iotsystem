@@ -77,6 +77,19 @@ int  mqtt_broker_send_cmd(mqtt_connection_t *conn,
  */
 void mqtt_broker_tick(time_t now);
 
+/**
+ * 提交一个数据点到后台写库线程池 (与 MQTT datapoints 上报同一条
+ * publish_worker 链路: 注册校验/物模型白名单/告警评估/分表入库/latest 更新).
+ *
+ * 供 MQTT PUBLISH 与 OneNET REST (handler_onenet) 两条链路共用,
+ * 保证 REST 同步的数据点与 MQTT 上报行为完全一致.
+ *
+ *  @return 0 已提交, -1 参数非法/线程池不可用/队列满被丢弃
+ */
+int mqtt_broker_submit_datapoint(const char *product_key, const char *device_id,
+                                 const char *metric, double value,
+                                 unsigned long long ts);
+
 
 #ifdef __cplusplus
 }

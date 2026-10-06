@@ -51,6 +51,68 @@ static int g_conn_count;
 static uint16_t g_pkt_id;
 static pthread_mutex_t g_conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/* ------------------------------------------------------------------ */
+/* 认证缓存 (KNOWN_ISSUES M3): DB 不可用时兜底                           */
+/* ------------------------------------------------------------------ */
+/* 设备密钥长期不变, DB 抖动窗口内不应把重连的在线设备全部拒之门外
+ * (设备端会把 0x03 当成密钥错误, 盲目重置密钥越描越黑)。
+ * 条目只来自真实 DB 认证成功; TTL 10 分钟内允许 DB 故障时重连。
+ * 折衷: 期间被禁用/删除的设备最多还能重连成功一次 TTL 窗口。
+ * 仅事件循环线程访问 (handle_connect 所在线程), 无需加锁。 */
+#define AUTH_CACHE_CAP 128
+#define AUTH_CACHE_TTL 600   /* 秒 */
+
+typedef struct {
+    char product_key[65];
+    char secret[65];
+    char device_id[65];
+    time_t cached_at;
+} auth_cache_ent_t;
+
+static auth_cache_ent_t g_auth_cache[AUTH_CACHE_CAP];
+static int              g_auth_cache_n = 0;
+
+static const char *auth_cache_lookup(const char *pk, const char *secret) {
+    time_t now = time(NULL);
+    for (int i = 0; i < g_auth_cache_n; i++) {
+        if (now - g_auth_cache[i].cached_at > AUTH_CACHE_TTL) continue;
+        if (strcmp(g_auth_cache[i].product_key, pk) == 0 &&
+            strcmp(g_auth_cache[i].secret, secret) == 0)
+            return g_auth_cache[i].device_id;
+    }
+    return NULL;
+}
+
+static void auth_cache_store(const char *pk, const char *secret, const char *device_id) {
+    time_t now = time(NULL);
+    /* 已有同凭证条目 → 刷新 */
+    for (int i = 0; i < g_auth_cache_n; i++) {
+        if (strcmp(g_auth_cache[i].product_key, pk) == 0 &&
+            strcmp(g_auth_cache[i].secret, secret) == 0) {
+            g_auth_cache[i].cached_at = now;
+            if (device_id[0])
+                snprintf(g_auth_cache[i].device_id,
+                         sizeof(g_auth_cache[i].device_id), "%s", device_id);
+            return;
+        }
+    }
+    /* 满了淘汰最旧 (memmove 前移, 表尾腾出空槽) */
+    int victim = 0;
+    if (g_auth_cache_n >= AUTH_CACHE_CAP) {
+        for (int i = 1; i < g_auth_cache_n; i++)
+            if (g_auth_cache[i].cached_at < g_auth_cache[victim].cached_at)
+                victim = i;
+        memmove(&g_auth_cache[victim], &g_auth_cache[victim + 1],
+                sizeof(auth_cache_ent_t) * (size_t)(g_auth_cache_n - victim - 1));
+        g_auth_cache_n--;
+    }
+    auth_cache_ent_t *e = &g_auth_cache[g_auth_cache_n++];
+    snprintf(e->product_key, sizeof(e->product_key), "%s", pk);
+    snprintf(e->secret,     sizeof(e->secret),     "%s", secret);
+    snprintf(e->device_id,  sizeof(e->device_id),  "%s", device_id);
+    e->cached_at = now;
+}
+
 void mqtt_broker_init(void) {
     memset(g_sessions, 0, sizeof(g_sessions));
     memset(g_conns, 0, sizeof(g_conns));
@@ -405,13 +467,26 @@ static void handle_connect(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     }
     if (!ok) {
         if (db_down) {
-            /* DB 不可用与凭证错误分开回码：0x03 server unavailable。
-             * 否则设备端把平台故障当成密钥错误，盲目重置密钥越描越黑。 */
-            LOG_ERROR("CONNECT auth unavailable: database down (user=%s)", username);
-            goto refused_db;
+            /* DB 不可用: 查最近成功认证缓存 (M3), TTL 内放行 */
+            const char *cached = auth_cache_lookup(username, password);
+            if (cached) {
+                ok = 1;
+                snprintf(auth_device_id, sizeof(auth_device_id), "%s", cached);
+                LOG_WARN("CONNECT auth via cache (database down): user=%s dev=%s",
+                         username, auth_device_id);
+            } else {
+                /* DB 不可用与凭证错误分开回码：0x03 server unavailable。
+                 * 否则设备端把平台故障当成密钥错误，盲目重置密钥越描越黑。 */
+                LOG_ERROR("CONNECT auth unavailable: database down, no cache (user=%s)", username);
+                goto refused_db;
+            }
+        } else {
+            LOG_ERROR("auth failed for user=%s", username);
+            goto refused;
         }
-        LOG_ERROR("auth failed for user=%s", username);
-        goto refused;
+    } else {
+        /* 真实 DB 认证成功 → 刷新缓存, 供 DB 故障窗口内重连兜底 */
+        auth_cache_store(username, password, auth_device_id);
     }
 
     /* 同 client_id 的旧连接: 踢掉。
@@ -481,6 +556,11 @@ refused_db:
 static void handle_subscribe(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     uint8_t *data = pkt->payload; uint32_t len = pkt->payload_len;
     if (len < 2) return;
+    /* 未完成 CONNECT 认证的连接不允许订阅 (MQTT 协议顺序要求) */
+    if (!conn->authenticated) {
+        LOG_WARN("SUBSCRIBE before CONNECT (fd=%d) — rejected", conn->fd);
+        return;
+    }
     uint16_t packet_id = ((uint16_t)data[0] << 8) | data[1];
     uint32_t off = 2;
     uint8_t return_codes[8];
@@ -504,6 +584,23 @@ static void handle_subscribe(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
             LOG_WARN("SUB invalid topic='%s'", tmp);
             return_codes[rc_count++] = 0x80; /* 拒绝 */
             continue;
+        }
+
+        /* ACL (L3): cmd/ 指令 topic 只能订阅自己的
+         * (cmd/<device_id>/exec 第 2 段 == 本连接认证身份),
+         * 否则已认证设备可监听其他设备的指令。 */
+        if (strncmp(tmp, "cmd/", 4) == 0) {
+            const char *own = conn->device_id[0] ? conn->device_id : conn->client_id;
+            const char *rest = tmp + 4;
+            const char *slash = strchr(rest, '/');
+            size_t id_len = slash ? (size_t)(slash - rest) : strlen(rest);
+            if (own[0] == '\0' || strlen(own) != id_len ||
+                strncmp(rest, own, id_len) != 0) {
+                LOG_WARN("SUB denied by cmd ACL: '%s' (cid=%s dev=%s)",
+                         tmp, conn->client_id, conn->device_id);
+                return_codes[rc_count++] = 0x80;
+                continue;
+            }
         }
 
         /* 存储 subscription（同连接同 topic 去重：覆盖 qos 而非追加，
@@ -601,6 +698,32 @@ typedef struct {
     double value;
     uint64_t ts;
 } publish_task_t;
+
+/* 把一个数据点提交到后台写库线程池 (与 MQTT datapoints 上报同一条
+ * publish_worker 链路: 注册校验/物模型/告警评估/分表入库/latest 更新)。
+ * 返回 0 已提交; -1 参数非法或队列满被丢弃。
+ * 供 MQTT PUBLISH 与 OneNET REST (handler_onenet) 两条链路共用。 */
+static void publish_worker(void *arg);
+int mqtt_broker_submit_datapoint(const char *product_key, const char *device_id,
+                                 const char *metric, double value, uint64_t ts) {
+    if (!g_thread_pool || !product_key || !product_key[0] ||
+        !device_id || !device_id[0] || !metric || !metric[0]) return -1;
+
+    publish_task_t *task = (publish_task_t *)calloc(1, sizeof(publish_task_t));
+    if (!task) return -1;
+    strncpy(task->product_key, product_key, sizeof(task->product_key) - 1);
+    strncpy(task->device_id, device_id, sizeof(task->device_id) - 1);
+    strncpy(task->metric, metric, sizeof(task->metric) - 1);
+    task->value = value;
+    task->ts = ts ? ts : (uint64_t)time(NULL);
+
+    if (thread_pool_submit(g_thread_pool, publish_worker, task) != 0) {
+        LOG_WARN("thread_pool_submit failed, drop datapoint (%s %s)", device_id, metric);
+        free(task);
+        return -1;
+    }
+    return 0;
+}
 
 static void publish_worker(void *arg) {
     publish_task_t *task = (publish_task_t *)arg;
@@ -801,21 +924,10 @@ static void onenet_property_ingest(mqtt_connection_t *conn,
             continue;
         }
 
-        if (g_thread_pool) {
-            publish_task_t *task = (publish_task_t *)calloc(1, sizeof(publish_task_t));
-            if (task) {
-                strncpy(task->product_key, conn->product_key, sizeof(task->product_key) - 1);
-                strncpy(task->device_id, dev_id, sizeof(task->device_id) - 1);
-                strncpy(task->metric, item->string, sizeof(task->metric) - 1);
-                task->value = val;
-                task->ts = (uint64_t)time(NULL);
-                if (thread_pool_submit(g_thread_pool, publish_worker, task) != 0) {
-                    LOG_WARN("thread_pool_submit failed, drop task");
-                    free(task);
-                } else {
-                    ingested++;
-                }
-            }
+        if (mqtt_broker_submit_datapoint(conn->product_key, dev_id,
+                                         item->string, val,
+                                         (uint64_t)time(NULL)) == 0) {
+            ingested++;
         }
     }
     cJSON_Delete(root);
@@ -838,6 +950,15 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
     /* PUBLISH topic 校验 (不允许通配符) */
     if (!mqtt_topic_valid(topic, 0)) {
         LOG_WARN("PUBLISH invalid topic='%s'", topic);
+        return;
+    }
+
+    /* ACL (L3): 指令只由服务端下发 (mqtt_broker_send_cmd 直达目标连接,
+     * 不经过本函数), 设备侧 PUBLISH 到 cmd 指令 topic 一律拒绝 —
+     * 否则已认证设备可伪造发给其他设备的指令。 */
+    if (strncmp(topic, "cmd/", 4) == 0) {
+        LOG_WARN("PUBLISH denied (cmd topic from device): '%s' cid=%s",
+                 topic, conn->client_id);
         return;
     }
 
@@ -881,20 +1002,10 @@ static void handle_publish(mqtt_connection_t *conn, mqtt_packet_t *pkt) {
                                 uint64_t ts_val = ts ? (uint64_t)ts->valuedouble : (uint64_t)time(NULL);
 
                                 /* 把 DB+告警 任务提交到线程池 */
-                                if (g_thread_pool) {
-                                    publish_task_t *task = (publish_task_t *)calloc(1, sizeof(publish_task_t));
-                                    if (task) {
-                                        strncpy(task->product_key, conn->product_key, sizeof(task->product_key) - 1);
-                                        strncpy(task->device_id, id->valuestring, sizeof(task->device_id) - 1);
-                                        strncpy(task->metric, metric->valuestring, sizeof(task->metric) - 1);
-                                        task->value = val;
-                                        task->ts = ts_val;
-                                        if (thread_pool_submit(g_thread_pool, publish_worker, task) != 0) {
-                                            LOG_WARN("thread_pool_submit failed, drop task");
-                                            free(task);
-                                        }
-                                    }
-                                }
+                                mqtt_broker_submit_datapoint(conn->product_key,
+                                                             id->valuestring,
+                                                             metric->valuestring,
+                                                             val, ts_val);
                             }
                         }
                     } else {

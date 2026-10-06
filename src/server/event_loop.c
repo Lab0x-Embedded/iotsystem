@@ -331,7 +331,10 @@ int event_loop_run(event_loop_t *loop) {
     LOG_INFO("event loop running (MAX_EVENTS=%d)...", MAX_EVENTS);
 
     while (loop->running) {
-        int nfds = kq_wait(loop->kq, loop->events, MAX_EVENTS, 1000);
+        /* 5s 空闲等待: 本 tick 只承担 keepalive 超时检测 (mqtt_broker_tick,
+         * 判定下限本就是 5s), 有报文/新连接/停机(self-pipe) 时 kq 立即唤醒,
+         * 不影响响应性 — 原 1s 空转纯属无谓唤醒 (KNOWN_ISSUES L1) */
+        int nfds = kq_wait(loop->kq, loop->events, MAX_EVENTS, 5000);
         if (nfds < 0) {
             if (errno == EINTR) continue;
             LOG_ERROR("kq_wait: %s", strerror(errno));

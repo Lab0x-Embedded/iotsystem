@@ -3,10 +3,12 @@
 #include "business/device_manager.h"
 #include "business/alarm_service.h"
 #include "business/thing_model.h"
+#include "server/mqtt_broker.h"
 #include "common/log.h"
 #include <cJSON.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <event2/buffer.h>
 
 void handler_onenet(struct evhttp_request *req, void *ctx) {
@@ -32,6 +34,7 @@ void handler_onenet(struct evhttp_request *req, void *ctx) {
         cJSON_ArrayForEach(item, dp) {
             const cJSON *metric = cJSON_GetObjectItem(item, "metric");
             const cJSON *value = cJSON_GetObjectItem(item, "value");
+            const cJSON *ts = cJSON_GetObjectItem(item, "ts");
             if (!metric || !value) continue;
             if (thing_model_check(dev.product_key, metric->valuestring,
                                   value->valuedouble) != TM_OK) {
@@ -41,7 +44,13 @@ void handler_onenet(struct evhttp_request *req, void *ctx) {
                 continue;
             }
             device_manager_heartbeat(id->valuestring);
-            alarm_evaluate(id->valuestring, metric->valuestring, value->valuedouble);
+            /* 落库 + 告警评估走与 MQTT 上报同一条 publish_worker 链路
+             * (KNOWN_ISSUES L2: 此前只做心跳+告警, 不写历史/latest)。
+             * 告警评估在 publish_worker 内做, 这里不再直调 alarm_evaluate
+             * (否则同一数据点评估两次, 连续告警计数翻倍)。 */
+            mqtt_broker_submit_datapoint(dev.product_key, id->valuestring,
+                                         metric->valuestring, value->valuedouble,
+                                         ts ? (unsigned long long)ts->valuedouble : 0ULL);
             synced++;
         }
         char resp[96];
