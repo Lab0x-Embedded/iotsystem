@@ -177,3 +177,15 @@ QVariantList AlarmModel::ids() const
         out << QVariant::fromValue<qulonglong>(m_records[m_filteredIndices[r]].id);
     return out;
 }
+
+QVariantList AlarmModel::activeAlarmDeviceIds() const
+{
+    QVariantList out;
+    for (const auto &rec : m_records) {
+        if (rec.status != AlarmStatus::Active || rec.deviceId.isEmpty())
+            continue;
+        if (!out.contains(rec.deviceId))
+            out << rec.deviceId;
+    }
+    return out;
+}

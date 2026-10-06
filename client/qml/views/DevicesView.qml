@@ -15,6 +15,12 @@ Rectangle {
     // 状态筛选："all" / "online" / "offline" / "alarm"
     property string statusFilter: "all"
 
+    // 筛选 chip 计数：refreshRows 同趟统计（状态含告警覆盖），保证数字与点进去的行一致
+    property int countAll: 0
+    property int countOnline: 0
+    property int countOffline: 0
+    property int countAlarm: 0
+
     property var groupNames: []
     property var groupIds: []
 
@@ -55,7 +61,16 @@ Rectangle {
 
     function refreshRows() {
         deviceRows.clear();
+        countAll = 0; countOnline = 0; countOffline = 0; countAlarm = 0;
         if (!deviceData) return;
+
+        // 活跃告警设备集合：服务端设备状态没有"告警"态，由告警接口交叉覆盖
+        var alarmDevs = {};
+        if (alarmData) {
+            var aids = alarmData.activeAlarmDeviceIds();
+            for (var k = 0; k < aids.length; ++k) alarmDevs[aids[k]] = true;
+        }
+
         var q  = searchText.toLowerCase();
         var sf = statusFilter;
         for (var i = 0; i < deviceData.rowCount(); i++) {
@@ -67,9 +82,20 @@ Rectangle {
                 && (d.name || "").toLowerCase().indexOf(q) < 0)
                 continue;
 
+            countAll++;
+
             var st = d.statusText();
             var sc = d.statusColor().toString();
-            var isOffline = (st === "离线");
+            // 真实离线保留给"最新数据"灰化；被告警覆盖后筛选按覆盖态走
+            var realOffline = (st === "离线");
+            if (alarmDevs[d.id]) {
+                st = "告警";
+                sc = theme.destructive.toString();
+            }
+
+            if (st === "在线")      countOnline++;
+            else if (st === "告警") countAlarm++;
+            else if (st === "离线") countOffline++;
 
             if (sf === "online"  && st !== "在线") continue;
             if (sf === "offline" && st !== "离线") continue;
@@ -83,7 +109,7 @@ Rectangle {
                 "lastSeenAbs":    d.lastSeen ? Qt.formatDateTime(d.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-",
                 "statusText":     st,
                 "statusColor":    sc,
-                "isOffline":      isOffline,
+                "isOffline":      realOffline,
                 "metricSummary":  dataManager ? dataManager.metricSummary(d.id, 2) : "—"
             });
         }
@@ -149,6 +175,12 @@ Rectangle {
 
     Connections {
         target: root.deviceData
+        function onCountsChanged() { root.refreshRows(); }
+    }
+
+    // 告警确认/解决后：覆盖态与 chip 计数即时刷新
+    Connections {
+        target: root.alarmData
         function onCountsChanged() { root.refreshRows(); }
     }
 
@@ -226,20 +258,16 @@ Rectangle {
             StatCard {
                 Layout.fillWidth: true
                 title: "离线"
-                value: root.deviceData
-                       ? (root.deviceData.totalCount - root.deviceData.onlineCount
-                          - (root.alarmData ? root.alarmData.activeCount : 0))
-                       : "0"
+                value: root.countOffline
                 valueColor: theme.mutedForeground
                 dotStatus: ShadcnStatusDot.Status.Offline
             }
             StatCard {
                 Layout.fillWidth: true
                 title: "告警"
-                value: root.alarmData ? root.alarmData.activeCount : "0"
-                valueColor: root.alarmData && root.alarmData.activeCount > 0
-                            ? theme.destructive : theme.mutedForeground
-                dotStatus: root.alarmData && root.alarmData.activeCount > 0
+                value: root.countAlarm
+                valueColor: root.countAlarm > 0 ? theme.destructive : theme.mutedForeground
+                dotStatus: root.countAlarm > 0
                            ? ShadcnStatusDot.Status.Danger : ShadcnStatusDot.Status.Offline
             }
         }
@@ -309,38 +337,35 @@ Rectangle {
                         spacing: 6
 
                         ShadcnButton {
-                            text: "全部 (" + (root.deviceData ? root.deviceData.totalCount : 0) + ")"
+                            text: "全部 (" + root.countAll + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: (root.statusFilter ?? "all") === "all"
-                                     ? 0 /* Default=0 */
-                                     : 1 /* Outline=1 */
+                            variant: root.statusFilter === "all"
+                                     ? ShadcnButton.Variant.Primary
+                                     : ShadcnButton.Variant.Outline
                             onClicked: { root.statusFilter = "all"; root.refreshRows(); }
                         }
                         ShadcnButton {
-                            text: "在线 (" + (root.deviceData ? root.deviceData.onlineCount : 0) + ")"
+                            text: "在线 (" + root.countOnline + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: (root.statusFilter ?? "online") === "online"
-                                     ? 0 /* Default=0 */
-                                     : 1 /* Outline=1 */
+                            variant: root.statusFilter === "online"
+                                     ? ShadcnButton.Variant.Primary
+                                     : ShadcnButton.Variant.Outline
                             onClicked: { root.statusFilter = "online"; root.refreshRows(); }
                         }
                         ShadcnButton {
-                            text: "离线 (" + (root.deviceData
-                                ? (root.deviceData.totalCount - root.deviceData.onlineCount
-                                   - (root.alarmData ? root.alarmData.activeCount : 0))
-                                : 0) + ")"
+                            text: "离线 (" + root.countOffline + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: (root.statusFilter ?? "offline") === "offline"
-                                     ? 0 /* Default=0 */
-                                     : 1 /* Outline=1 */
+                            variant: root.statusFilter === "offline"
+                                     ? ShadcnButton.Variant.Primary
+                                     : ShadcnButton.Variant.Outline
                             onClicked: { root.statusFilter = "offline"; root.refreshRows(); }
                         }
                         ShadcnButton {
-                            text: "告警 (" + (root.alarmData ? root.alarmData.activeCount : 0) + ")"
+                            text: "告警 (" + root.countAlarm + ")"
                             size: ShadcnButton.Size.ExtraSmall
-                            variant: (root.statusFilter ?? "alarm") === "alarm"
-                                     ? 0 /* Default=0 */
-                                     : 1 /* Outline=1 */
+                            variant: root.statusFilter === "alarm"
+                                     ? ShadcnButton.Variant.Primary
+                                     : ShadcnButton.Variant.Outline
                             onClicked: { root.statusFilter = "alarm"; root.refreshRows(); }
                         }
                         Item { Layout.fillWidth: true }

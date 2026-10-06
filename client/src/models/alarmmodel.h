@@ -95,6 +95,9 @@ public:
 
     /** 当前可见行(已按过滤)的告警 id, 顺序与行号一致. */
     Q_INVOKABLE QVariantList ids() const;
+    /** 活跃告警去重后的设备 id 列表 (不受 device/severity filter 影响,
+     *  设备列表页用它把告警设备的状态覆盖为「告警」). */
+    Q_INVOKABLE QVariantList activeAlarmDeviceIds() const;
     QString deviceFilter() const;
     Q_INVOKABLE void setSeverityFilter(int severityIndex);
     int severityFilter() const { return m_severityFilter; }
