@@ -11,6 +11,9 @@ Rectangle {
     QtShadcnTheme { id: theme }
     color: theme.background
 
+    // 返回设备列表（main.qml 接线）
+    signal navigateBack()
+
     // 当前查看接入参数的设备（DeviceInfo gadget），null = 通用占位
     property var currentDevice: null
     property string devId: currentDevice ? currentDevice.id : "{device_id}"
@@ -278,6 +281,13 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
+
+            ShadcnButton {
+                iconName: "arrow-left"
+                size: ShadcnButton.Size.Small
+                variant: ShadcnButton.Variant.Ghost
+                onClicked: root.navigateBack()
+            }
 
             ColumnLayout {
                 spacing: 2

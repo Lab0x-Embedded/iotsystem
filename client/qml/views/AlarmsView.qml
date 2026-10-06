@@ -144,7 +144,6 @@ Rectangle {
         id: cbRoot
 
         property bool checked: false
-        property bool enabled: true
         signal toggled(bool checked)
 
         implicitWidth: 18

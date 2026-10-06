@@ -128,6 +128,7 @@ QQC.ApplicationWindow {
             // 5: MQTT 接入指南（由设备表格"接入"按钮进入，参数按设备填充）
             MqttGuideView {
                 id: guideView
+                onNavigateBack: root.currentView = 0
             }
         }
     }
