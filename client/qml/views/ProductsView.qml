@@ -5,7 +5,6 @@ import QtShadcn
 import "../components"
 
 // 产品管理：products 表 CRUD
-// 产品与设备是一对多（devices.product_key 外键指向 products.product_key）
 Rectangle {
     id: root
 
@@ -55,16 +54,73 @@ Rectangle {
         function onErrorOccurred(error) { root.showToast(error, theme.destructive); }
     }
 
+    // ═══════════════ 内联组件 ═══════════════
+
+    component Pill: Rectangle {
+        id: pillRoot
+        property string text: ""
+        property color fg: theme.foreground
+        property color bg: theme.muted
+
+        implicitWidth: pillText.implicitWidth + 20
+        implicitHeight: 24
+        radius: 12
+        color: pillRoot.bg
+
+        Text {
+            id: pillText
+            anchors.centerIn: parent
+            text: pillRoot.text
+            color: pillRoot.fg
+            font.pixelSize: 12
+        }
+    }
+
+    component IconBtn: Rectangle {
+        id: iconBtnRoot
+        property string iconName: ""
+        property color iconColor: theme.mutedForeground
+        property color iconHoverColor: theme.foreground
+        property color hoverBg: Qt.alpha(theme.foreground, 0.06)
+        signal clicked()
+
+        implicitWidth: 30
+        implicitHeight: 30
+        radius: 6
+        color: btnHover.hovered ? iconBtnRoot.hoverBg : "transparent"
+
+        ShadcnIcon {
+            anchors.centerIn: parent
+            name: iconBtnRoot.iconName
+            size: 14
+            color: btnHover.hovered ? iconBtnRoot.iconHoverColor
+                                    : iconBtnRoot.iconColor
+        }
+        MouseArea {
+            id: btnHover
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: iconBtnRoot.clicked()
+        }
+    }
+
+    // ═══════════════ 布局 ═══════════════
+
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 20
+        anchors.margins: 24
         spacing: 16
 
-        // ===== 头部 =====
         RowLayout {
             Layout.fillWidth: true
+            spacing: 8
 
-            ShadcnLabel { text: "产品管理"; size: ShadcnLabel.Size.Large }
+            ShadcnLabel {
+                text: "产品管理"
+                size: ShadcnLabel.Size.Large
+                font.bold: true
+            }
             Item { Layout.fillWidth: true }
             ShadcnButton {
                 text: "刷新"
@@ -84,27 +140,45 @@ Rectangle {
             }
         }
 
-        // ===== 列表 =====
-        Panel {
+        Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            radius: 10
+            color: theme.background
+            border.width: 1
+            border.color: Qt.alpha(theme.foreground, 0.08)
 
             ColumnLayout {
                 anchors.fill: parent
-                spacing: 8
+                spacing: 0
 
-                RowLayout {
+                Rectangle {
                     Layout.fillWidth: true
-                    spacing: 10
+                    Layout.preferredHeight: 42
+                    color: Qt.alpha(theme.foreground, 0.03)
+                    topLeftRadius: 10
+                    topRightRadius: 10
 
-                    ShadcnLabel { Layout.fillWidth: true;    text: "产品名称"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                    ShadcnLabel { Layout.preferredWidth: 160; text: "产品 Key"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                    ShadcnLabel { Layout.preferredWidth: 80;  text: "设备数";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                    ShadcnLabel { Layout.preferredWidth: 90;  text: "物模型";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                    ShadcnLabel { Layout.preferredWidth: 200; text: "描述";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                    ShadcnLabel { text: "操作"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 20
+                        spacing: 16
+
+                        ShadcnLabel { Layout.fillWidth: true; Layout.minimumWidth: 200; text: "产品名称"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.preferredWidth: 170; text: "产品 Key"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.preferredWidth: 90;  text: "设备数";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.preferredWidth: 110; text: "物模型";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.preferredWidth: 260; text: "描述";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel { Layout.preferredWidth: 108; text: "操作";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                    }
                 }
-                ShadcnSeparator { Layout.fillWidth: true }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: 1
+                    color: Qt.alpha(theme.foreground, 0.08)
+                }
 
                 ListView {
                     id: productList
@@ -112,7 +186,7 @@ Rectangle {
                     Layout.fillHeight: true
                     clip: true
                     model: productRows
-                    spacing: 2
+                    spacing: 0
 
                     QQC.ScrollBar.vertical: QQC.ScrollBar {
                         active: true
@@ -120,6 +194,8 @@ Rectangle {
                     }
 
                     delegate: Rectangle {
+                        id: rowDelegate
+
                         required property int index
                         required property int pid
                         required property string productKey
@@ -129,64 +205,94 @@ Rectangle {
                         required property int propCount
 
                         width: productList.width
-                        height: 48
-                        radius: theme.radius
-                        color: "transparent"
+                        height: 56
+                        color: rowHover.hovered
+                               ? Qt.alpha(theme.foreground, 0.025)
+                               : "transparent"
+
+                        HoverHandler { id: rowHover }
+
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 20
+                            anchors.rightMargin: 20
+                            height: 1
+                            color: Qt.alpha(theme.foreground, 0.05)
+                            visible: rowDelegate.index !== productList.count - 1
+                        }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            spacing: 10
+                            anchors.leftMargin: 20
+                            anchors.rightMargin: 20
+                            spacing: 16
 
                             ShadcnLabel {
                                 Layout.fillWidth: true
+                                Layout.minimumWidth: 200
                                 text: productName || productKey
                                 size: ShadcnLabel.Size.Small
-                            }
-                            ShadcnLabel {
-                                Layout.preferredWidth: 160
-                                text: productKey
-                                size: ShadcnLabel.Size.Small
-                                variant: ShadcnLabel.Variant.Muted
-                            }
-                            ShadcnBadge {
-                                Layout.preferredWidth: 80
-                                text: deviceCount + " 台"
-                                variant: ShadcnBadge.Variant.Secondary
-                            }
-                            ShadcnBadge {
-                                Layout.preferredWidth: 90
-                                text: propCount > 0 ? (propCount + " 项属性") : "自由模式"
-                                variant: propCount > 0 ? 1 /* Badge.Secondary */
-                                                       : 3 /* Badge.Outline */
-                            }
-                            ShadcnLabel {
-                                Layout.preferredWidth: 200
-                                text: description || "-"
-                                size: ShadcnLabel.Size.Small
-                                variant: ShadcnLabel.Variant.Muted
+                                font.bold: true
                                 elide: Text.ElideRight
                             }
-                            RowLayout {
-                                spacing: 4
 
-                                ShadcnButton {
-                                    text: "物模型"
+                            ShadcnLabel {
+                                Layout.preferredWidth: 170
+                                text: productKey
+                                size: ShadcnLabel.Size.Small
+                                color: theme.mutedForeground
+                                font.family: "Monaco"
+                                elide: Text.ElideRight
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 90
+                                Pill {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: deviceCount + " 台"
+                                    fg: theme.foreground
+                                    bg: Qt.alpha(theme.foreground, 0.06)
+                                }
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 110
+                                Pill {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: propCount > 0 ? (propCount + " 项属性") : "自由模式"
+                                    fg: propCount > 0 ? theme.primary : theme.mutedForeground
+                                    bg: propCount > 0
+                                        ? Qt.alpha(theme.primary, 0.10)
+                                        : Qt.alpha(theme.foreground, 0.05)
+                                }
+                            }
+
+                            ShadcnLabel {
+                                Layout.preferredWidth: 260
+                                text: description || "—"
+                                size: ShadcnLabel.Size.Small
+                                color: theme.mutedForeground
+                                elide: Text.ElideRight
+                            }
+
+                            RowLayout {
+                                Layout.preferredWidth: 108
+                                spacing: 2
+
+                                IconBtn {
                                     iconName: "book"
-                                    size: ShadcnButton.Size.ExtraSmall
-                                    variant: ShadcnButton.Variant.Ghost
                                     onClicked: {
                                         modelDialog.pkey = productKey;
                                         modelDialog.pname = productName || productKey;
                                         modelDialog.open();
                                     }
                                 }
-                                ShadcnButton {
-                                    text: "编辑"
+                                IconBtn {
                                     iconName: "pencil"
-                                    size: ShadcnButton.Size.ExtraSmall
-                                    variant: ShadcnButton.Variant.Ghost
                                     onClicked: {
                                         productDialog.editing = {
                                             "id": pid,
@@ -197,11 +303,10 @@ Rectangle {
                                         productDialog.open();
                                     }
                                 }
-                                ShadcnButton {
-                                    text: "删除"
+                                IconBtn {
                                     iconName: "trash-2"
-                                    size: ShadcnButton.Size.ExtraSmall
-                                    variant: ShadcnButton.Variant.Ghost
+                                    iconHoverColor: theme.destructive
+                                    hoverBg: Qt.alpha(theme.destructive, 0.08)
                                     onClicked: {
                                         deleteDialog.pid = pid;
                                         deleteDialog.pkey = productKey;
@@ -215,19 +320,31 @@ Rectangle {
 
                     Column {
                         anchors.centerIn: parent
-                        spacing: theme.spacingSm
+                        spacing: 10
                         visible: productList.count === 0
 
                         ShadcnIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
                             name: "tag"
-                            size: 32
+                            size: 36
                             color: theme.mutedForeground
                         }
                         ShadcnLabel {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "暂无产品"
+                            size: ShadcnLabel.Size.Small
                             variant: ShadcnLabel.Variant.Muted
+                        }
+                        ShadcnButton {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "新建第一个产品"
+                            iconName: "plus"
+                            size: ShadcnButton.Size.Small
+                            variant: ShadcnButton.Variant.Outline
+                            onClicked: {
+                                productDialog.editing = null;
+                                productDialog.open();
+                            }
                         }
                     }
                 }
@@ -235,12 +352,10 @@ Rectangle {
         }
     }
 
-    // ===== 新建 / 编辑产品 =====
+    // ═══════════════ 新建 / 编辑产品 ═══════════════
     ShadcnDialog {
         id: productDialog
-
         property var editing: null
-
         modal: true
 
         onOpened: {
@@ -334,14 +449,12 @@ Rectangle {
         }
     }
 
-    // ===== 删除确认 =====
+    // ═══════════════ 删除确认 ═══════════════
     ShadcnDialog {
         id: deleteDialog
-
         property int pid: 0
         property string pkey: ""
         property int devices: 0
-
         modal: true
 
         ShadcnDialogContent {
@@ -381,15 +494,18 @@ Rectangle {
         }
     }
 
-    // ===== 物模型属性管理对话框 =====
+    // ═══════════════ 物模型属性管理 ═══════════════
     ShadcnDialog {
         id: modelDialog
 
         property string pkey: ""
         property string pname: ""
 
-        width: 640
-        height: 560
+        width: 620
+        // ⚠️ 不要在这里设 height：ShadcnDialogContent 自带 implicitHeight
+        // （body 超高由 maxHeight=0.85×窗口封顶并滚动）。显式撑高会让 footer
+        // 条（锚定在 contentItem 底部）与弹窗底边脱离，底下露出背景白边。
+
         modal: true
 
         readonly property int  propCount:     propRows.count
@@ -411,9 +527,9 @@ Rectangle {
                 for (var i = 0; i < list.length; ++i) {
                     var p = list[i];
                     propRows.append({
-                        "identifier": p.identifier   || "",
-                        "propType":   p.prop_type    || "unknown",
-                        "propDesc":   p.description  || ""
+                        "identifier": p.identifier  || "",
+                        "propType":   p.prop_type   || "unknown",
+                        "propDesc":   p.description || ""
                     });
                 }
             }
@@ -435,75 +551,101 @@ Rectangle {
         ShadcnDialogContent {
             ColumnLayout {
                 width: parent.width
-                spacing: 14
+                spacing: 10
 
-                // ---------- 标题区 ----------
-                // 注意：右侧留出 32px 给 Dialog 自带的关闭按钮
+                // ── 标题 + badge
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.rightMargin: 32
                     spacing: 10
 
-                    ShadcnDialogTitle {
+                    Text {
                         Layout.fillWidth: true
                         text: "物模型 · " + (modelDialog.pname || modelDialog.pkey)
+                        color: theme.foreground
+                        font.pixelSize: 16
+                        font.bold: true
                         elide: Text.ElideRight
                     }
-                    ShadcnBadge {
-                        text: modelDialog.whitelistMode
-                              ? modelDialog.propCount + " 项属性"
-                              : "自由模式"
-                        variant: modelDialog.whitelistMode
-                                 ? 1 /* Badge.Secondary */
-                                 : 3 /* Badge.Outline */
+                    Rectangle {
+                        implicitWidth: badgeText.implicitWidth + 18
+                        implicitHeight: 24
+                        radius: 12
+                        color: modelDialog.whitelistMode
+                               ? Qt.alpha(theme.primary, 0.10)
+                               : Qt.alpha(theme.foreground, 0.05)
+                        Text {
+                            id: badgeText
+                            anchors.centerIn: parent
+                            text: modelDialog.whitelistMode
+                                  ? modelDialog.propCount + " 项属性"
+                                  : "自由模式"
+                            color: modelDialog.whitelistMode
+                                   ? theme.primary : theme.mutedForeground
+                            font.pixelSize: 12
+                        }
                     }
                 }
 
-                ShadcnDialogDescription {
+                // ── 描述行
+                Text {
                     Layout.fillWidth: true
                     Layout.rightMargin: 32
                     wrapMode: Text.Wrap
                     text: modelDialog.whitelistMode
                           ? "白名单已启用：仅下列属性允许上报，其它字段将被拒绝入库。"
-                          : "自由模式：未定义任何属性，设备上报的所有字段都会入库。添加第一条属性后白名单即生效。"
+                          : "自由模式：未定义属性时，设备上报的所有字段都会入库。添加第一条属性后白名单即生效。"
+                    color: theme.mutedForeground
+                    font.pixelSize: 12
+                    lineHeight: 1.4
                 }
 
-                ShadcnSeparator { Layout.fillWidth: true }
-
-                // ---------- 已定义属性 ----------
+                // ── 已定义属性 header
                 RowLayout {
                     Layout.fillWidth: true
-                    ShadcnLabel {
+                    spacing: 8
+
+                    Text {
                         text: "已定义属性"
-                        size: ShadcnLabel.Size.Small
-                        variant: ShadcnLabel.Variant.Muted
+                        color: theme.foreground
+                        font.pixelSize: 13
+                        font.bold: true
+                    }
+                    Rectangle {
+                        implicitWidth: countText.implicitWidth + 14
+                        implicitHeight: 20
+                        radius: 10
+                        color: Qt.alpha(theme.foreground, 0.06)
+                        Text {
+                            id: countText
+                            anchors.centerIn: parent
+                            text: modelDialog.propCount
+                            color: theme.mutedForeground
+                            font.pixelSize: 11
+                        }
                     }
                     Item { Layout.fillWidth: true }
-                    ShadcnLabel {
-                        text: modelDialog.propCount + " 项"
-                        size: ShadcnLabel.Size.Small
-                        variant: ShadcnLabel.Variant.Muted
-                    }
                 }
 
-                // 列表容器：固定高度改小，避免空白
+                // ── 已定义属性列表
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 180
-                    radius: theme.radius
-                    color: theme.muted
+                    Layout.preferredHeight: 220   /* 列表区固定高，超出滚动 */
+                    radius: 8
+                    color: theme.background
                     border.width: 1
-                    border.color: Qt.alpha(theme.border, 0.6)
+                    border.color: Qt.alpha(theme.foreground, 0.08)
 
                     ColumnLayout {
                         anchors.fill: parent
                         spacing: 0
 
-                        // 表头
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 36
-                            color: "transparent"
+                            color: Qt.alpha(theme.foreground, 0.03)
+                            topLeftRadius: 8
+                            topRightRadius: 8
 
                             RowLayout {
                                 anchors.fill: parent
@@ -511,33 +653,18 @@ Rectangle {
                                 anchors.rightMargin: 14
                                 spacing: 10
 
-                                ShadcnLabel {
-                                    Layout.preferredWidth: 150
-                                    text: "标识符"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                ShadcnLabel {
-                                    Layout.preferredWidth: 80
-                                    text: "类型"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                ShadcnLabel {
-                                    Layout.fillWidth: true
-                                    text: "描述"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                ShadcnLabel {
-                                    Layout.preferredWidth: 64
-                                    text: ""
-                                    size: ShadcnLabel.Size.Small
-                                }
+                                Text { Layout.preferredWidth: 150; text: "标识符"; color: theme.mutedForeground; font.pixelSize: 12 }
+                                Text { Layout.preferredWidth: 90;  text: "类型";   color: theme.mutedForeground; font.pixelSize: 12 }
+                                Text { Layout.fillWidth: true;     text: "描述";   color: theme.mutedForeground; font.pixelSize: 12 }
+                                Item { Layout.preferredWidth: 40 }
                             }
                         }
 
-                        ShadcnSeparator { Layout.fillWidth: true }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: Qt.alpha(theme.foreground, 0.08)
+                        }
 
                         ListView {
                             id: propList
@@ -560,11 +687,11 @@ Rectangle {
 
                                 width: propList.width
                                 height: 40
-                                color: rowHover.hovered
-                                       ? Qt.alpha(theme.accent, 0.35)
+                                color: propHover.hovered
+                                       ? Qt.alpha(theme.foreground, 0.025)
                                        : "transparent"
 
-                                HoverHandler { id: rowHover }
+                                HoverHandler { id: propHover }
 
                                 RowLayout {
                                     anchors.fill: parent
@@ -572,36 +699,45 @@ Rectangle {
                                     anchors.rightMargin: 14
                                     spacing: 10
 
-                                    ShadcnLabel {
+                                    Text {
                                         Layout.preferredWidth: 150
                                         text: identifier
-                                        size: ShadcnLabel.Size.Small
+                                        color: theme.foreground
+                                        font.pixelSize: 13
+                                        font.family: "Monaco"
                                         elide: Text.ElideRight
                                     }
-                                    ShadcnBadge {
-                                        Layout.preferredWidth: 80
-                                        text: propType
-                                        variant: propType === "bool"
-                                                 ? 1 /* Badge.Secondary */
-                                                 : 3 /* Badge.Outline */
+                                    Rectangle {
+                                        Layout.preferredWidth: 90
+                                        implicitHeight: 20
+                                        radius: 10
+                                        color: Qt.alpha(theme.foreground, 0.06)
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: propType
+                                            color: theme.mutedForeground
+                                            font.pixelSize: 11
+                                        }
                                     }
-                                    ShadcnLabel {
+                                    Text {
                                         Layout.fillWidth: true
                                         text: propDesc || "—"
-                                        size: ShadcnLabel.Size.Small
-                                        variant: ShadcnLabel.Variant.Muted
+                                        color: theme.mutedForeground
+                                        font.pixelSize: 12
                                         elide: Text.ElideRight
                                     }
-                                    // 删除：仅图标按钮，紧凑
-                                    ShadcnButton {
-                                        Layout.preferredWidth: 64
-                                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                                        iconName: "trash-2"
-                                        size: ShadcnButton.Size.ExtraSmall
-                                        variant: ShadcnButton.Variant.Ghost
-                                        onClicked: {
-                                            dataManager.httpClient.propDelete(
-                                                modelDialog.pkey, identifier);
+                                    Item {
+                                        Layout.preferredWidth: 40
+                                        Layout.fillHeight: true
+                                        IconBtn {
+                                            anchors.centerIn: parent
+                                            iconName: "trash-2"
+                                            iconHoverColor: theme.destructive
+                                            hoverBg: Qt.alpha(theme.destructive, 0.08)
+                                            onClicked: {
+                                                dataManager.httpClient.propDelete(
+                                                    modelDialog.pkey, identifier);
+                                            }
                                         }
                                     }
                                 }
@@ -610,44 +746,38 @@ Rectangle {
                             Column {
                                 anchors.centerIn: parent
                                 visible: propList.count === 0
-                                spacing: 6
+                                spacing: 4
 
                                 ShadcnIcon {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     name: "book"
-                                    size: 28
+                                    size: 22
                                     color: theme.mutedForeground
                                 }
-                                ShadcnLabel {
+                                Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "暂无属性定义"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                ShadcnLabel {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "在下方新增属性，保存后即启用白名单校验"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
+                                    text: "暂无属性定义（自由模式）"
+                                    color: theme.mutedForeground
+                                    font.pixelSize: 12
                                 }
                             }
                         }
                     }
                 }
 
-                // ---------- 新增属性 ----------
+                // ── 新增属性区
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 150
-                    radius: theme.radius
-                    color: Qt.alpha(theme.primary, 0.06)
+                    Layout.preferredHeight: 128
+                    radius: 8
+                    color: Qt.alpha(theme.primary, 0.04)
                     border.width: 1
-                    border.color: Qt.alpha(theme.primary, 0.25)
+                    border.color: Qt.alpha(theme.primary, 0.15)
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: 14
-                        spacing: 10
+                        anchors.margins: 12
+                        spacing: 8
 
                         RowLayout {
                             Layout.fillWidth: true
@@ -655,77 +785,53 @@ Rectangle {
 
                             ShadcnIcon {
                                 name: "plus-circle"
-                                size: 14
+                                size: 13
                                 color: theme.primary
                             }
-                            ShadcnLabel {
+                            Text {
                                 text: "新增属性"
-                                size: ShadcnLabel.Size.Small
+                                color: theme.primary
+                                font.pixelSize: 12
                                 font.bold: true
                             }
                             Item { Layout.fillWidth: true }
-                            ShadcnLabel {
+                            Text {
                                 text: "保存后立即生效"
-                                size: ShadcnLabel.Size.Small
-                                variant: ShadcnLabel.Variant.Muted
+                                color: theme.mutedForeground
+                                font.pixelSize: 11
                             }
                         }
 
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 10
+                            spacing: 8
 
-                            ColumnLayout {
-                                Layout.preferredWidth: 170
-                                spacing: 4
-                                ShadcnLabel {
-                                    text: "标识符 *"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                ShadcnInput {
-                                    id: propIdent
-                                    Layout.fillWidth: true
-                                    placeholderText: "如 temperature"
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.preferredWidth: 110
-                                spacing: 4
-                                ShadcnLabel {
-                                    text: "类型 *"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                ShadcnSelect {
-                                    id: propTypeSelect
-                                    Layout.fillWidth: true
-                                    model: ["number", "bool", "string"]
-                                }
-                            }
-                            ColumnLayout {
+                            ShadcnInput {
+                                id: propIdent
                                 Layout.fillWidth: true
-                                spacing: 4
-                                ShadcnLabel {
-                                    text: "描述"
-                                    size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
-                                }
-                                ShadcnInput {
-                                    id: propDesc
-                                    Layout.fillWidth: true
-                                    placeholderText: "可选，如 DHT11温度"
-                                }
+                                placeholderText: "标识符，如 temperature"
+                            }
+                            ShadcnSelect {
+                                id: propTypeSelect
+                                Layout.preferredWidth: 120
+                                model: ["number", "bool", "string"]
                             }
                         }
 
                         RowLayout {
                             Layout.fillWidth: true
-                            Item { Layout.fillWidth: true }
+                            spacing: 8
+
+                            ShadcnInput {
+                                id: propDesc
+                                Layout.fillWidth: true
+                                placeholderText: "描述（可选），如 DHT11 温度"
+                            }
                             ShadcnButton {
-                                text: "保存属性"
+                                text: "保存"
                                 iconName: "check"
                                 size: ShadcnButton.Size.Small
+                                Layout.preferredWidth: 96
                                 onClicked: {
                                     var idv = propIdent.text.trim();
                                     if (idv === "") {
@@ -748,6 +854,7 @@ Rectangle {
             footer: ShadcnDialogFooter {
                 ShadcnButton {
                     text: "关闭"
+                    iconName: "x"
                     variant: ShadcnButton.Variant.Outline
                     onClicked: modelDialog.close()
                 }
@@ -759,7 +866,7 @@ Rectangle {
     Rectangle {
         id: toastBar
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 20
+        anchors.bottomMargin: 24
         anchors.horizontalCenter: parent.horizontalCenter
         width: toastLabel.implicitWidth + 32
         height: 36
@@ -767,6 +874,7 @@ Rectangle {
         color: root.toastColor
         opacity: root.toastText ? 1.0 : 0.0
         visible: opacity > 0
+        z: 100
 
         Behavior on opacity { NumberAnimation { duration: 200 } }
 
