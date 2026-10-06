@@ -13,13 +13,44 @@ Rectangle {
     property var selectedAlarmIds: ({})
     property var selectedRuleIds: ({})
 
-    // 当前级别筛选（-1 全部 / 0 INFO / 1 WARNING / 2 CRITICAL）
     property int severityFilter: -1
+    property int activeTab: 0
 
     QtShadcnTheme { id: theme }
     color: theme.background
 
-    // ═══════════════ 工具函数 ═══════════════
+    // ═══════════════ 时间处理 ═══════════════
+    function parseLocalTime(s) {
+        var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2}):(\d{2})/);
+        if (!m) return NaN;
+        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+                        Number(m[4]), Number(m[5]), Number(m[6])).getTime();
+    }
+
+    function relativeTime(str) {
+        if (!str) return "—";
+        var s = String(str);
+        var t = NaN;
+
+        if (/^\d{10}$/.test(s)) {
+            t = Number(s) * 1000;
+        } else if (/^\d{13}$/.test(s)) {
+            t = Number(s);
+        } else {
+            t = parseLocalTime(s);
+            if (isNaN(t)) t = new Date(s).getTime();
+        }
+
+        if (isNaN(t)) return s;
+
+        var diff = (Date.now() - t) / 1000;
+        if (diff < 0)        return "刚刚";
+        if (diff < 60)       return "刚刚";
+        if (diff < 3600)     return Math.floor(diff / 60) + " 分钟前";
+        if (diff < 86400)    return Math.floor(diff / 3600) + " 小时前";
+        if (diff < 86400*7)  return Math.floor(diff / 86400) + " 天前";
+        return s.substring(0, 10);
+    }
 
     function countOf(map) {
         var c = 0;
@@ -29,23 +60,10 @@ Rectangle {
     function alarmSelectedCount() { return countOf(selectedAlarmIds); }
     function ruleSelectedCount()  { return countOf(selectedRuleIds); }
 
-    function relativeTime(str) {
-        if (!str) return "—";
-        var t = new Date(String(str).replace(" ", "T")).getTime();
-        if (!t) return str;
-        var diff = (Date.now() - t) / 1000;
-        if (diff < 60)      return "刚刚";
-        if (diff < 3600)    return Math.floor(diff / 60) + " 分钟前";
-        if (diff < 86400)   return Math.floor(diff / 3600) + " 小时前";
-        if (diff < 86400*7) return Math.floor(diff / 86400) + " 天前";
-        return String(str).substring(0, 10);
-    }
-
     function metricLabel(m) {
         if (dataManager && dataManager.metricLabel) return dataManager.metricLabel(m);
         var map = { "temperature":"温度", "humidity":"湿度", "voltage":"电压",
-                    "current":"电流", "power":"功率", "pressure":"气压",
-                    "co2":"CO₂", "pm25":"PM2.5" };
+                    "current":"电流", "power":"功率", "pressure":"气压" };
         return map[m] || m;
     }
     function metricUnit(m) {
@@ -57,22 +75,31 @@ Rectangle {
 
     function severityColor(sev) {
         if (sev === 2) return theme.destructive;
-        if (sev === 1) return "#F59E0B";
+        if (sev === 1) return "#D97706";
         return theme.primary;
     }
+    function severityBg(sev) {
+        if (sev === 2) return Qt.alpha(theme.destructive, 0.10);
+        if (sev === 1) return Qt.alpha("#D97706", 0.12);
+        return Qt.alpha(theme.primary, 0.10);
+    }
+    function statusText(s) {
+        if (s === 2) return "已解决";
+        if (s === 1) return "已确认";
+        return "未确认";
+    }
     function statusColorOf(s) {
-        if (s === 0) return theme.destructive;   // 未确认
-        if (s === 1) return "#F59E0B";           // 已确认
-        return theme.mutedForeground;            // 已解决
+        if (s === 0) return theme.destructive;
+        if (s === 1) return "#D97706";
+        return theme.mutedForeground;
     }
     function statusBgOf(s) {
-        if (s === 0) return Qt.alpha(theme.destructive, 0.12);
-        if (s === 1) return Qt.alpha("#F59E0B", 0.15);
-        return theme.muted;
+        if (s === 0) return Qt.alpha(theme.destructive, 0.10);
+        if (s === 1) return Qt.alpha("#D97706", 0.12);
+        return Qt.alpha(theme.foreground, 0.06);
     }
 
-    // ═══════════════ 选中集合管理（保持原逻辑） ═══════════════
-
+    // ═══════════════ 选择管理 ═══════════════
     function syncAlarmSelectAll() {
         if (!alarmSelectAll) return;
         var target = allAlarmsSelected();
@@ -83,11 +110,9 @@ Rectangle {
         var target = allRulesSelected();
         if (ruleSelectAll.checked !== target) ruleSelectAll.checked = target;
     }
-
     function toggleAlarm(id) {
         var m = Object.assign({}, selectedAlarmIds);
-        if (m[id]) delete m[id];
-        else m[id] = true;
+        if (m[id]) delete m[id]; else m[id] = true;
         selectedAlarmIds = m;
         syncAlarmSelectAll();
     }
@@ -132,11 +157,9 @@ Rectangle {
                 alarmListModel.resolve(i);
         clearAlarmSelection();
     }
-
     function toggleRuleSelection(id) {
         var m = Object.assign({}, selectedRuleIds);
-        if (m[id]) delete m[id];
-        else m[id] = true;
+        if (m[id]) delete m[id]; else m[id] = true;
         selectedRuleIds = m;
         syncRuleSelectAll();
     }
@@ -178,30 +201,28 @@ Rectangle {
 
     // ═══════════════ 内联组件 ═══════════════
 
-    // 行选中复选框
+    // 复选框
     component RowCheckbox: Item {
         id: cbRoot
-
         property bool checked: false
         signal toggled(bool checked)
-
-        implicitWidth: 18
-        implicitHeight: 18
+        implicitWidth: 16
+        implicitHeight: 16
         opacity: cbRoot.enabled ? 1.0 : 0.4
 
         Rectangle {
             anchors.fill: parent
             radius: 4
-            color: cbRoot.checked ? theme.primary : theme.background
+            color: cbRoot.checked ? theme.primary : "transparent"
             border.width: 1
             border.color: cbRoot.checked ? theme.primary
-                                         : Qt.alpha(theme.foreground, 0.35)
+                                         : Qt.alpha(theme.foreground, 0.30)
         }
         ShadcnIcon {
             anchors.centerIn: parent
             visible: cbRoot.checked
             name: "check"
-            size: 12
+            size: 11
             color: theme.primaryForeground
         }
         MouseArea {
@@ -213,55 +234,131 @@ Rectangle {
         }
     }
 
-    // 级别小圆点 + 文字
+    // 级别单元格（行内）：圆点 + 文字
     component SeverityCell: RowLayout {
+        id: sevRoot
         property int sev: 0
         property string label: ""
 
         spacing: 6
         Rectangle {
             Layout.alignment: Qt.AlignVCenter
-            width: 8; height: 8; radius: 4
-            color: root.severityColor(parent.parent.sev)
+            width: 7; height: 7; radius: 3.5
+            color: root.severityColor(sevRoot.sev)
         }
         ShadcnLabel {
-            text: parent.parent.label
+            Layout.alignment: Qt.AlignVCenter
+            text: sevRoot.label
             size: ShadcnLabel.Size.Small
-            color: root.severityColor(parent.parent.sev)
-            font.bold: parent.parent.sev === 2
+            color: root.severityColor(sevRoot.sev)
+            font.bold: sevRoot.sev >= 1
         }
     }
 
-    // 状态 chip
+    // 状态 chip —— 用原生 Text 保证垂直居中
     component StatusChip: Rectangle {
+        id: chipRoot
         property int st: 0
-        property string label: ""
 
-        implicitWidth: chipLabel.implicitWidth + 20
+        implicitWidth: chipText.implicitWidth + 20
         implicitHeight: 22
         radius: 11
-        color: root.statusBgOf(st)
+        color: root.statusBgOf(chipRoot.st)
 
-        ShadcnLabel {
+        Text {
+            id: chipText
+            anchors.centerIn: parent
+            text: root.statusText(chipRoot.st)
+            color: root.statusColorOf(chipRoot.st)
+            font.pixelSize: 12
+            font.bold: chipRoot.st === 0
+        }
+    }
+
+    // 下划线 Tab
+    component TabBtn: Item {
+        id: tabRoot
+        property int tabIdx: 0
+        property string label: ""
+
+        implicitWidth: tabLabel.implicitWidth + 24
+        implicitHeight: 40
+
+        Text {
+            id: tabLabel
+            anchors.centerIn: parent
+            text: tabRoot.label
+            color: root.activeTab === tabRoot.tabIdx
+                   ? theme.foreground : theme.mutedForeground
+            font.pixelSize: 13
+            font.bold: root.activeTab === tabRoot.tabIdx
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 8
+            anchors.rightMargin: 8
+            height: 2
+            radius: 1
+            color: root.activeTab === tabRoot.tabIdx
+                   ? theme.primary : "transparent"
+        }
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.activeTab = tabRoot.tabIdx
+        }
+    }
+
+    // 级别筛选 chip —— 自定义选中态
+    component SevChip: Rectangle {
+        id: sevChipRoot
+        property int sevId: -1
+        property string label: ""
+
+        readonly property bool selected: root.severityFilter === sevChipRoot.sevId
+
+        implicitWidth: chipLabel.implicitWidth + 28
+        implicitHeight: 28
+        radius: 14
+        color: selected ? theme.primary : "transparent"
+        border.width: 1
+        border.color: selected ? theme.primary
+                               : Qt.alpha(theme.foreground, 0.18)
+
+        Text {
             id: chipLabel
             anchors.centerIn: parent
-            text: parent.label
-            size: ShadcnLabel.Size.Small
-            color: root.statusColorOf(parent.st)
-            font.bold: parent.st === 0
+            text: sevChipRoot.label
+            color: sevChipRoot.selected ? theme.primaryForeground
+                                        : theme.foreground
+            font.pixelSize: 12
+            font.bold: sevChipRoot.selected
+        }
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                root.severityFilter = sevChipRoot.sevId;
+                if (root.alarmListModel) {
+                    root.alarmListModel.setSeverityFilter(sevChipRoot.sevId);
+                    root.clearAlarmSelection();
+                }
+            }
         }
     }
 
     // ═══════════════ 布局 ═══════════════
-
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 14
+        anchors.margins: 24
+        spacing: 0
 
         // ── 头部 ──
         RowLayout {
             Layout.fillWidth: true
+            Layout.bottomMargin: 16
             spacing: 12
 
             ShadcnLabel {
@@ -272,14 +369,13 @@ Rectangle {
 
             Item { Layout.fillWidth: true }
 
-            // 未确认 chip（红底）
             Rectangle {
-                implicitWidth: unackRow.implicitWidth + 22
-                implicitHeight: 30
-                radius: 15
+                implicitWidth: unackRow.implicitWidth + 20
+                implicitHeight: 28
+                radius: 14
                 color: (root.alarmListModel && root.alarmListModel.unacknowledgedCount > 0)
-                       ? Qt.alpha(theme.destructive, 0.12)
-                       : theme.muted
+                       ? Qt.alpha(theme.destructive, 0.10)
+                       : Qt.alpha(theme.foreground, 0.06)
 
                 RowLayout {
                     id: unackRow
@@ -290,32 +386,30 @@ Rectangle {
                         color: theme.destructive
                         visible: root.alarmListModel && root.alarmListModel.unacknowledgedCount > 0
                     }
-                    ShadcnLabel {
+                    Text {
                         text: "未确认 " + (root.alarmListModel ? root.alarmListModel.unacknowledgedCount : 0)
-                        size: ShadcnLabel.Size.Small
                         color: (root.alarmListModel && root.alarmListModel.unacknowledgedCount > 0)
                                ? theme.destructive : theme.mutedForeground
+                        font.pixelSize: 12
                         font.bold: root.alarmListModel && root.alarmListModel.unacknowledgedCount > 0
                     }
                 }
             }
 
-            // 未解决 chip（灰底）
             Rectangle {
-                implicitWidth: unresRow.implicitWidth + 22
-                implicitHeight: 30
-                radius: 15
-                color: theme.muted
+                implicitWidth: unresRow.implicitWidth + 20
+                implicitHeight: 28
+                radius: 14
+                color: Qt.alpha(theme.foreground, 0.06)
 
                 RowLayout {
                     id: unresRow
                     anchors.centerIn: parent
                     spacing: 6
-                    ShadcnLabel {
+                    Text {
                         text: "未解决 " + (root.alarmListModel ? root.alarmListModel.unresolvedCount : 0)
-                        size: ShadcnLabel.Size.Small
                         color: theme.foreground
-                        font.bold: true
+                        font.pixelSize: 12
                     }
                 }
             }
@@ -326,42 +420,29 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 4
 
-            component TabBtn: ShadcnButton {
-                property int tabIdx: 0
-                property string label: ""
-                text: label
-                size: ShadcnButton.Size.Small
-                variant: (alarmTabs.currentIndex ?? 0) === tabIdx
-                         ? ShadcnButton.Variant.Default
-                         : ShadcnButton.Variant.Ghost
-                onClicked: alarmTabs.currentIndex = tabIdx
-            }
-
             TabBtn { tabIdx: 0; label: "告警记录" }
             TabBtn { tabIdx: 1; label: "告警规则" }
             Item { Layout.fillWidth: true }
-
-            // ShadcnTabsList 保留但不可见，仅用于承载 currentIndex 状态
-            ShadcnTabsList {
-                id: alarmTabs
-                visible: false
-                ShadcnTabsTrigger { text: "告警记录" }
-                ShadcnTabsTrigger { text: "告警规则" }
-            }
         }
 
-        ShadcnSeparator { Layout.fillWidth: true }
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.topMargin: -1
+            implicitHeight: 1
+            color: Qt.alpha(theme.foreground, 0.08)
+        }
 
         StackLayout {
             Layout.fillHeight: true
             Layout.fillWidth: true
-            currentIndex: alarmTabs.currentIndex
+            Layout.topMargin: 16
+            currentIndex: root.activeTab
 
             // ═══════════ Tab 0：告警记录 ═══════════
             ColumnLayout {
                 spacing: 12
 
-                // ── 筛选行 ──
+                // 筛选行
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 8
@@ -372,23 +453,6 @@ Rectangle {
                         variant: ShadcnLabel.Variant.Muted
                     }
 
-                    component SevChip: ShadcnButton {
-                        property int sevId: -1
-                        property string label: ""
-                        text: label
-                        size: ShadcnButton.Size.ExtraSmall
-                        variant: (root.severityFilter ?? -1) === sevId
-                                 ? ShadcnButton.Variant.Default
-                                 : ShadcnButton.Variant.Outline
-                        onClicked: {
-                            root.severityFilter = sevId;
-                            if (root.alarmListModel) {
-                                root.alarmListModel.setSeverityFilter(sevId);
-                                root.clearAlarmSelection();
-                            }
-                        }
-                    }
-
                     SevChip { sevId: -1; label: "全部" }
                     SevChip { sevId: 2;  label: "严重" }
                     SevChip { sevId: 1;  label: "警告" }
@@ -397,7 +461,7 @@ Rectangle {
                     Item { Layout.fillWidth: true }
 
                     ShadcnInput {
-                        Layout.preferredWidth: 180
+                        Layout.preferredWidth: 200
                         placeholderText: "筛选设备 ID"
                         onTextChanged: {
                             if (root.alarmListModel)
@@ -406,19 +470,21 @@ Rectangle {
                     }
                 }
 
-                // ── 批量操作栏（选中时浮出） ──
+                // 批量操作栏
                 Rectangle {
                     Layout.fillWidth: true
                     visible: root.alarmSelectedCount() > 0
-                    implicitHeight: 44
-                    radius: 10
-                    color: Qt.alpha(theme.primary, 0.08)
+                    implicitHeight: 40
+                    radius: 8
+                    color: Qt.alpha(theme.primary, 0.06)
+                    border.width: 1
+                    border.color: Qt.alpha(theme.primary, 0.15)
 
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 14
-                        anchors.rightMargin: 14
-                        spacing: 10
+                        anchors.rightMargin: 8
+                        spacing: 8
 
                         ShadcnLabel {
                             text: "已选 " + root.alarmSelectedCount() + " 条"
@@ -429,31 +495,36 @@ Rectangle {
                         Item { Layout.fillWidth: true }
 
                         ShadcnButton {
-                            text: "确认选中"
+                            text: "确认"
                             iconName: "check"
-                            size: ShadcnButton.Size.Small
-                            variant: ShadcnButton.Variant.Outline
+                            size: ShadcnButton.Size.ExtraSmall
+                            variant: ShadcnButton.Variant.Ghost
                             onClicked: root.acknowledgeSelected()
                         }
                         ShadcnButton {
-                            text: "解决选中"
+                            text: "解决"
                             iconName: "check-check"
-                            size: ShadcnButton.Size.Small
+                            size: ShadcnButton.Size.ExtraSmall
+                            variant: ShadcnButton.Variant.Ghost
                             onClicked: root.resolveSelected()
                         }
                         ShadcnButton {
                             text: "取消"
-                            size: ShadcnButton.Size.Small
+                            size: ShadcnButton.Size.ExtraSmall
                             variant: ShadcnButton.Variant.Ghost
                             onClicked: root.clearAlarmSelection()
                         }
                     }
                 }
 
-                // ── 表格 ──
-                Panel {
+                // 表格
+                Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    radius: 10
+                    color: theme.background
+                    border.width: 1
+                    border.color: Qt.alpha(theme.foreground, 0.08)
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -463,38 +534,43 @@ Rectangle {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 40
-                            color: Qt.alpha(theme.muted, 0.5)
-                            radius: theme.radius
+                            color: Qt.alpha(theme.foreground, 0.03)
+                            topLeftRadius: 10
+                            topRightRadius: 10
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 12
-                                spacing: 10
+                                anchors.leftMargin: 16
+                                anchors.rightMargin: 16
+                                spacing: 12
 
                                 Item {
-                                    Layout.preferredWidth: 28
+                                    Layout.preferredWidth: 20
                                     RowCheckbox {
                                         id: alarmSelectAll
-                                        anchors.centerIn: parent
+                                        anchors.verticalCenter: parent.verticalCenter
                                         checked: false
                                         onToggled: function(checked) {
                                             root.toggleSelectAllAlarms(checked);
                                         }
                                     }
                                 }
-                                ShadcnLabel { Layout.preferredWidth: 76;  text: "级别";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                                ShadcnLabel { Layout.preferredWidth: 130; text: "设备";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                                ShadcnLabel { Layout.preferredWidth: 100; text: "指标";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 72;  text: "级别";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 120; text: "设备";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 90;  text: "指标";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                                 ShadcnLabel { Layout.preferredWidth: 110; text: "当前值";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                                 ShadcnLabel { Layout.fillWidth:    true;  text: "触发时间"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                                ShadcnLabel { Layout.preferredWidth: 90;  text: "状态";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                                ShadcnLabel { Layout.preferredWidth: 100; text: "确认人";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                                ShadcnLabel { Layout.preferredWidth: 120; text: "操作";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 80;  text: "状态";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 90;  text: "处理人";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 96;  text: "操作";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             }
                         }
 
-                        ShadcnSeparator { Layout.fillWidth: true }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: Qt.alpha(theme.foreground, 0.08)
+                        }
 
                         ListView {
                             id: alarmList
@@ -513,14 +589,14 @@ Rectangle {
                                 id: alarmDelegate
 
                                 width: alarmList.width
-                                height: 52
+                                height: 48
                                 color: alarmHover.hovered
-                                       ? Qt.alpha(theme.accent, 0.30)
+                                       ? Qt.alpha(theme.foreground, 0.03)
                                        : "transparent"
+                                opacity: model.status === 2 ? 0.62 : 1.0
 
-                                // 未确认行左侧红条
                                 Rectangle {
-                                    visible: (model.status ?? 0) === 0
+                                    visible: model.status === 0
                                     anchors.left: parent.left
                                     anchors.top: parent.top
                                     anchors.bottom: parent.bottom
@@ -532,28 +608,32 @@ Rectangle {
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 12
-                                    anchors.rightMargin: 12
-                                    spacing: 10
+                                    anchors.leftMargin: 16
+                                    anchors.rightMargin: 16
+                                    spacing: 12
 
                                     Item {
-                                        Layout.preferredWidth: 28
+                                        Layout.preferredWidth: 20
+                                        Layout.fillHeight: true
                                         RowCheckbox {
-                                            anchors.centerIn: parent
+                                            anchors.verticalCenter: parent.verticalCenter
                                             checked: !!root.selectedAlarmIds[model.id]
-                                            enabled: (model.status ?? 0) !== 2
+                                            enabled: model.status !== 2
                                             onToggled: root.toggleAlarm(model.id)
                                         }
                                     }
 
                                     SeverityCell {
-                                        Layout.preferredWidth: 76
-                                        sev: model.severity ?? 0
-                                        label: model.severityText ?? ""
+                                        Layout.preferredWidth: 72
+                                        Layout.fillHeight: true
+                                        Layout.alignment: Qt.AlignVCenter
+                                        sev: model.severity
+                                        label: model.severityText
                                     }
 
                                     ShadcnLabel {
-                                        Layout.preferredWidth: 130
+                                        Layout.preferredWidth: 120
+                                        Layout.alignment: Qt.AlignVCenter
                                         text: model.deviceId
                                         size: ShadcnLabel.Size.Small
                                         font.family: "Monaco"
@@ -562,63 +642,75 @@ Rectangle {
                                     }
 
                                     ShadcnLabel {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 90
+                                        Layout.alignment: Qt.AlignVCenter
                                         text: root.metricLabel(model.metric)
                                         size: ShadcnLabel.Size.Small
+                                        color: theme.mutedForeground
                                     }
 
                                     ShadcnLabel {
                                         Layout.preferredWidth: 110
-                                        text: Number(model.value).toFixed(1) + " " + root.metricUnit(model.metric)
+                                        Layout.alignment: Qt.AlignVCenter
+                                        text: Number(model.value).toFixed(1)
+                                              + " " + root.metricUnit(model.metric)
                                         size: ShadcnLabel.Size.Small
-                                        font.bold: true
-                                        color: root.severityColor(model.severity)
+                                        font.bold: model.status !== 2
+                                        color: model.status === 2
+                                               ? theme.foreground
+                                               : root.severityColor(model.severity)
                                     }
 
                                     ShadcnLabel {
                                         Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignVCenter
                                         text: root.relativeTime(model.triggeredAt)
                                         size: ShadcnLabel.Size.Small
-                                        variant: ShadcnLabel.Variant.Muted
+                                        color: theme.mutedForeground
                                     }
 
                                     Item {
-                                        Layout.preferredWidth: 90
+                                        Layout.preferredWidth: 80
+                                        Layout.fillHeight: true
                                         StatusChip {
+                                            anchors.verticalCenter: parent.verticalCenter
                                             anchors.left: parent.left
-                                            st: model.status ?? 0
-                                            label: (model.status ?? 0) === 2 ? "已解决"
-                                                 : (model.status ?? 0) === 1 ? "已确认" : "未确认"
+                                            st: model.status
                                         }
                                     }
 
                                     ShadcnLabel {
-                                        Layout.preferredWidth: 100
-                                        text: (model.status === 2
-                                               ? (model.resolvedByName || "—")
-                                               : (model.acknowledgedByName || "—"))
+                                        Layout.preferredWidth: 90
+                                        Layout.alignment: Qt.AlignVCenter
+                                        text: model.status === 2
+                                              ? (model.resolvedByName || "—")
+                                              : (model.acknowledgedByName || "—")
                                         size: ShadcnLabel.Size.Small
-                                        variant: ShadcnLabel.Variant.Muted
+                                        color: theme.mutedForeground
                                         elide: Text.ElideRight
                                     }
 
-                                    RowLayout {
-                                        Layout.preferredWidth: 120
-                                        spacing: 4
+                                    Item {
+                                        Layout.preferredWidth: 96
+                                        Layout.fillHeight: true
+                                        RowLayout {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 2
 
-                                        ShadcnButton {
-                                            text: "确认"
-                                            size: ShadcnButton.Size.ExtraSmall
-                                            variant: ShadcnButton.Variant.Ghost
-                                            visible: (model.status ?? 0) === 0
-                                            onClicked: root.alarmListModel.acknowledge(index)
-                                        }
-                                        ShadcnButton {
-                                            text: "解决"
-                                            size: ShadcnButton.Size.ExtraSmall
-                                            variant: ShadcnButton.Variant.Ghost
-                                            visible: (model.status ?? 0) !== 2
-                                            onClicked: root.alarmListModel.resolve(index)
+                                            ShadcnButton {
+                                                text: "确认"
+                                                size: ShadcnButton.Size.ExtraSmall
+                                                variant: ShadcnButton.Variant.Ghost
+                                                visible: model.status === 0
+                                                onClicked: root.alarmListModel.acknowledge(index)
+                                            }
+                                            ShadcnButton {
+                                                text: "解决"
+                                                size: ShadcnButton.Size.ExtraSmall
+                                                variant: ShadcnButton.Variant.Ghost
+                                                visible: model.status === 1
+                                                onClicked: root.alarmListModel.resolve(index)
+                                            }
                                         }
                                     }
                                 }
@@ -626,7 +718,7 @@ Rectangle {
 
                             Column {
                                 anchors.centerIn: parent
-                                spacing: theme.spacingSm
+                                spacing: 8
                                 visible: alarmList.count === 0
 
                                 ShadcnIcon {
@@ -637,8 +729,9 @@ Rectangle {
                                 }
                                 ShadcnLabel {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: root.severityFilter === -1 ? "暂无告警记录"
-                                                                     : "当前筛选级别下无告警"
+                                    text: root.severityFilter === -1
+                                          ? "暂无告警记录"
+                                          : "当前筛选级别下无告警"
                                     variant: ShadcnLabel.Variant.Muted
                                 }
                             }
@@ -651,12 +744,14 @@ Rectangle {
             ColumnLayout {
                 spacing: 12
 
+                // 筛选行
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 8
 
                     ShadcnInput {
-                        Layout.preferredWidth: 180
+                        Layout.preferredWidth: 200
+                        Layout.alignment: Qt.AlignVCenter
                         placeholderText: "筛选设备 ID"
                         onTextChanged: {
                             if (root.ruleListModel)
@@ -665,38 +760,62 @@ Rectangle {
                     }
                     Item { Layout.fillWidth: true }
 
-                    ShadcnLabel {
-                        text: "已选 " + root.ruleSelectedCount() + " 条"
-                        size: ShadcnLabel.Size.Small
-                        variant: ShadcnLabel.Variant.Muted
+                    // 批量操作栏
+                    Rectangle {
                         visible: root.ruleSelectedCount() > 0
-                    }
-                    ShadcnButton {
-                        text: "批量启用"
-                        size: ShadcnButton.Size.Small
-                        variant: ShadcnButton.Variant.Outline
-                        visible: root.ruleSelectedCount() > 0
-                        onClicked: root.setSelectedRulesEnabled(true)
-                    }
-                    ShadcnButton {
-                        text: "批量禁用"
-                        size: ShadcnButton.Size.Small
-                        variant: ShadcnButton.Variant.Outline
-                        visible: root.ruleSelectedCount() > 0
-                        onClicked: root.setSelectedRulesEnabled(false)
-                    }
-                    ShadcnButton {
-                        text: "批量删除"
-                        size: ShadcnButton.Size.Small
-                        variant: ShadcnButton.Variant.Destructive
-                        visible: root.ruleSelectedCount() > 0
-                        onClicked: root.deleteSelectedRules()
+                        implicitWidth: ruleBatchRow.implicitWidth + 20
+                        implicitHeight: 32
+                        radius: 8
+                        color: Qt.alpha(theme.primary, 0.06)
+                        border.width: 1
+                        border.color: Qt.alpha(theme.primary, 0.15)
+
+                        RowLayout {
+                            id: ruleBatchRow
+                            anchors.centerIn: parent
+                            spacing: 2
+
+                            Text {
+                                text: "已选 " + root.ruleSelectedCount() + " 条"
+                                color: theme.primary
+                                font.pixelSize: 12
+                                font.bold: true
+                                leftPadding: 6
+                                rightPadding: 6
+                            }
+                            ShadcnButton {
+                                text: "启用"
+                                size: ShadcnButton.Size.ExtraSmall
+                                variant: ShadcnButton.Variant.Ghost
+                                onClicked: root.setSelectedRulesEnabled(true)
+                            }
+                            ShadcnButton {
+                                text: "禁用"
+                                size: ShadcnButton.Size.ExtraSmall
+                                variant: ShadcnButton.Variant.Ghost
+                                onClicked: root.setSelectedRulesEnabled(false)
+                            }
+                            ShadcnButton {
+                                text: "删除"
+                                size: ShadcnButton.Size.ExtraSmall
+                                variant: ShadcnButton.Variant.Ghost
+                                onClicked: root.deleteSelectedRules()
+                            }
+                            ShadcnButton {
+                                text: "取消"
+                                size: ShadcnButton.Size.ExtraSmall
+                                variant: ShadcnButton.Variant.Ghost
+                                onClicked: root.clearRuleSelection()
+                            }
+                        }
                     }
 
                     ShadcnButton {
                         text: "添加规则"
                         iconName: "plus"
                         size: ShadcnButton.Size.Small
+                        variant: ShadcnButton.Variant.Outline
+                        Layout.alignment: Qt.AlignVCenter
                         onClicked: {
                             addRuleDialog.editingRule = null;
                             addRuleDialog.open();
@@ -704,34 +823,59 @@ Rectangle {
                     }
                 }
 
-                Panel {
+                // 表格
+                Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    radius: 10
+                    color: theme.background
+                    border.width: 1
+                    border.color: Qt.alpha(theme.foreground, 0.08)
 
                     ColumnLayout {
                         anchors.fill: parent
-                        spacing: 8
+                        spacing: 0
 
-                        RowLayout {
+                        // 表头
+                        Rectangle {
                             Layout.fillWidth: true
-                            spacing: 10
+                            Layout.preferredHeight: 40
+                            color: Qt.alpha(theme.foreground, 0.03)
+                            topLeftRadius: 10
+                            topRightRadius: 10
 
-                            RowCheckbox {
-                                id: ruleSelectAll
-                                checked: false
-                                onToggled: function(checked) {
-                                    root.toggleSelectAllRules(checked);
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 16
+                                anchors.rightMargin: 16
+                                spacing: 12
+
+                                Item {
+                                    Layout.preferredWidth: 20
+                                    RowCheckbox {
+                                        id: ruleSelectAll
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        checked: false
+                                        onToggled: function(checked) {
+                                            root.toggleSelectAllRules(checked);
+                                        }
+                                    }
                                 }
+                                ShadcnLabel { Layout.preferredWidth: 130; text: "设备";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 90;  text: "指标";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 120; text: "条件";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 90;  text: "级别";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                ShadcnLabel { Layout.preferredWidth: 70;  text: "启用";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                                Item { Layout.fillWidth: true }
+                                ShadcnLabel { Layout.preferredWidth: 130; text: "操作";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             }
-                            ShadcnLabel { Layout.preferredWidth: 130; text: "设备";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                            ShadcnLabel { Layout.preferredWidth: 100; text: "指标";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                            ShadcnLabel { Layout.preferredWidth: 80;  text: "条件";   size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                            ShadcnLabel { text: "级别"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                            ShadcnLabel { text: "启用"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                            Item { Layout.fillWidth: true }
-                            ShadcnLabel { text: "操作"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                         }
-                        ShadcnSeparator { Layout.fillWidth: true }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 1
+                            color: Qt.alpha(theme.foreground, 0.08)
+                        }
 
                         ListView {
                             id: ruleList
@@ -739,7 +883,7 @@ Rectangle {
                             Layout.fillHeight: true
                             clip: true
                             model: root.ruleListModel
-                            spacing: 2
+                            spacing: 0
 
                             QQC.ScrollBar.vertical: QQC.ScrollBar {
                                 active: true
@@ -747,89 +891,133 @@ Rectangle {
                             }
 
                             delegate: Rectangle {
+                                id: ruleDelegate
+
                                 width: ruleList.width
                                 height: 48
-                                radius: theme.radius
-                                color: ruleHover.containsMouse ? theme.muted : "transparent"
+                                color: ruleHover.hovered
+                                       ? Qt.alpha(theme.foreground, 0.03)
+                                       : "transparent"
 
-                                MouseArea {
-                                    id: ruleHover
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                }
+                                HoverHandler { id: ruleHover }
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 8
-                                    anchors.rightMargin: 8
-                                    spacing: 10
+                                    anchors.leftMargin: 16
+                                    anchors.rightMargin: 16
+                                    spacing: 12
 
-                                    RowCheckbox {
-                                        checked: !!root.selectedRuleIds[model.id]
-                                        onToggled: root.toggleRuleSelection(model.id)
+                                    Item {
+                                        Layout.preferredWidth: 20
+                                        Layout.fillHeight: true
+                                        RowCheckbox {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            checked: !!root.selectedRuleIds[model.id]
+                                            onToggled: root.toggleRuleSelection(model.id)
+                                        }
                                     }
+
                                     ShadcnLabel {
                                         Layout.preferredWidth: 130
+                                        Layout.alignment: Qt.AlignVCenter
                                         text: model.deviceId === "*" ? "所有设备" : model.deviceId
                                         size: ShadcnLabel.Size.Small
+                                        font.family: model.deviceId === "*" ? "" : "Monaco"
                                         font.bold: true
+                                        elide: Text.ElideRight
                                     }
+
                                     ShadcnLabel {
-                                        Layout.preferredWidth: 100
+                                        Layout.preferredWidth: 90
+                                        Layout.alignment: Qt.AlignVCenter
                                         text: root.metricLabel(model.metric)
                                         size: ShadcnLabel.Size.Small
-                                        variant: ShadcnLabel.Variant.Muted
+                                        color: theme.mutedForeground
                                     }
+
                                     ShadcnLabel {
-                                        Layout.preferredWidth: 80
-                                        text: model.op + " " + model.threshold
+                                        Layout.preferredWidth: 120
+                                        Layout.alignment: Qt.AlignVCenter
+                                        text: model.op + " " + Number(model.threshold).toFixed(2)
                                         size: ShadcnLabel.Size.Small
+                                        font.family: "Monaco"
                                     }
-                                    ShadcnBadge {
-                                        text: model.severity
-                                        variant: model.severity === "严重"
-                                                 ? ShadcnBadge.Variant.Destructive
-                                                 : model.severity === "警告"
-                                                   ? ShadcnBadge.Variant.Secondary
-                                                   : ShadcnBadge.Variant.Outline
-                                    }
-                                    ShadcnSwitch {
-                                        size: ShadcnSwitch.Size.Small
-                                        checked: model.enabled === "启用"
-                                        onToggled: {
-                                            if (dataManager) dataManager.toggleRule(model.id, checked);
+
+                                    Item {
+                                        Layout.preferredWidth: 90
+                                        Layout.fillHeight: true
+                                        Rectangle {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: parent.left
+                                            implicitWidth: sevLabel.implicitWidth + 16
+                                            implicitHeight: 22
+                                            radius: 11
+                                            color: model.severity === "严重"
+                                                   ? root.severityBg(2)
+                                                   : model.severity === "警告"
+                                                     ? root.severityBg(1)
+                                                     : root.severityBg(0)
+                                            Text {
+                                                id: sevLabel
+                                                anchors.centerIn: parent
+                                                text: model.severity
+                                                font.pixelSize: 12
+                                                color: model.severity === "严重"
+                                                       ? root.severityColor(2)
+                                                       : model.severity === "警告"
+                                                         ? root.severityColor(1)
+                                                         : root.severityColor(0)
+                                            }
                                         }
                                     }
+
+                                    Item {
+                                        Layout.preferredWidth: 70
+                                        Layout.fillHeight: true
+                                        ShadcnSwitch {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: parent.left
+                                            size: ShadcnSwitch.Size.Small
+                                            checked: model.enabled === "启用"
+                                            onToggled: {
+                                                if (dataManager) dataManager.toggleRule(model.id, checked);
+                                            }
+                                        }
+                                    }
+
                                     Item { Layout.fillWidth: true }
-                                    ShadcnButton {
-                                        text: "编辑"
-                                        size: ShadcnButton.Size.ExtraSmall
-                                        variant: ShadcnButton.Variant.Ghost
-                                        iconName: "pencil"
-                                        onClicked: {
-                                            addRuleDialog.editingRule = {
-                                                "id": model.id,
-                                                "deviceId": model.deviceId === "*" ? "" : model.deviceId,
-                                                "metric": model.metric,
-                                                "threshold": model.threshold,
-                                                "opIndex": Math.max(0, [">", "<", "==", ">=", "<="].indexOf(model.op)),
-                                                "severityIndex": model.severity === "信息" ? 0
-                                                               : model.severity === "警告" ? 1 : 2
-                                            };
-                                            addRuleDialog.open();
+
+                                    RowLayout {
+                                        Layout.preferredWidth: 130
+                                        spacing: 2
+                                        ShadcnButton {
+                                            text: "编辑"
+                                            size: ShadcnButton.Size.ExtraSmall
+                                            variant: ShadcnButton.Variant.Ghost
+                                            onClicked: {
+                                                addRuleDialog.editingRule = {
+                                                    "id": model.id,
+                                                    "deviceId": model.deviceId === "*" ? "" : model.deviceId,
+                                                    "metric": model.metric,
+                                                    "threshold": model.threshold,
+                                                    "opIndex": Math.max(0, [">", "<", "==", ">=", "<="].indexOf(model.op)),
+                                                    "severityIndex": model.severity === "信息" ? 0
+                                                                   : model.severity === "警告" ? 1 : 2
+                                                };
+                                                addRuleDialog.open();
+                                            }
                                         }
-                                    }
-                                    ShadcnButton {
-                                        text: "删除"
-                                        size: ShadcnButton.Size.ExtraSmall
-                                        variant: ShadcnButton.Variant.Ghost
-                                        iconName: "trash-2"
-                                        onClicked: {
-                                            deleteConfirmDialog.ruleId = model.id;
-                                            deleteConfirmDialog.ruleDesc =
-                                                (model.deviceId === "*" ? "所有设备" : model.deviceId)
-                                                + " " + model.metric + " " + model.op + " " + model.threshold;
-                                            deleteConfirmDialog.open();
+                                        ShadcnButton {
+                                            text: "删除"
+                                            size: ShadcnButton.Size.ExtraSmall
+                                            variant: ShadcnButton.Variant.Ghost
+                                            onClicked: {
+                                                deleteConfirmDialog.ruleId = model.id;
+                                                deleteConfirmDialog.ruleDesc =
+                                                    (model.deviceId === "*" ? "所有设备" : model.deviceId)
+                                                    + " " + model.metric + " " + model.op + " " + model.threshold;
+                                                deleteConfirmDialog.open();
+                                            }
                                         }
                                     }
                                 }
@@ -837,7 +1025,7 @@ Rectangle {
 
                             Column {
                                 anchors.centerIn: parent
-                                spacing: theme.spacingSm
+                                spacing: 8
                                 visible: ruleList.count === 0
 
                                 ShadcnIcon {
@@ -862,9 +1050,7 @@ Rectangle {
     // ═══════════ 添加/编辑规则 ═══════════
     ShadcnDialog {
         id: addRuleDialog
-
         property var editingRule: null
-
         modal: true
 
         onOpened: {
@@ -912,7 +1098,6 @@ Rectangle {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
-
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 4
@@ -976,10 +1161,8 @@ Rectangle {
     // ═══════════ 删除确认 ═══════════
     ShadcnDialog {
         id: deleteConfirmDialog
-
         property string ruleDesc: ""
         property int ruleId: 0
-
         modal: true
 
         ShadcnDialogContent {
