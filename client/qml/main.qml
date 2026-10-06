@@ -19,7 +19,7 @@ QQC.ApplicationWindow {
     color: theme.background
 
     // ===== 视图切换 =====
-    // 0: 设备总览  1: 告警中心  2: 分组管理  3: 设备详情
+    // 0: 设备总览  1: 告警中心  2: 分组管理  3: 产品管理  4: 设备详情
     property int currentView: 0
 
     Component.onCompleted: {
@@ -76,7 +76,7 @@ QQC.ApplicationWindow {
         AppSidebar {
             Layout.fillHeight: true
             Layout.preferredWidth: 200
-            currentIndex: root.currentView >= 3 ? 0 : root.currentView
+            currentIndex: root.currentView === 4 ? 0 : root.currentView
             onPageSelected: function(index) { root.currentView = index; }
         }
 
@@ -90,8 +90,9 @@ QQC.ApplicationWindow {
                 deviceData: deviceModel
                 onDeviceSelected: function(deviceId) {
                     detailView.showDevice(deviceId);
-                    root.currentView = 3;
+                    root.currentView = 4;
                 }
+                onNavigateToProducts: root.currentView = 3
             }
 
             // 1: 告警中心
@@ -107,7 +108,12 @@ QQC.ApplicationWindow {
                 groupManager: dataManager
             }
 
-            // 3: 设备详情
+            // 3: 产品管理
+            ProductsView {
+                id: productsView
+            }
+
+            // 4: 设备详情
             DeviceDetailView {
                 id: detailView
                 onBackRequested: root.currentView = 0

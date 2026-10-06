@@ -54,6 +54,13 @@ public:
     // 按分组查询设备
     Q_INVOKABLE void fetchDevicesByGroup(int groupId);
 
+    // 产品管理
+    Q_INVOKABLE void fetchProducts();
+    Q_INVOKABLE void createProduct(const QString &productKey, const QString &productName,
+                                   const QString &description);
+    Q_INVOKABLE void updateProduct(int id, const QString &productName, const QString &description);
+    Q_INVOKABLE void deleteProduct(int id);
+
     // 设备影子
     Q_INVOKABLE void getShadow(const QString &deviceId);
     Q_INVOKABLE void updateShadow(const QString &deviceId, const QJsonObject &desired);
@@ -86,6 +93,13 @@ signals:
     void devicesFetched(const QJsonArray &devices);
     void latestFetched(const QJsonArray &datapoints);
     void deviceRegistered(const QString &deviceId, const QString &secret);
+
+    // 产品
+    void productsFetched(const QJsonArray &products);
+    void productCreated(const QString &productKey);
+    void productUpdated(int id);
+    void productDeleted(int id);
+    void productOperationError(const QString &error);
     void deviceQueryResult(const QJsonObject &device);
     void deviceUpdated(const QString &deviceId, int groupId);
     void deviceOperationError(const QString &error);

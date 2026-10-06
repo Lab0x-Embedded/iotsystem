@@ -19,6 +19,8 @@ class DataManager : public QObject {
     Q_PROPERTY(int onlineDeviceCount READ onlineDeviceCount NOTIFY countsChanged)
     Q_PROPERTY(int alarmCount READ alarmCount NOTIFY countsChanged)
     Q_PROPERTY(HttpClient *httpClient READ httpClient CONSTANT)
+    /** 产品列表 [{id, product_id, product_key, product_name, description, device_count}] */
+    Q_PROPERTY(QVariantList products READ products NOTIFY productsChanged)
 
 public:
     explicit DataManager(QObject *parent = nullptr);
@@ -28,6 +30,7 @@ public:
     GroupModel *groupModel() { return &m_groups; }
     RuleModel *ruleModel() { return &m_rules; }
     HttpClient *httpClient() { return &m_http; }
+    QVariantList products() const { return m_products; }
 
     bool isOnline() const { return m_online; }
     QString serverUrl() const { return m_http.serverUrl(); }
@@ -55,6 +58,13 @@ public:
     Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
     Q_INVOKABLE void removeDeviceFromGroup(const QString &deviceId);
 
+    // 产品管理
+    Q_INVOKABLE void refreshProducts();
+    Q_INVOKABLE void createProduct(const QString &productKey, const QString &productName,
+                                   const QString &description);
+    Q_INVOKABLE void updateProduct(int id, const QString &productName, const QString &description);
+    Q_INVOKABLE void deleteProduct(int id);
+
     /** 注册设备(deviceSecret 留空则服务端自动生成)；成功后发 registered 信号 */
     Q_INVOKABLE void registerDevice(const QString &deviceId, const QString &name,
                                     const QString &productKey, const QString &deviceType,
@@ -79,6 +89,12 @@ signals:
     void connectionStatusChanged(const QString &status);
     void deviceUpdated(const DeviceInfo &d);
     void deviceRegistered(const QString &deviceId, const QString &secret);
+
+    // 产品
+    void productsChanged();
+    void productCreated(const QString &productKey);
+    void productUpdated(int id);
+    void productDeleted(int id);
     void newAlarm(const AlarmRecord &alarm);
     void dataPointArrived(const QString &deviceId, const QString &metric, double value, qint64 ts);
     void errorOccurred(const QString &error);
@@ -109,6 +125,7 @@ private:
     MockDataSource m_mock;
     QTimer m_refreshTimer;
     QMap<QString, QMap<QString, double>> m_deviceMetrics;  // deviceId -> metric -> value
+    QVariantList m_products;                                // 产品列表
     bool m_online = false;
 };
 

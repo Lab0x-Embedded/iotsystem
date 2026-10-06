@@ -580,3 +580,84 @@ void HttpClient::fetchDataPointHistory(const QString &deviceId, const QString &m
         }
     );
 }
+
+/* ================= 产品管理 ================= */
+
+void HttpClient::fetchProducts() {
+    QJsonObject body;
+    body["action"] = "query_all";
+
+    auto *reply = m_mgr.post(makeRequest("/api/product"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this](const QJsonObject &obj) {
+            emit productsFetched(obj["data"].toArray());
+        },
+        [this](const QString &error) {
+            emit productOperationError(error);
+        }
+    );
+}
+
+void HttpClient::createProduct(const QString &productKey, const QString &productName,
+                               const QString &description) {
+    QJsonObject body;
+    body["action"] = "create";
+    body["product_key"] = productKey;
+    body["product_name"] = productName;
+    body["description"] = description;
+
+    auto *reply = m_mgr.post(makeRequest("/api/product"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this, productKey](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit productCreated(productKey);
+        },
+        [this](const QString &error) {
+            emit productOperationError(error);
+        }
+    );
+}
+
+void HttpClient::updateProduct(int id, const QString &productName, const QString &description) {
+    QJsonObject body;
+    body["action"] = "update";
+    body["id"] = id;
+    body["product_name"] = productName;
+    body["description"] = description;
+
+    auto *reply = m_mgr.post(makeRequest("/api/product"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this, id](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit productUpdated(id);
+        },
+        [this](const QString &error) {
+            emit productOperationError(error);
+        }
+    );
+}
+
+void HttpClient::deleteProduct(int id) {
+    QJsonObject body;
+    body["action"] = "delete";
+    body["id"] = id;
+
+    auto *reply = m_mgr.post(makeRequest("/api/product"),
+                             QJsonDocument(body).toJson());
+
+    handleReply(reply,
+        [this, id](const QJsonObject &obj) {
+            Q_UNUSED(obj);
+            emit productDeleted(id);
+        },
+        [this](const QString &error) {
+            emit productOperationError(error);
+        }
+    );
+}

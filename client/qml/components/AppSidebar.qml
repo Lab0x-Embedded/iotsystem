@@ -19,7 +19,8 @@ Rectangle {
     property var navItems: [
         { icon: "monitor",  name: "设备" },
         { icon: "bell",     name: "告警" },
-        { icon: "folder",   name: "分组" }
+        { icon: "folder",   name: "分组" },
+        { icon: "tag",      name: "产品" }
     ]
 
     ColumnLayout {

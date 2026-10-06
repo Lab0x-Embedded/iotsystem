@@ -9,6 +9,7 @@
         <file>views/DevicesView.qml</file>
         <file>views/AlarmsView.qml</file>
         <file>views/GroupsView.qml</file>
+        <file>views/ProductsView.qml</file>
         <file>views/DeviceDetailView.qml</file>
     </qresource>
 </RCC>

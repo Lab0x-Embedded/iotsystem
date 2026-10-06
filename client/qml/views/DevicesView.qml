@@ -17,6 +17,14 @@ Rectangle {
     property var groupNames: []
     property var groupIds: []
 
+    // 产品下拉(同样用平行数组)
+    property var productNames: []
+    property var productKeys: []
+    property string pendingProductKey: ""
+
+    // 去产品管理页新建产品
+    signal navigateToProducts()
+
     signal deviceSelected(string deviceId)
 
     QtShadcnTheme { id: theme }
@@ -46,6 +54,20 @@ Rectangle {
         }
     }
 
+    function refreshProductChoices() {
+        var names = [];
+        var keys  = [];
+        if (dataManager) {
+            var list = dataManager.products;
+            for (var i = 0; i < list.length; ++i) {
+                names.push(list[i].product_name || list[i].product_key);
+                keys.push(list[i].product_key);
+            }
+        }
+        productNames = names;
+        productKeys = keys;
+    }
+
     function refreshGroupChoices() {
         var names = ["未分组"];
         var ids   = [0];
@@ -64,11 +86,18 @@ Rectangle {
     function submitRegister() {
         regError.text = "";
         var id = regDeviceId.text.trim();
-        var pk = regProductKey.text.trim();
-        if (id === "" || pk === "") {
-            regError.text = "设备 ID 与产品 Key 为必填";
+        var pk = "";
+        if (regProduct.currentIndex >= 0 && regProduct.currentIndex < productKeys.length)
+            pk = productKeys[regProduct.currentIndex];
+        if (id === "") {
+            regError.text = "设备 ID 为必填";
             return;
         }
+        if (pk === "") {
+            regError.text = "请先选择产品（还没有产品就点「新建」）";
+            return;
+        }
+        root.pendingProductKey = pk;
         var gid = 0;
         if (regGroup.currentIndex >= 0 && regGroup.currentIndex < groupIds.length)
             gid = groupIds[regGroup.currentIndex];
@@ -77,11 +106,21 @@ Rectangle {
                                    regType.text.trim(), regSecret.text.trim(), gid);
     }
 
-    Component.onCompleted: { refreshRows(); refreshGroupChoices(); }
+    Component.onCompleted: {
+        refreshRows();
+        refreshGroupChoices();
+        refreshProductChoices();
+        if (dataManager) dataManager.refreshProducts();
+    }
 
     Connections {
         target: root.deviceData
         function onCountsChanged() { root.refreshRows(); }
+    }
+
+    Connections {
+        target: dataManager
+        function onProductsChanged() { root.refreshProductChoices(); }
     }
 
     ColumnLayout {
@@ -165,7 +204,6 @@ Rectangle {
                             onClicked: {
                                 regDeviceId.text = "";
                                 regName.text = "";
-                                regProductKey.text = "factory_sensor";
                                 regType.text = "sensor";
                                 regSecret.text = "";
                                 regError.text = "";
@@ -324,11 +362,33 @@ Rectangle {
                     placeholderText: "如 工厂A-温湿度-01"
                 }
 
-                ShadcnLabel { text: "产品 Key *"; size: ShadcnLabel.Size.Small }
-                ShadcnInput {
-                    id: regProductKey
+                ShadcnLabel { text: "产品 *"; size: ShadcnLabel.Size.Small }
+                RowLayout {
                     Layout.fillWidth: true
-                    placeholderText: "如 factory_sensor / smart_meter"
+                    spacing: 8
+
+                    ShadcnSelect {
+                        id: regProduct
+                        Layout.fillWidth: true
+                        model: root.productNames
+                    }
+                    ShadcnButton {
+                        text: "新建"
+                        iconName: "plus"
+                        size: ShadcnButton.Size.Small
+                        variant: ShadcnButton.Variant.Outline
+                        onClicked: {
+                            registerDialog.close();
+                            root.navigateToProducts();
+                        }
+                    }
+                }
+                ShadcnLabel {
+                    Layout.fillWidth: true
+                    text: "还没有产品，请先点「新建」创建"
+                    size: ShadcnLabel.Size.Small
+                    variant: ShadcnLabel.Variant.Destructive
+                    visible: root.productNames.length === 0
                 }
 
                 RowLayout {
@@ -483,7 +543,7 @@ Rectangle {
         function onDeviceRegistered(deviceId, secret) {
             registerDialog.close();
             registeredDialog.deviceId = deviceId;
-            registeredDialog.productKey = regProductKey.text.trim();
+            registeredDialog.productKey = root.pendingProductKey;
             registeredDialog.secret = secret;
             registeredDialog.open();
             root.refreshRows();

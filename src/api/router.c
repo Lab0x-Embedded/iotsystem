@@ -131,6 +131,7 @@ void router_register_rest_routes(void) {
         { "POST", "/api/user",    handler_user,    0 },
         { "POST", "/api/onenet",  handler_onenet,  0 },
         { "POST", "/api/group",   handler_group,   1 },
+        { "POST", "/api/product", handler_product, 1 },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         router_register(routes[i].method, routes[i].path,

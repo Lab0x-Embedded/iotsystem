@@ -54,6 +54,39 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
         });
 
     connect(&m_http, &HttpClient::groupOperationError, this, &DataManager::onGroupOperationError);
+
+    // 产品
+    connect(&m_http, &HttpClient::productsFetched, this, [this](const QJsonArray &arr) {
+        m_products.clear();
+        for (const auto &v : arr) {
+            const QJsonObject o = v.toObject();
+            QVariantMap m;
+            m["id"]            = o["id"].toInt();
+            m["product_id"]    = o["product_id"].toString();
+            m["product_key"]   = o["product_key"].toString();
+            m["product_name"]  = o["product_name"].toString();
+            m["description"]   = o["description"].toString();
+            m["device_count"]  = o["device_count"].toInt();
+            m_products.append(m);
+        }
+        emit productsChanged();
+    });
+    connect(&m_http, &HttpClient::productCreated, this, [this](const QString &key) {
+        Q_UNUSED(key);
+        refreshProducts();
+        emit productCreated(key);
+    });
+    connect(&m_http, &HttpClient::productUpdated, this, [this](int id) {
+        refreshProducts();
+        emit productUpdated(id);
+    });
+    connect(&m_http, &HttpClient::productDeleted, this, [this](int id) {
+        refreshProducts();
+        emit productDeleted(id);
+    });
+    connect(&m_http, &HttpClient::productOperationError, this, [this](const QString &e) {
+        emit errorOccurred(e);
+    });
     connect(&m_http, &HttpClient::groupCreated, this, [this](int id)
             { Q_UNUSED(id); refreshGroups(); });
     connect(&m_http, &HttpClient::groupUpdated, this, [this](int id)
@@ -70,6 +103,7 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
             refreshGroups();
             refreshAlarms();
             refreshRules();
+            refreshProducts();
         } });
 }
 
@@ -180,6 +214,7 @@ void DataManager::onLoginSucceeded(const QString &token, const QString &role)
     refreshGroups();
     refreshAlarms();
     refreshRules();
+    refreshProducts();
 
     startAutoRefresh();
 }
@@ -516,4 +551,40 @@ void DataManager::registerDevice(const QString &deviceId, const QString &name,
         return;
     }
     m_http.registerDevice(deviceId, name, productKey, deviceType, deviceSecret, groupId);
+}
+
+/* ================= 产品管理 ================= */
+
+void DataManager::refreshProducts()
+{
+    if (m_online)
+        m_http.fetchProducts();
+}
+
+void DataManager::createProduct(const QString &productKey, const QString &productName,
+                                const QString &description)
+{
+    if (!m_online) {
+        emit errorOccurred(QStringLiteral("未连接服务器"));
+        return;
+    }
+    m_http.createProduct(productKey, productName, description);
+}
+
+void DataManager::updateProduct(int id, const QString &productName, const QString &description)
+{
+    if (!m_online) {
+        emit errorOccurred(QStringLiteral("未连接服务器"));
+        return;
+    }
+    m_http.updateProduct(id, productName, description);
+}
+
+void DataManager::deleteProduct(int id)
+{
+    if (!m_online) {
+        emit errorOccurred(QStringLiteral("未连接服务器"));
+        return;
+    }
+    m_http.deleteProduct(id);
 }
