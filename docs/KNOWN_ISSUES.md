@@ -27,6 +27,10 @@
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|
+| L6 | QtShadcn 枚举首轮绑定噪音 | 第三方 qtshadcn 模块 | 启动日志有少量 `Unable to assign [undefined] to int/QString`（如 ShadcnButton.Variant 枚举在懒加载视图首轮绑定未就绪），一次性、二轮绑定正确、UI 无影响。修法在上游：枚举单例注册提前于 QML 加载 |
+
+| # | 问题 | 位置 | 说明 |
+|---|------|------|------|
 | L5 | ~~ lastSeen 兜底伪装"刚刚" + report_count 恒 0 ~~ | `datamanager.cpp` / `publish_worker` | ✅ 已修复(2026-10-07)：ts==0 保持无效显示"-"；新增 devices.last_report_at 列(migration)，publish_worker 入库成功时 report_count+1 + 刷新 last_report_at；REST query/query_all/query_by_group 透出 last_report；客户端详情页区分「最后在线/最后上报」 |
 
 | # | 问题 | 位置 | 说明 |
