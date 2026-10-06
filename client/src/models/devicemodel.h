@@ -37,7 +37,8 @@ public:
     int reportCount = 0;
     QDateTime lastSeen;
 
-    QString statusText() const {
+    // Q_INVOKABLE：列表页/详情页 QML 需要直接调用
+    Q_INVOKABLE QString statusText() const {
         switch (status) {
             case DeviceStatus::Online: return QStringLiteral("在线");
             case DeviceStatus::Offline: return QStringLiteral("离线");
@@ -46,7 +47,7 @@ public:
         }
         return QStringLiteral("未知");
     }
-    QColor statusColor() const {
+    Q_INVOKABLE QColor statusColor() const {
         switch (status) {
             case DeviceStatus::Online: return QColor("#4CAF50");
             case DeviceStatus::Offline: return QColor("#9E9E9E");
