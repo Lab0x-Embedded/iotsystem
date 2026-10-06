@@ -43,6 +43,32 @@ Rectangle {
         toastTimer.restart();
     }
 
+    // 把当前设备的完整信息拼成文本复制到剪贴板
+    function copyDeviceInfo() {
+        if (!currentDevice) return;
+        var g = Number(currentDevice.group);
+        var groupText = !g ? "未分组" : (groupModel ? groupModel.groupName(g) : String(g));
+        var statusText = currentDevice.status === 1 ? "在线"
+                       : currentDevice.status === 2 ? "告警"
+                       : currentDevice.status === 3 ? "维护" : "离线";
+
+        infoClipboard.text =
+              "设备 ID: " + currentDevice.id + "\n"
+            + "名称: "    + (currentDevice.name || "-") + "\n"
+            + "产品: "    + (dataManager ? dataManager.productNameOf(currentDevice.productKey)
+                                          : currentDevice.productKey)
+                          + " (" + currentDevice.productKey + ")\n"
+            + "类型: "    + (currentDevice.deviceType || "-") + "\n"
+            + "分组: "    + groupText + "\n"
+            + "状态: "    + statusText + "\n"
+            + "上报次数: " + currentDevice.reportCount + "\n"
+            + "最后上报: "
+            + (currentDevice.lastSeen ? Qt.formatDateTime(currentDevice.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-");
+        infoClipboard.selectAll();
+        infoClipboard.copy();
+        root.showToast("设备信息已复制");
+    }
+
     function refreshHistory() {
         if (!currentDevice || !dataManager || !dataManager.online) return;
         var now = Math.floor(Date.now() / 1000);
@@ -96,7 +122,9 @@ Rectangle {
                     }
                     ShadcnLabel {
                         text: root.currentDevice
-                              ? root.currentDevice.id + " · " + root.currentDevice.productKey
+                              ? root.currentDevice.id + " · "
+                                + (dataManager ? dataManager.productNameOf(root.currentDevice.productKey)
+                                               : root.currentDevice.productKey)
                               : ""
                         size: ShadcnLabel.Size.Small
                         variant: ShadcnLabel.Variant.Muted
@@ -115,6 +143,14 @@ Rectangle {
                              : root.currentDevice && root.currentDevice.status === 2
                                ? ShadcnBadge.Variant.Destructive
                                : ShadcnBadge.Variant.Secondary
+                }
+                ShadcnButton {
+                    text: "复制信息"
+                    iconName: "copy"
+                    size: ShadcnButton.Size.Small
+                    variant: ShadcnButton.Variant.Outline
+                    visible: root.currentDevice !== null
+                    onClicked: root.copyDeviceInfo()
                 }
                 ShadcnButton {
                     text: "重启设备"
@@ -164,6 +200,92 @@ Rectangle {
                 text: "该设备尚未上报数据"
                 variant: ShadcnLabel.Variant.Muted
                 visible: root.currentDevice !== null && metricRepeater.count === 0
+            }
+
+
+            // ===== 基本信息 =====
+            // 服务端 query_all 早就返回了 device_type（之前客户端 DeviceInfo 没接，白丢了）
+            Panel {
+                Layout.fillWidth: true
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                Layout.preferredHeight: 92
+                visible: root.currentDevice !== null
+
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 24
+
+                    ColumnLayout {
+                        Layout.preferredWidth: 150
+                        spacing: 4
+                        ShadcnLabel { text: "设备 ID"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        CopyableText {
+                            Layout.fillWidth: true
+                            text: root.currentDevice ? root.currentDevice.id : "-"
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.preferredWidth: 160
+                        spacing: 4
+                        ShadcnLabel { text: "产品"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        CopyableText {
+                            Layout.fillWidth: true
+                            text: root.currentDevice && dataManager
+                                  ? dataManager.productNameOf(root.currentDevice.productKey) : "-"
+                        }
+                        CopyableText {
+                            Layout.fillWidth: true
+                            text: root.currentDevice ? root.currentDevice.productKey : ""
+                            color: theme.mutedForeground
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.preferredWidth: 110
+                        spacing: 4
+                        ShadcnLabel { text: "设备类型"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        CopyableText {
+                            Layout.fillWidth: true
+                            text: root.currentDevice && root.currentDevice.deviceType
+                                  ? root.currentDevice.deviceType : "-"
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.preferredWidth: 130
+                        spacing: 4
+                        ShadcnLabel { text: "分组"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        CopyableText {
+                            Layout.fillWidth: true
+                            text: {
+                                if (!root.currentDevice) return "-";
+                                var g = Number(root.currentDevice.group);
+                                if (!g) return "未分组";
+                                return groupModel ? groupModel.groupName(g) : String(g);
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.preferredWidth: 80
+                        spacing: 4
+                        ShadcnLabel { text: "上报次数"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnLabel {
+                            text: root.currentDevice ? root.currentDevice.reportCount : "-"
+                            size: ShadcnLabel.Size.Small
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.preferredWidth: 170
+                        spacing: 4
+                        ShadcnLabel { text: "最后上报"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        CopyableText {
+                            Layout.fillWidth: true
+                            text: root.currentDevice && root.currentDevice.lastSeen
+                                  ? Qt.formatDateTime(root.currentDevice.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-"
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
             }
 
             // ===== Tabs =====
@@ -439,6 +561,9 @@ Rectangle {
             }
         }
     }
+
+    // 复制“设备信息”用的隐藏编辑器
+    TextEdit { id: infoClipboard; visible: false }
 
     // Toast
     Rectangle {

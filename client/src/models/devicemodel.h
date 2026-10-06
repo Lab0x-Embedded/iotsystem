@@ -15,6 +15,7 @@ public:
     Q_PROPERTY(QString id MEMBER id)
     Q_PROPERTY(QString name MEMBER name)
     Q_PROPERTY(QString productKey MEMBER productKey)
+    Q_PROPERTY(QString deviceType MEMBER deviceType)
     Q_PROPERTY(QString group MEMBER group)
     Q_PROPERTY(DeviceStatus status MEMBER status)
     Q_PROPERTY(double temperature MEMBER temperature)
@@ -25,6 +26,7 @@ public:
     QString id;
     QString name;
     QString productKey;
+    QString deviceType;
     QString group;
     DeviceStatus status = DeviceStatus::Offline;
     double temperature = 0.0;

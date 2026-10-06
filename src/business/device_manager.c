@@ -383,6 +383,12 @@ int device_register(const char *device_id, const char *name, const char *product
         return -1;
     }
 
+    /* 是否由调用方显式提供：只有提供了才覆盖已有记录，
+     * 否则会把库里已有的类型/名称清空(见 ON DUPLICATE KEY UPDATE)。 */
+    /* 注意：HTTP handler 会把「JSON 里没这个字段」转成空字符串再传进来，
+     * 所以这里必须把空串也视为“未提供”，否则重复注册会把已有值清空。 */
+    bool user_name = (name && name[0] != '\0');
+    bool user_type = (device_type && device_type[0] != '\0');
     const char *dt = device_type ? device_type : "";
 
     /* 密钥: 调用方没给就自动生成一个随机密钥，
@@ -438,16 +444,24 @@ int device_register(const char *device_id, const char *name, const char *product
     else
         snprintf(group_sql, sizeof(group_sql), "NULL");
 
-    /* 重复注册时的语义：
-     *   - 调用方显式给了密钥  → 覆盖(轮换)
-     *   - 没给(自动生成)      → 保留库里的旧密钥，避免把已烧录的设备弄失联
-     * 所以这里按情况选 ON DUPLICATE KEY UPDATE 的内容。 */
+    /* 重复注册时的语义（逐字段判断，避免“没传就把已有值清空”）：
+     *   device_name   : 显式提供才覆盖
+     *   device_type   : 显式提供才覆盖
+     *   device_secret : 显式提供才覆盖(轮换)；否则保留，避免已烧录设备失联
+     * product_key / group_id 不在此更新(改产品应走专门流程)。 */
+    char upd_name[256], upd_type[256];
+    if (user_name) snprintf(upd_name, sizeof(upd_name), "device_name='%s'", esc_name);
+    else           snprintf(upd_name, sizeof(upd_name), "device_name=device_name");
+
+    if (user_type) snprintf(upd_type, sizeof(upd_type), "device_type='%s'", esc_dt);
+    else           snprintf(upd_type, sizeof(upd_type), "device_type=device_type");
+
     snprintf(sql, sizeof(sql),
              "INSERT INTO devices "
              "(device_id, device_name, product_key, device_type, device_secret, group_id, status) "
              "VALUES ('%s', '%s', '%s', '%s', '%s', %s, 'registered') "
-             "ON DUPLICATE KEY UPDATE device_name='%s', device_type='%s'%s",
-             esc_id, esc_name, esc_pk, esc_dt, esc_ds, group_sql, esc_name, esc_dt,
+             "ON DUPLICATE KEY UPDATE %s, %s%s",
+             esc_id, esc_name, esc_pk, esc_dt, esc_ds, group_sql, upd_name, upd_type,
              user_secret ? ", device_secret=VALUES(device_secret)" : "");
 
     int rc = db_pool_exec(conn, sql);

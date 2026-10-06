@@ -5,6 +5,7 @@
         <file>components/AppSidebar.qml</file>
         <file>components/StatCard.qml</file>
         <file>components/Panel.qml</file>
+        <file>components/CopyableText.qml</file>
         <file>components/RealtimeChart.qml</file>
         <file>views/DevicesView.qml</file>
         <file>views/AlarmsView.qml</file>

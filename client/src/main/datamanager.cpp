@@ -240,6 +240,7 @@ void DataManager::onDevicesFetched(const QJsonArray &devices)
         info.id = obj["device_id"].toString();
         info.name = obj["name"].toString();
         info.productKey = obj["product_key"].toString();
+        info.deviceType = obj["device_type"].toString();
 
         /* group_id 是整数, 转字符串给界面 */
         int gid = obj["group_id"].toInt();
@@ -587,4 +588,16 @@ void DataManager::deleteProduct(int id)
         return;
     }
     m_http.deleteProduct(id);
+}
+
+QString DataManager::productNameOf(const QString &productKey) const
+{
+    for (const QVariant &v : m_products) {
+        const QVariantMap m = v.toMap();
+        if (m.value("product_key").toString() == productKey) {
+            const QString name = m.value("product_name").toString();
+            return name.isEmpty() ? productKey : name;
+        }
+    }
+    return productKey;   // 还没拉到产品列表时退化为 key
 }

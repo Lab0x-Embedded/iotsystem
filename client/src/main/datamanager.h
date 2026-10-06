@@ -58,6 +58,9 @@ public:
     Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
     Q_INVOKABLE void removeDeviceFromGroup(const QString &deviceId);
 
+    /** 按 product_key 查产品名；找不到时返回原 key（用于详情页展示） */
+    Q_INVOKABLE QString productNameOf(const QString &productKey) const;
+
     // 产品管理
     Q_INVOKABLE void refreshProducts();
     Q_INVOKABLE void createProduct(const QString &productKey, const QString &productName,
