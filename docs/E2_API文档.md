@@ -1,11 +1,14 @@
 # E2 — REST API 接口文档
 
-> **版本**: v2.0  
-> **更新日期**: 2026-07-12  
-> **Base URL**: `http://127.0.0.1:8080/api`  
-> **认证方式**: Bearer Token (JWT)  
-> **Content-Type**: `application/json`  
+> **版本**: v3.0
+> **更新日期**: 2026-10-06
+> **Base URL**: `http://<服务器IP>:8080/api`（服务器 IP 见服务端启动日志）
+> **认证方式**: Bearer Token
+> **Content-Type**: `application/json`
 > **请求方式**: 所有接口均为 POST，通过 `action` 字段区分操作
+>
+> ⚠️ 当前 token 为开发桩（登录返回 `stub.jwt.<username>`），JWT 签名校验未实现，
+> 见 `docs/KNOWN_ISSUES.md`。
 
 ---
 
@@ -17,8 +20,10 @@
 4. [设备影子接口](#4-设备影子接口)
 5. [指令下发接口](#5-指令下发接口)
 6. [分组接口](#6-分组接口)
-7. [SSE 实时推送](#7-sse-实时推送)
-8. [错误码](#8-错误码)
+7. [产品接口](#7-产品接口)
+8. [OneNET 数据同步](#8-onenet-数据同步)
+9. [实时性说明](#9-实时性说明)
+10. [错误码](#10-错误码)
 
 ---
 
@@ -94,8 +99,14 @@
 
 **响应** `200 OK`:
 ```json
-{"status": "registered"}
+{"status": "registered", "device_id": "D001", "product_key": "pk_test", "device_secret": "<实际生效密钥>"}
 ```
+
+**说明**:
+- `device_secret` 留空时服务端自动生成 32 位密钥，并在响应中返回（调用方据此配置设备接入）
+- `name` 字段是设备显示名（注意：字段名是 `name`，不是 `device_name`）
+- `product_key` 对应产品不存在时会**自动创建同名产品**（外键兜底）
+- 注册成功后设备状态为 `registered`，MQTT 认证要求状态为 `registered` 或 `active`
 
 #### action: query — 查询单个设备
 
@@ -137,9 +148,13 @@
       "device_id": "D001",
       "name": "温度传感器",
       "product_key": "pk_test",
+      "device_type": "sensor",
+      "device_secret": "secret_001",
       "group_id": 1,
       "state": 1,
       "online": true,
+      "last_active": 1720000000,
+      "last_online": 1720000000,
       "report_count": 1234
     }
   ],
@@ -147,6 +162,40 @@
   "online_count": 7
 }
 ```
+
+> ⚠️ `query` / `query_all` / `query_by_group` 均返回明文 `device_secret`
+> （客户端详情页展示需要）。多用户/公网部署前需收紧，见 `docs/KNOWN_ISSUES.md`。
+
+#### action: query_latest — 查询设备最新数据点
+
+**请求**:
+```json
+{"action": "query_latest", "device_id": "D001"}
+```
+
+**响应** `200 OK`:
+```json
+{
+  "data": [
+    {"device_id": "D001", "metric": "temperature", "value": 25.6, "ts": 1720000001},
+    {"device_id": "D001", "metric": "humidity", "value": 65.0, "ts": 1720000001}
+  ]
+}
+```
+
+#### action: decommission — 注销设备
+
+**请求**:
+```json
+{"action": "decommission", "device_id": "D001"}
+```
+
+**响应** `200 OK`:
+```json
+{"status": "decommissioned"}
+```
+
+**说明**: 置 `status='decommissioned'` 并下线；注销后 MQTT 认证不再放行。
 
 #### action: update — 更新设备信息
 
@@ -540,49 +589,80 @@
 
 ---
 
-## 7. SSE 实时推送
+## 7. 产品接口
 
-### GET /api/sse
+### POST /api/product
 
-SSE (Server-Sent Events) 端点，客户端通过 HTTP 长连接接收实时数据。
+#### action: query_all — 查询全部产品
 
-**请求**:
-```
-GET /api/sse HTTP/1.1
-Host: 127.0.0.1:8080
-Accept: text/event-stream
-Cache-Control: no-cache
-```
+**请求**: `{"action": "query_all"}`
 
-**响应**:
-```
-HTTP/1.1 200 OK
-Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive
-Access-Control-Allow-Origin: *
-
-: connected
-
-event: datapoint
-data: {"type":"datapoint","device_id":"D001","metric":"temperature","value":25.30,"ts":1720000001}
-
-event: datapoint
-data: {"type":"datapoint","device_id":"D001","metric":"humidity","value":65.00,"ts":1720000001}
-
-event: alarm
-data: {"type":"alarm","device_id":"D001","metric":"temperature","value":36.50,"threshold":35.00,"severity":2}
+**响应** `200 OK`:
+```json
+{
+  "data": [
+    {"id": 1, "product_id": "factory_sensor", "product_key": "factory_sensor",
+     "product_name": "工厂传感器", "description": "", "device_count": 10}
+  ],
+  "total": 1
+}
 ```
 
-**事件类型**:
-| event | 说明 | 数据字段 |
-|-------|------|----------|
-| `datapoint` | 设备数据点 | device_id, metric, value, ts |
-| `alarm` | 告警事件 | device_id, metric, value, threshold, severity |
+#### action: create / update / delete — 产品 CRUD
+
+```json
+{"action": "create", "product_key": "smart_meter", "product_name": "智能电表", "description": "..."}
+{"action": "update", "id": 2, "product_name": "新名称", "description": "..."}
+{"action": "delete", "id": 2}
+```
+
+#### action: prop_add / prop_del / prop_list — 物模型属性白名单
+
+```json
+{"action": "prop_add", "product_key": "factory_sensor", "identifier": "temperature",
+ "prop_type": "number", "description": "DHT11温度"}
+{"action": "prop_del", "product_key": "factory_sensor", "identifier": "temperature"}
+{"action": "prop_list", "product_key": "factory_sensor"}
+```
+
+**prop_list 响应**:
+```json
+{"product_key": "factory_sensor",
+ "data": [{"identifier": "temperature", "prop_type": "number", "description": "DHT11温度"}],
+ "total": 7}
+```
+
+**白名单语义**: 产品未定义任何属性 = 自由模式（上报全部放行）；定义后白名单外
+identifier 拒绝入库（OneNET 10411 语义），bool 类型值非 0/1 拒绝。详见 MQTT 协议文档 §3.3。
 
 ---
 
-## 8. 错误码
+## 8. OneNET 数据同步
+
+### POST /api/onenet
+
+HTTP 直连的数据点同步入口（不经 MQTT）：
+
+**请求**:
+```json
+{"device_id": "D001", "datapoints": [{"metric": "temperature", "value": 25.3}]}
+```
+
+**响应** `200 OK`: `{"status": "synced"}`
+
+**说明**: 仅触发心跳 + 告警评估，**不落库**（无分表写入）。
+
+---
+
+## 9. 实时性说明
+
+当前版本**没有 SSE/WebSocket 推送通道**（早期文档中的 `GET /api/sse` 并未实现）。
+客户端的数据刷新方式为 REST 轮询（设备列表刷新按钮 / 详情页查询），
+告警经 `alerts` 表查询获得。补齐服务端推送属计划项，见 `docs/KNOWN_ISSUES.md`。
+
+---
+
+## 10. 错误码
 
 | HTTP 状态码 | 说明 |
 |-------------|------|
@@ -593,7 +673,7 @@ data: {"type":"alarm","device_id":"D001","metric":"temperature","value":36.50,"t
 | 404 | 资源不存在 |
 | 405 | 方法不允许 |
 | 500 | 服务器内部错误 |
-| 503 | 服务不可用（SSE 客户端满） |
+| 503 | 服务不可用（数据库不可用，如登录） |
 
 **通用错误响应格式**:
 ```json

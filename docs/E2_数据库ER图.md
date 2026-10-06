@@ -286,6 +286,25 @@ INSERT INTO products (product_id, product_key, product_name) VALUES
 | event_data | JSON | | 事件数据 |
 | created_at | DATETIME | DEFAULT NOW() | 创建时间 |
 
+### 2.11 product_properties — 物模型属性白名单（2026-10-06 新增）
+
+产品级上报属性白名单，约束设备允许上报的 metric（详见 MQTT 协议文档 §3.3）。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | INT | PK, AUTO_INCREMENT | 自增 ID |
+| product_key | VARCHAR(64) | NOT NULL, UNIQUE(与 identifier 联合) | 产品密钥 |
+| identifier | VARCHAR(64) | NOT NULL | 属性标识（metric 名） |
+| prop_type | ENUM | NOT NULL, DEFAULT 'number' | number / bool / string |
+| description | VARCHAR(255) | DEFAULT '' | 描述 |
+| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+
+**语义**：产品在本表**无任何记录 = 自由模式**（上报全放行）；
+有记录后，白名单外 identifier 拒绝入库，bool 类型值要求 0/1。
+服务端启动时自动建表（幂等），也可手动执行
+`deploy/sql/migrations/2026-10-06_product_properties.sql`。
+配置入口：`POST /api/product` 的 `prop_add` / `prop_del` / `prop_list`。
+
 ---
 
 ## 3. 存储过程

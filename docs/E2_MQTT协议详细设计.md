@@ -1,21 +1,22 @@
 # E2 — MQTT 协议详细设计
 
-> **版本**: v2.0  
-> **更新日期**: 2026-07-12  
-> **协议版本**: MQTT 3.1.1 (Protocol Level 4)  
-> **端口**: 1883 (可在 config.json 配置)
+> **版本**: v3.0
+> **更新日期**: 2026-10-06
+> **协议版本**: MQTT 3.1 / 3.1.1 / 5.0 均可接入（Protocol Level 3~5）
+> **端口**: 1883（config.json `mqtt_port`，启动日志会打印局域网 IP）
 
 ---
 
 ## 1. 概述
 
-E2 IoT 平台使用自定义 MQTT Broker 实现设备接入，支持：
+自研 MQTT Broker（kqueue/libevent 事件循环 + 线程池），支持：
 
-- 设备认证 (用户名/密码)
-- 数据上报 (PUBLISH)
-- 指令下发 (PUBLISH)
-- 遗嘱消息 (Last Will)
-- QoS 0
+- 设备认证（DB 查询 product_key + device_secret）
+- 数据上报（QoS 0/1，QoS 1 回 PUBACK）
+- **OneNET 物模型兼容上报**（`$sys/{pid}/{did}/thing/property/post` + OneJSON）
+- 指令下发（QoS 1，离线队列 + 重连重放）
+- 遗嘱消息、Keep Alive 超时踢线、同 client_id 重复连接踢旧
+- 物模型属性白名单校验、未注册设备拒绝上报
 
 ---
 
@@ -23,25 +24,20 @@ E2 IoT 平台使用自定义 MQTT Broker 实现设备接入，支持：
 
 ### 2.1 CONNECT 包
 
-设备连接时必须携带认证信息：
-
 ```
-Fixed Header: 0x10 + Remaining Length
 Variable Header:
-  Protocol Name: "MQTT" (4 bytes)
-  Protocol Level: 0x04 (MQTT 3.1.1)
-  Connect Flags: 0xC0 (Username + Password)
-  Keep Alive: 60 seconds
+  Protocol Name: "MQTT"
+  Protocol Level: 3 / 4 / 5 均接受（其他值拒绝）
+  Connect Flags: Username + Password 必须置位
+  Keep Alive: 建议 30~120 秒
 
-Payload:
-  Client ID: device_id
-  Username: product_key
-  Password: device_secret
+Payload (各字段 ≤128 字节):
+  Client ID: 任意唯一值，建议 esp8266_<device_id>
+  Username:  product_key
+  Password:  device_secret
 ```
 
-### 2.2 认证逻辑
-
-从 `devices` 表查询验证:
+### 2.2 认证逻辑（服务端实现在 mqtt_broker.c handle_connect）
 
 ```sql
 SELECT device_id FROM devices
@@ -50,214 +46,161 @@ AND status IN ('registered', 'active')
 LIMIT 1
 ```
 
-- 查到记录 → 认证通过 (CONNACK 0x00)
-- 未查到 → 认证拒绝 (CONNACK 0x05)
+- 命中 → CONNACK 0x00，连接成功后 presence 异步标记在线
+- 未命中（凭证错 / 设备未注册 / 状态不符 / **DB 不可用**）→ CONNACK 拒绝
+- **同 client_id 的旧连接会被新连接踢掉**（ESP8266 断线重连场景）
 
 ### 2.3 CONNACK 响应
 
 | 返回码 | 含义 |
 |--------|------|
 | 0x00 | 连接成功 |
-| 0x05 | 认证失败 |
+| 0x04 | 拒绝（当前实现对协议版本不支持/凭证错误/DB 不可用统一返回 0x04） |
+
+> 注：错误码不区分原因属已知实现取舍，见 `docs/KNOWN_ISSUES.md`。
 
 ---
 
-## 3. 数据上报
+## 3. 数据上报（原生 datapoints 协议）
 
-### 3.1 Topic 格式
+### 3.1 Topic 与 Payload
 
 ```
-devices/{device_id}/data
+topic: devices/{device_id}/data
 ```
-
-示例: `devices/D001/data`
-
-### 3.2 Payload 格式
 
 ```json
 {
-  "device_id": "D001",
+  "device_id": "dev_001",
   "datapoints": [
-    {
-      "metric": "temperature",
-      "value": 25.3,
-      "ts": 1720000001
-    },
-    {
-      "metric": "humidity",
-      "value": 65.0,
-      "ts": 1720000001
-    }
+    {"metric": "temperature", "value": 25.3, "ts": 1720000001},
+    {"metric": "humidity", "value": 65.0, "ts": 1720000001}
   ]
 }
 ```
 
-### 3.3 字段说明
-
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| device_id | string | 是 | 设备 ID |
-| datapoints | array | 是 | 数据点数组 |
-| datapoints[].metric | string | 是 | 指标名 |
+| device_id | string | 是 | 已注册的设备 ID |
+| datapoints[].metric | string | 是 | 指标名（受产品物模型白名单约束，见 §3.3） |
 | datapoints[].value | number | 是 | 指标值 |
-| datapoints[].ts | number | 否 | 时间戳 (Unix 秒)，为空则使用服务器时间 |
+| datapoints[].ts | number | 否 | Unix 秒，缺省用服务器时间 |
 
-### 3.4 服务端处理流程
+### 3.2 服务端处理流程（publish_worker，线程池执行）
 
 ```
-PUBLISH 收到
+PUBLISH 收到（主线程解析 JSON）
   ↓
-解析 JSON payload
+① 设备存在性校验：devices 表无此 (device_id, product_key) → 丢弃 + WARN
+   （自动注册已移除，设备必须先经客户端/REST 注册）
   ↓
-① 自动注册设备 (使用 CONNECT 传入的 product_key, INSERT IGNORE INTO devices)
+② 物模型白名单校验 thing_model_check：
+   产品未定义任何属性 = 自由模式放行；
+   定义后：白名单外 identifier 拒绝，bool 类型值非 0/1 拒绝
   ↓
-② 告警规则评估 (alarm_evaluate)
+③ 告警规则评估（alarm_evaluate，复用当前 DB 连接）
   ↓
-③ 广播到 SSE 客户端 (sse_broadcast_datapoint)
+④ 写入月分表 data_reports_YYYYMM（不存在则自动建表）
   ↓
-④ 写入 MySQL 分表 (INSERT INTO data_reports_YYYYMM)
-  ↓
-⑤ 更新设备影子 (shadow_update_reported)
+⑤ upsert device_latest_data（按 device_id+metric 覆盖 value/ts）
 ```
+
+QoS 1 的 PUBACK 在主线程发送，与上述入库异步。
+
+### 3.3 物模型白名单（轻量）
+
+- 配置：`POST /api/product` 的 `prop_add` / `prop_del` / `prop_list`（见 API 文档）
+- 语义对齐 OneNET 10411：白名单外的 identifier 拒绝入库并记 WARN 日志
+- 校验单点收口在 publish_worker，OneNET 协议与本节原生协议同等生效
 
 ---
 
-## 4. 指令下发
+## 4. OneNET 物模型兼容上报
 
-### 4.1 Topic 格式
-
-```
-cmd/{device_id}/exec
-```
-
-示例: `cmd/D001/exec`
-
-### 4.2 Payload 格式
+topic：`$sys/{product_key}/{device_id}/thing/property/post`，payload 为 OneJSON：
 
 ```json
-{
-  "cmd": "reboot",
-  "payload": {"force": true}
-}
+{"id": "1830", "params": {"temperature": {"value": 28.6}, "led1": {"value": "on"}}}
 ```
 
-### 4.3 下发流程
+`params` 逐键值转 datapoint 走 §3.2 同一条入库链路：
 
-```
-HTTP POST /api/command
-  ↓
-查找设备连接 (mqtt_broker_find_conn)
-  ↓
-┌─────────────────┬─────────────────┐
-│   设备在线       │   设备离线       │
-├─────────────────┼─────────────────┤
-│ 直接 PUBLISH     │ 入队离线队列     │
-│ 返回 "delivered" │ 返回 "queued"   │
-└─────────────────┴─────────────────┘
-```
+| params 值形态 | 转换 |
+|---------------|------|
+| number | 直接取值 |
+| bool | true→1 / false→0 |
+| string | `"on"`/`"true"`→1，`"off"`/`"false"`→0，其余跳过 |
+| object | 递归取 `value` 成员按上表转换（OneNET 嵌套写法） |
+
+订阅侧 `$sys/...` 前缀与 `+` 单层通配符均支持（`thing/service/+/invoke` 可正常 SUBACK）。
+完整设备侧接入说明见 `docs/E2_OneNET兼容接入.md` 与 `device_sdk/stm32_onenet/`。
 
 ---
 
-## 5. 遗嘱消息 (Last Will)
-
-### 5.1 配置
-
-设备在 CONNECT 包中设置遗嘱：
+## 5. 指令下发
 
 ```
-Will Topic: devices/{device_id}/status
-Will Payload: {"online": false}
-Will QoS: 0
-Will Retain: 0
+topic: cmd/{device_id}/exec   (QoS 1)
 ```
 
-### 5.2 触发条件
+```json
+{"cmd": "set_relay", "payload": {"relay": "on"}}
+```
 
-- 设备异常断开连接
-- 服务端在 Keep Alive 超时后未收到 PINGREQ
+- 设备**在线**：HTTP `POST /api/command` → 直接 PUBLISH，返回 `delivered`
+- 设备**离线**：入离线队列，设备重连并订阅后自动重放，返回 `queued`
 
 ---
 
-## 6. Keep Alive
+## 6. 连接保活与离线判定
 
-- **默认超时**: 60 秒
-- **PINGREQ/PINGRESP**: 设备定期发送 PINGREQ，服务端回复 PINGRESP
-- **超时处理**: 服务端关闭连接，触发遗嘱消息
+- **Keep Alive 超时**：1.5 × keepalive（下限 5s）无任何报文 → 服务端关闭连接
+- **异常断开**：socket 关闭即触发 `device_manager_offline`（presence 队列异步下刷）
+- **巡检兜底**：presence 线程周期将 >90s 无活动的在线设备批量置离线
+
+## 7. 遗嘱消息（Last Will）
+
+CONNECT 可携带 Will Topic/Payload；设备异常断开时 broker 将遗嘱按订阅匹配转发。
+设备的在线/离线状态由 §6 的 presence 链路维护，不依赖遗嘱。
 
 ---
 
-## 7. 错误处理
+## 8. 错误处理
 
 | 错误 | 处理 |
 |------|------|
-| 协议版本不支持 | 返回 CONNACK + 错误码 0x01 |
-| 认证失败 | 返回 CONNACK + 错误码 0x05 |
-| Topic 格式无效 | 忽略 PUBLISH |
-| JSON 解析失败 | 记录日志，忽略 |
+| Protocol Level 不在 3~5 | CONNACK 0x04 拒绝 |
+| 认证失败（凭证/未注册/DB 不可用） | CONNACK 0x04 拒绝 |
+| PUBLISH topic 含通配符 | 忽略 |
+| payload JSON 解析失败 | 记日志忽略 |
+| 设备未注册 | 丢弃 + WARN |
+| metric 不在白名单 | 丢弃 + WARN（10411 语义） |
 
 ---
 
-## 8. 客户端示例
-
-### 8.1 Python (原生 socket)
-
-```python
-import socket, struct, json, time
-
-def mqtt_connect(sock, client_id, username, password):
-    vh = b"\x00\x04MQTT\x04\xc0\x00\x3C"
-    cid = client_id.encode()
-    user = username.encode()
-    pwd = password.encode()
-    payload = struct.pack("!H", len(cid)) + cid
-    payload += struct.pack("!H", len(user)) + user
-    payload += struct.pack("!H", len(pwd)) + pwd
-    remaining = len(vh) + len(payload)
-    pkt = b"\x10" + struct.pack("!B", remaining) + vh + payload
-    sock.sendall(pkt)
-    resp = sock.recv(4)
-    return len(resp) >= 4 and resp[3] == 0x00
-
-def mqtt_publish(sock, topic, payload):
-    topic_b = topic.encode()
-    data_b = payload.encode()
-    remaining = 2 + len(topic_b) + len(data_b)
-    hdr = b"\x30" + struct.pack("!B", remaining)
-    sock.sendall(hdr + struct.pack("!H", len(topic_b)) + topic_b + data_b)
-
-# 使用
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(("127.0.0.1", 1883))
-mqtt_connect(sock, "my_device", "pk_test", "secret_001")
-
-data = {
-    "device_id": "D001",
-    "datapoints": [
-        {"metric": "temperature", "value": 25.3, "ts": int(time.time())}
-    ]
-}
-mqtt_publish(sock, "devices/D001/data", json.dumps(data))
-```
-
-### 8.2 项目内脚本
+## 9. 客户端示例
 
 ```bash
-# 使用 Makefile
+# 随机/指定设备上报（Makefile）
 make report                      # 随机设备上报
 make report-dev DEV=dev_001      # 指定设备上报
 
-# 直接运行
-python3 deploy/scripts/mqtt_ss_report.py -d dev_001 -i 1
+# 模拟 ESP8266 全链路（认证→订阅→QoS1 上报→收指令）
+python3 deploy/scripts/esp8266_e2e_test.py
+python3 deploy/scripts/esp8266_e2e_test.py -d dev_005 --pk smart_meter --secret secret_005
 ```
+
+设备侧完整参考实现（STM32 + ESP8266 AT）：`device_sdk/stm32_onenet/`。
 
 ---
 
-## 9. 与标准 MQTT 的区别
+## 10. 与标准 MQTT 的区别
 
 | 特性 | 标准 MQTT Broker | E2 MQTT Broker |
 |------|------------------|----------------|
-| 认证 | 可配置 | 硬编码 product_key/secret |
-| 持久化 | 可选 | 无 (内存) |
-| QoS | 0/1/2 | 仅 QoS 0 |
-| 订阅 | 支持 | 支持 (用于指令下发) |
-| 数据处理 | 透传 | 自动解析 JSON + 落库 + 告警评估 |
+| 认证 | 可配置 | DB 查询 product_key + device_secret |
+| QoS | 0/1/2 | 0/1（2 不支持） |
+| retain | 支持 | 不支持 |
+| clean session | 支持 | 忽略（CONNACK session_present 恒 0） |
+| 通配符订阅 | 支持 | 支持（`+` 单层 / `#` 末级） |
+| 数据处理 | 透传 | JSON 解析 + 白名单校验 + 落库 + 告警评估 |

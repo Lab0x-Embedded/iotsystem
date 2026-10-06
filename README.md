@@ -231,10 +231,12 @@ curl -X POST http://127.0.0.1:8080/api/command \
 | 文档 | 内容 |
 |------|------|
 | [技术方案文档](docs/E2_技术方案文档.md) | 系统架构、模块设计、数据流、构建运行 |
-| [API 文档](docs/E2_API文档.md) | 全部 REST API 接口、SSE 推送协议 |
+| [API 文档](docs/E2_API文档.md) | 全部 REST 接口（设备/告警/影子/分组/产品/物模型白名单） |
 | [数据库 ER 图](docs/E2_数据库ER图.md) | 表结构、ER 关系、存储过程、分表策略 |
-| [MQTT 协议设计](docs/E2_MQTT协议详细设计.md) | 认证、数据上报、指令下发、遗嘱消息 |
+| [MQTT 协议设计](docs/E2_MQTT协议详细设计.md) | 认证、上报(含 OneNET 兼容)、白名单、指令下发 |
 | [架构图集](docs/E2_架构图集.md) | 系统架构、数据流、模块关系、部署拓扑 |
+| [OneNET 兼容接入](docs/E2_OneNET兼容接入.md) | 物模型 topic/OneJSON 映射、STM32 零改动接入 |
+| [已知问题清单](docs/KNOWN_ISSUES.md) | 代码审计记录的安全/一致性/性能待办 |
 
 ---
 
