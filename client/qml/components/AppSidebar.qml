@@ -17,11 +17,12 @@ Rectangle {
 
     // 导航项定义
     // viewIndex: 对应 main.qml StackLayout 的视图下标（4 = 设备详情，不在导航中）
+    // 视觉顺序：设备 → 产品 → 分组 → 告警（产品是设备的类型定义，告警是监控结果放最后）
     property var navItems: [
-        { icon: "monitor",  name: "设备", viewIndex: 0 },
-        { icon: "bell",     name: "告警", viewIndex: 1 },
-        { icon: "folder",   name: "分组", viewIndex: 2 },
-        { icon: "tag",      name: "产品", viewIndex: 3 }
+        { icon: "monitor", name: "设备", viewIndex: 0 },
+        { icon: "tag",     name: "产品", viewIndex: 3 },
+        { icon: "folder",  name: "分组", viewIndex: 2 },
+        { icon: "bell",    name: "告警", viewIndex: 1 }
     ]
 
     ColumnLayout {

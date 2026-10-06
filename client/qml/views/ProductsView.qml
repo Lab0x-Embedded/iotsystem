@@ -93,7 +93,6 @@ Rectangle {
                 anchors.fill: parent
                 spacing: 8
 
-                // 表头
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
@@ -214,7 +213,6 @@ Rectangle {
                         }
                     }
 
-                    // 空状态
                     Column {
                         anchors.centerIn: parent
                         spacing: theme.spacingSm
@@ -390,8 +388,8 @@ Rectangle {
         property string pkey: ""
         property string pname: ""
 
-        width: 720
-        height: 620
+        width: 640
+        height: 560
         modal: true
 
         readonly property int  propCount:     propRows.count
@@ -403,15 +401,11 @@ Rectangle {
             dataManager.httpClient.propList(pkey);
         }
 
-        // 精确匹配 C++ 信号签名：
-        //   DataManager::propListFetched(const QString &productKey, const QJsonArray &list)
-        //   DataManager::propChanged(const QString &productKey, bool success)
         Connections {
             target: (typeof dataManager !== "undefined") ? dataManager : null
 
             function onPropListFetched(productKey, list) {
                 if (productKey !== modelDialog.pkey) return;
-
                 propRows.clear();
                 if (!list) return;
                 for (var i = 0; i < list.length; ++i) {
@@ -426,7 +420,6 @@ Rectangle {
 
             function onPropChanged(productKey, success) {
                 if (productKey !== modelDialog.pkey) return;
-
                 if (!success) {
                     root.showToast("物模型操作失败", theme.destructive);
                     return;
@@ -440,19 +433,21 @@ Rectangle {
         onClosed: propRows.clear()
 
         ShadcnDialogContent {
-            // ⚠️ 关键修复：不再设置 height: parent.height
             ColumnLayout {
                 width: parent.width
                 spacing: 14
 
                 // ---------- 标题区 ----------
+                // 注意：右侧留出 32px 给 Dialog 自带的关闭按钮
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.rightMargin: 32
                     spacing: 10
 
                     ShadcnDialogTitle {
                         Layout.fillWidth: true
                         text: "物模型 · " + (modelDialog.pname || modelDialog.pkey)
+                        elide: Text.ElideRight
                     }
                     ShadcnBadge {
                         text: modelDialog.whitelistMode
@@ -466,6 +461,7 @@ Rectangle {
 
                 ShadcnDialogDescription {
                     Layout.fillWidth: true
+                    Layout.rightMargin: 32
                     wrapMode: Text.Wrap
                     text: modelDialog.whitelistMode
                           ? "白名单已启用：仅下列属性允许上报，其它字段将被拒绝入库。"
@@ -490,10 +486,10 @@ Rectangle {
                     }
                 }
 
-                // ⚠️ 关键修复：用固定的 preferredHeight，不再用 fillHeight
+                // 列表容器：固定高度改小，避免空白
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 260
+                    Layout.preferredHeight: 180
                     radius: theme.radius
                     color: theme.muted
                     border.width: 1
@@ -506,17 +502,17 @@ Rectangle {
                         // 表头
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 38
+                            Layout.preferredHeight: 36
                             color: "transparent"
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 16
-                                anchors.rightMargin: 16
+                                anchors.leftMargin: 14
+                                anchors.rightMargin: 14
                                 spacing: 10
 
                                 ShadcnLabel {
-                                    Layout.preferredWidth: 170
+                                    Layout.preferredWidth: 150
                                     text: "标识符"
                                     size: ShadcnLabel.Size.Small
                                     variant: ShadcnLabel.Variant.Muted
@@ -534,7 +530,7 @@ Rectangle {
                                     variant: ShadcnLabel.Variant.Muted
                                 }
                                 ShadcnLabel {
-                                    Layout.preferredWidth: 56
+                                    Layout.preferredWidth: 64
                                     text: ""
                                     size: ShadcnLabel.Size.Small
                                 }
@@ -543,7 +539,6 @@ Rectangle {
 
                         ShadcnSeparator { Layout.fillWidth: true }
 
-                        // 列表本体
                         ListView {
                             id: propList
                             Layout.fillWidth: true
@@ -573,12 +568,12 @@ Rectangle {
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 16
-                                    anchors.rightMargin: 16
+                                    anchors.leftMargin: 14
+                                    anchors.rightMargin: 14
                                     spacing: 10
 
                                     ShadcnLabel {
-                                        Layout.preferredWidth: 170
+                                        Layout.preferredWidth: 150
                                         text: identifier
                                         size: ShadcnLabel.Size.Small
                                         elide: Text.ElideRight
@@ -597,9 +592,10 @@ Rectangle {
                                         variant: ShadcnLabel.Variant.Muted
                                         elide: Text.ElideRight
                                     }
+                                    // 删除：仅图标按钮，紧凑
                                     ShadcnButton {
-                                        Layout.preferredWidth: 56
-                                        text: "删除"
+                                        Layout.preferredWidth: 64
+                                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                                         iconName: "trash-2"
                                         size: ShadcnButton.Size.ExtraSmall
                                         variant: ShadcnButton.Variant.Ghost
@@ -611,11 +607,10 @@ Rectangle {
                                 }
                             }
 
-                            // 空状态
                             Column {
                                 anchors.centerIn: parent
                                 visible: propList.count === 0
-                                spacing: 8
+                                spacing: 6
 
                                 ShadcnIcon {
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -681,7 +676,7 @@ Rectangle {
                             spacing: 10
 
                             ColumnLayout {
-                                Layout.preferredWidth: 190
+                                Layout.preferredWidth: 170
                                 spacing: 4
                                 ShadcnLabel {
                                     text: "标识符 *"
@@ -695,7 +690,7 @@ Rectangle {
                                 }
                             }
                             ColumnLayout {
-                                Layout.preferredWidth: 120
+                                Layout.preferredWidth: 110
                                 spacing: 4
                                 ShadcnLabel {
                                     text: "类型 *"
