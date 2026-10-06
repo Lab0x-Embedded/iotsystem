@@ -15,13 +15,13 @@
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|
-| M1 | 无服务端推送通道 | 服务端整体 | 所有文档曾描述 SSE（`/api/sse`、`sse_handler.c`、客户端 `WsClient`），**均未实现**。客户端纯轮询。补齐 SSE/WebSocket 是体验上限的最大 unlock |
+| M1 | ~~ 无服务端推送通道 ~~ | 服务端整体 | ❌ 决定不做(2026-10-07)：客户端维持纯 REST 轮询，不再规划 SSE/WebSocket。历史背景：早期文档曾虚构 SSE（`/api/sse`、`sse_handler.c`、客户端 `WsClient`），均未实现，相关描述已从全部文档清除 |
 | M2 | ~~ CONNACK 拒绝码不区分原因 ~~ | `mqtt_broker.c` handle_connect | ✅ 已修复：DB 不可用 → 0x03（server unavailable），凭证/未注册 → 0x04。残留：协议版本不支持目前也走 0x04（原实现仅支持 level 4，如需放开 3/5 再细分） |
 | M3 | ~~ DB 不可用时 MQTT 认证全拒 ~~ | `mqtt_broker.c` handle_connect | ✅ 已修复(2026-10-07)：新增认证缓存（真实 DB 认证成功时记录 pk+secret→device_id，TTL 10min，128 条 LRU），DB 故障窗口内缓存命中放行（回 CONNACK ACCEPTED），未命中仍回 0x03。折衷：期间被禁用/删除的设备最多在 TTL 窗口内还能重连成功。缓存仅事件循环线程访问，无锁 |
 | M4 | ~~ REST 字段名不一致 ~~ | `handler_device.c` | ✅ 已修复：register 兼容 `name` 与 `device_name` 两种字段名 |
 | M5 | ~~ MQTT SUBSCRIBE 不去重 ~~ | `mqtt_broker.c` handle_subscribe | ✅ 已修复：同连接同 topic 重复订阅改为覆盖 qos，不再占槽 |
 | M6 | ~~ device_latest_data 无 ts 新旧比较 ~~ | `mqtt_broker.c` publish_worker | ✅ 已修复：upsert 加比较（`ts=GREATEST`，value 仅在 ts 更新时覆盖），旧时间戳不再回退最新值 |
-| M7 | register 自动创建产品 | `handler_device.c` → bfac03c | 注册新产品 key 自动建产品（外键兜底），可能产生垃圾产品行，与产品管理页语义重叠 |
+| M7 | ~~ register 自动创建产品 ~~ | `handler_device.c` → bfac03c | ❌ 决定不做(2026-10-07)：保留自动建产品作为外键兜底（注册新产品 key 时自动创建，避免注册失败）。客户端注册界面已引导先建产品，垃圾产品行风险可控 |
 | M9 | 同产品设备可互相冒充上报 | `mqtt_broker.c` handle_publish / `init_data.sql` | datapoints 路径 device_id 取自 payload 而非连接认证身份；同产品设备共享 device_secret（init_data 每产品一个密钥），dev_001 的连接可自称 dev_002 上报（跨产品会被 publish_worker 的 pk 配对校验拦截）。协议级修复需：每设备独立密钥 + payload device_id 与认证身份绑定校验——会破坏现有固件契约与 e2_report.py 场景脚本（单连接报多设备），留待协议 v4 一并做 |
 | M8 | ~~ 上报压死连接池（嵌套占用 + 锁内等池）~~ | `mqtt_broker.c` publish_worker → `thing_model.c` | ✅ 已修复(2026-10-07)：publish_worker 已持 1 条池连接，`thing_model_check` 又在 `g_mtx` 锁内 `db_pool_get()` 抢第二条（cache_load），4 worker × 2 > 池 4 条；且持锁等池最多 3s 串死全部上报线程，加载失败时 `loaded` 保持 0 → 每条上报重试查库，恶性循环（设备上报期间持续 `db_pool: 4/4 in use, timeout waiting 3s`）。修复：新增 `thing_model_check_with_conn()` 复用调用方已持连接加载缓存、DB 访问移出 `g_mtx`、加载失败退避 5s；顺带修掉 TTL 到期 cache_load 连调两次。auto-resolve 的 UPDATE 仅 `mysql_affected_rows>0` 时打日志（原每条回落上报刷一条） |
 
