@@ -60,12 +60,16 @@ static device_state_t state_from_str(const char *s) {
  *   7 online
  *   8 last_online
  *   9 updated_at
+ *  10 report_count
+ *  11 last_report_at
  */
 static const char *g_select_base = "SELECT device_id, device_name, product_key, "
                                    "COALESCE(device_type,''), device_secret, "
                                    "IFNULL(group_id,0), status, COALESCE(online,0), "
                                    "UNIX_TIMESTAMP(last_online), "
-                                   "UNIX_TIMESTAMP(updated_at) "
+                                   "UNIX_TIMESTAMP(updated_at), "
+                                   "COALESCE(report_count,0), "
+                                   "UNIX_TIMESTAMP(last_report_at) "
                                    "FROM devices";
 
 /* ================================================================
@@ -241,6 +245,8 @@ static void row_to_info(device_info_t *d, MYSQL_ROW row) {
     d->online = row[7] ? (atoi(row[7]) != 0) : false;
     d->last_online = row[8] ? (time_t)atoll(row[8]) : 0;
     d->updated_at = row[9] ? (time_t)atoll(row[9]) : 0;
+    d->report_count = row[10] ? (uint32_t)strtoul(row[10], NULL, 10) : 0;
+    d->last_report  = row[11] ? (time_t)atoll(row[11]) : 0;
     d->last_active = d->last_online;
     d->registered_at = d->updated_at; /* 近似 */
 }

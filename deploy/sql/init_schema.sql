@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS devices (
     last_online DATETIME,
     group_id INT,
     report_count INT DEFAULT 0,
+    last_report_at DATETIME NULL,                    -- 最近一次数据上报时间
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_devices_product (product_key),

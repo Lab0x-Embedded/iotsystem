@@ -24,6 +24,7 @@ public:
     Q_PROPERTY(double battery MEMBER battery)
     Q_PROPERTY(int reportCount MEMBER reportCount)
     Q_PROPERTY(QDateTime lastSeen MEMBER lastSeen)
+    Q_PROPERTY(double lastReport MEMBER lastReport)
     QString id;
     QString name;
     QString productKey;
@@ -36,6 +37,7 @@ public:
     double battery = 100.0;
     int reportCount = 0;
     QDateTime lastSeen;
+    double lastReport = 0;   // Unix 秒; 0 = 从未上报
 
     // Q_INVOKABLE：列表页/详情页 QML 需要直接调用
     Q_INVOKABLE QString statusText() const {

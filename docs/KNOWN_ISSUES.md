@@ -27,6 +27,10 @@
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|
+| L5 | ~~ lastSeen 兜底伪装"刚刚" + report_count 恒 0 ~~ | `datamanager.cpp` / `publish_worker` | ✅ 已修复(2026-10-07)：ts==0 保持无效显示"-"；新增 devices.last_report_at 列(migration)，publish_worker 入库成功时 report_count+1 + 刷新 last_report_at；REST query/query_all/query_by_group 透出 last_report；客户端详情页区分「最后在线/最后上报」 |
+
+| # | 问题 | 位置 | 说明 |
+|---|------|------|------|
 | L1 | event loop 1000ms 硬超时 | `event_loop.c` | 主线程每秒空转唤醒；keepalive 典型 60~120s，可拉长 tick 间隔 |
 | L2 | /api/onenet 名不符实 | `handler_onenet.c` | 只做心跳+告警不落库；要么补齐要么改名 datapoint_sync |
 | L3 | 指令 topic 无 ACL | `mqtt_broker.c` | 设备认证后可订阅任意 topic（含其他设备的 cmd），多租户前需收敛 `cmd/<自己>/...` |

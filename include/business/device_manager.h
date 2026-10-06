@@ -51,7 +51,8 @@ typedef struct {
     time_t         registered_at;
     time_t         last_online;     /* 最近一次 DB 持久化的在线时间 */
     time_t         updated_at;      /* 与 DB updated_at 列一致 */
-    uint32_t       report_count;    /* 仅内存用, 不持久化 */
+    uint32_t       report_count;    /* 累计上报数据点数 (DB report_count) */
+    time_t         last_report;     /* 最近一次数据上报时间 (DB last_report_at) */
 } device_info_t;
 
 /** 初始化设备管理器 (启动 presence 下刷线程; DB 不可用也能初始化). */

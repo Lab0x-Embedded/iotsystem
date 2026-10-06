@@ -363,7 +363,7 @@ Rectangle {
                             ShadcnLabel { Layout.preferredWidth: 110; text: "设备 ID";  size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             ShadcnLabel { Layout.fillWidth: true;    text: "名称";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             ShadcnLabel { Layout.preferredWidth: 200; text: "最新数据"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                            ShadcnLabel { Layout.preferredWidth: 110; text: "最后上报"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 110; text: "最后在线"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                             ShadcnLabel { Layout.preferredWidth: 72;  text: "操作";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                         }
                     }

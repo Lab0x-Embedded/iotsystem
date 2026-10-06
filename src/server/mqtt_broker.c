@@ -690,6 +690,16 @@ static void publish_worker(void *arg) {
         if (db_pool_exec(db, ins) != 0) {
             LOG_WARN("DB insert failed: %s %s=%.2f",
                      task->device_id, task->metric, task->value);
+        } else {
+            /* 上报追踪: 计数 + 最近上报时间 (此前 report_count 恒 0) */
+            char *cnt = (char *)malloc(256);
+            if (cnt) {
+                snprintf(cnt, 256,
+                    "UPDATE devices SET report_count=report_count+1, "
+                    "last_report_at=NOW() WHERE device_id='%s'", esc_id);
+                db_pool_exec(db, cnt);
+                free(cnt);
+            }
         }
         free(ins);
     }

@@ -288,7 +288,9 @@ void DataManager::onDevicesFetched(const QJsonArray &devices)
             ts = obj["last_online"].toDouble();
         else if (obj.contains("last_active") && obj["last_active"].toDouble() > 0)
             ts = obj["last_active"].toDouble();
-        info.lastSeen = (ts > 0) ? QDateTime::fromSecsSinceEpoch(ts) : QDateTime::currentDateTime();
+        /* ts==0 保持无效: 从未上线的设备显示 "-"，不再用当前时间伪装"刚刚" */
+        info.lastSeen = (ts > 0) ? QDateTime::fromSecsSinceEpoch(ts) : QDateTime();
+        info.lastReport = obj["last_report"].toDouble();
 
         info.reportCount = obj["report_count"].toInt();
         deviceList.append(info);

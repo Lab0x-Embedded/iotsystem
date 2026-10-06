@@ -102,8 +102,12 @@ Rectangle {
             + "密钥: "    + (currentDevice.deviceSecret || "-") + "\n"
             + "状态: "    + statusText() + "\n"
             + "上报次数: " + currentDevice.reportCount + "\n"
+            + "最后在线: "
+            + (currentDevice.lastSeen ? Qt.formatDateTime(currentDevice.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-") + "\n"
             + "最后上报: "
-            + (currentDevice.lastSeen ? Qt.formatDateTime(currentDevice.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-");
+            + (currentDevice.lastReport > 0
+               ? Qt.formatDateTime(new Date(currentDevice.lastReport * 1000), "yyyy-MM-dd hh:mm:ss")
+               : "未上报");
         infoClipboard.selectAll();
         infoClipboard.copy();
         root.showToast("设备信息已复制");
@@ -408,9 +412,18 @@ Rectangle {
                         value: root.currentDevice ? String(root.currentDevice.reportCount) : "—"
                     }
                     InfoField {
-                        label: "最后上报"
+                        label: "最后在线"
                         value: root.currentDevice && root.currentDevice.lastSeen
                                ? root.relativeTime(root.currentDevice.lastSeen) : "—"
+                    }
+                    InfoField {
+                        label: "最后上报"
+                        value: {
+                            if (!root.currentDevice) return "—";
+                            var ts = root.currentDevice.lastReport;
+                            if (!ts || ts <= 0) return "未上报";
+                            return root.relativeTime(new Date(ts * 1000));
+                        }
                     }
                     InfoField {
                         label: "产品 Key"

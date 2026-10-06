@@ -98,6 +98,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
             cJSON_AddNumberToObject(res, "last_online", (double)d.last_online);
             cJSON_AddNumberToObject(res, "updated_at", (double)d.updated_at);
             cJSON_AddNumberToObject(res, "report_count", d.report_count);
+            cJSON_AddNumberToObject(res, "last_report", (double)d.last_report);
             char *txt = cJSON_PrintUnformatted(res);
             http_reply_json(req, 200, "OK", txt);
             free(txt); cJSON_Delete(res);
@@ -156,6 +157,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
             cJSON_AddNumberToObject(item, "last_active", (double)devices[i].last_active);
             cJSON_AddNumberToObject(item, "last_online", (double)devices[i].last_online);
             cJSON_AddNumberToObject(item, "report_count", devices[i].report_count);
+                cJSON_AddNumberToObject(item, "last_report", (double)devices[i].last_report);
             cJSON_AddItemToArray(arr, item);
         }
         cJSON_AddItemToObject(res, "data", arr);
@@ -217,6 +219,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
                 cJSON_AddNumberToObject(item, "last_active", (double)devices[i].last_active);
                 cJSON_AddNumberToObject(item, "last_online", (double)devices[i].last_online);
                 cJSON_AddNumberToObject(item, "report_count", devices[i].report_count);
+                cJSON_AddNumberToObject(item, "last_report", (double)devices[i].last_report);
                 cJSON_AddItemToArray(arr, item);
             }
             cJSON_AddItemToObject(res, "data", arr);
