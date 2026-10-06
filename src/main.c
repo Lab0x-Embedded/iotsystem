@@ -12,6 +12,7 @@
 #include "business/device_manager.h"
 #include "business/shadow_manager.h"
 #include "business/alarm_service.h"
+#include "business/thing_model.h"
 #include "data/db_pool.h"
 #include "data/data_writer.h"
 
@@ -169,6 +170,7 @@ int main(int argc, char **argv) {
         LOG_ERROR("==========================================================");
     } else {
         data_writer_init();
+        thing_model_init();
         LOG_INFO("database connected, data_writer ready");
     }
 

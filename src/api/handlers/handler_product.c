@@ -18,6 +18,7 @@
 #include "api/http_server.h"
 #include "data/db_pool.h"
 #include "data/sql_escape.h"
+#include "business/thing_model.h"
 #include "common/log.h"
 
 #include <cJSON.h>
@@ -97,6 +98,81 @@ void handler_product(struct evhttp_request *req, void *ctx) {
         http_reply_json(req, 200, "OK", txt);
         free(txt);
         cJSON_Delete(out);
+        free(body); cJSON_Delete(root);
+        return;
+    }
+
+    /* ---------------- 物模型属性: 列表 / 添加 / 删除 (轻量白名单) ---------------- */
+    if (action && strcmp(action->valuestring, "prop_list") == 0) {
+        const cJSON *pk = cJSON_GetObjectItem(root, "product_key");
+        if (!pk || !pk->valuestring || !pk->valuestring[0]) {
+            http_reply_json(req, 400, "Bad Request", "{\"error\":\"missing product_key\"}");
+            db_pool_put(conn);
+            free(body); cJSON_Delete(root);
+            return;
+        }
+        db_pool_put(conn);   /* thing_model 自管连接 */
+
+        char rows[32][256];
+        int n = thing_model_list(pk->valuestring, rows, 32);
+        cJSON *out = cJSON_CreateObject();
+        cJSON *arr = cJSON_CreateArray();
+        for (int i = 0; i < n; i++) {
+            char ident[64] = "", type[16] = "", desc[128] = "";
+            sscanf(rows[i], "%63[^|]|%15[^|]|%127[^\n]", ident, type, desc);
+            cJSON *item = cJSON_CreateObject();
+            cJSON_AddStringToObject(item, "identifier", ident);
+            cJSON_AddStringToObject(item, "prop_type", type);
+            cJSON_AddStringToObject(item, "description", desc);
+            cJSON_AddItemToArray(arr, item);
+        }
+        cJSON_AddStringToObject(out, "product_key", pk->valuestring);
+        cJSON_AddItemToObject(out, "data", arr);
+        cJSON_AddNumberToObject(out, "total", n);
+        char *txt = cJSON_PrintUnformatted(out);
+        http_reply_json(req, 200, "OK", txt);
+        free(txt);
+        cJSON_Delete(out);
+        free(body); cJSON_Delete(root);
+        return;
+    }
+
+    if (action && (strcmp(action->valuestring, "prop_add") == 0 ||
+                   strcmp(action->valuestring, "prop_del") == 0)) {
+        int is_add = (strcmp(action->valuestring, "prop_add") == 0);
+        const cJSON *pk  = cJSON_GetObjectItem(root, "product_key");
+        const cJSON *idn = cJSON_GetObjectItem(root, "identifier");
+        const cJSON *ty  = cJSON_GetObjectItem(root, "prop_type");
+        const cJSON *de  = cJSON_GetObjectItem(root, "description");
+
+        if (!pk || !pk->valuestring[0] || !idn || !idn->valuestring[0] ||
+            (is_add && (!ty || !ty->valuestring[0]))) {
+            http_reply_json(req, 400, "Bad Request",
+                            "{\"error\":\"missing product_key/identifier/prop_type\"}");
+            db_pool_put(conn);
+            free(body); cJSON_Delete(root);
+            return;
+        }
+        db_pool_put(conn);
+
+        int rc;
+        if (is_add)
+            rc = thing_model_add(pk->valuestring, idn->valuestring,
+                                 ty->valuestring,
+                                 de && de->valuestring ? de->valuestring : "");
+        else
+            rc = thing_model_delete(pk->valuestring, idn->valuestring);
+
+        char resp[128];
+        if (rc == 0 || (rc == 1 && !is_add)) {
+            snprintf(resp, sizeof(resp),
+                     "{\"status\":\"%s\",\"identifier\":\"%s\"}",
+                     is_add ? "added" : "deleted", idn->valuestring);
+            http_reply_json(req, 200, "OK", resp);
+        } else {
+            http_reply_json(req, 500, "Internal Error",
+                            "{\"error\":\"prop operation failed (bad type? db?)\"}");
+        }
         free(body); cJSON_Delete(root);
         return;
     }

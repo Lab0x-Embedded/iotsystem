@@ -257,3 +257,14 @@ SELECT
 FROM devices d
 WHERE d.status != 'decommissioned'
 GROUP BY d.product_key;
+
+-- 轻量物模型：产品级属性白名单（见 migrations/2026-10-06_product_properties.sql）
+CREATE TABLE IF NOT EXISTS product_properties (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    product_key VARCHAR(64) NOT NULL,
+    identifier VARCHAR(64) NOT NULL,
+    prop_type ENUM('number','bool','string') NOT NULL DEFAULT 'number',
+    description VARCHAR(255) DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_pk_ident (product_key, identifier)
+) ENGINE=InnoDB;

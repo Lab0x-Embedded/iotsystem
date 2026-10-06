@@ -20,6 +20,7 @@
 #include "common/log.h"
 #include <cJSON.h>
 #include "business/alarm_service.h"
+#include "business/thing_model.h"
 #include "data/db_pool.h"
 #include "data/sql_escape.h"
 
@@ -587,23 +588,42 @@ static void publish_worker(void *arg) {
         return;
     }
 
-    /* 自动注册 product */
-    char ensure_sql[768];
-    /* product_id 是 NOT NULL UNIQUE，不能漏；用 product_key 兼作 product_id */
-    snprintf(ensure_sql, sizeof(ensure_sql),
-        "INSERT IGNORE INTO products (product_id, product_key, product_name) "
-        "VALUES ('%s','%s','MQTT Auto Registered')",
-        esc_pk, esc_pk);
-    db_pool_exec(db, ensure_sql);
+    /* 设备必须先注册（客户端 UI / REST），未注册设备的上报直接拒绝。
+     * （旧逻辑是 INSERT ... ON DUPLICATE 自动注册，任意 device_id 都能
+     *  自我说成在线设备，数据面不可信 —— 已移除。） */
+    {
+        char chk_sql[256];
+        snprintf(chk_sql, sizeof(chk_sql),
+            "SELECT 1 FROM devices WHERE device_id='%s' AND product_key='%s' LIMIT 1",
+            esc_id, esc_pk);
+        MYSQL_RES *chk_res = (MYSQL_RES *)db_pool_query(db, chk_sql);
+        int exists = 0;
+        if (chk_res) {
+            exists = mysql_fetch_row(chk_res) != NULL;
+            db_pool_free_result(chk_res);
+        }
+        if (!exists) {
+            LOG_WARN("publish dropped: device '%s' (pk=%s) not registered — "
+                     "register via client/REST first", task->device_id, task->product_key);
+            db_pool_put(db);
+            free(task);
+            return;
+        }
+    }
 
-    /* 自动注册 device; 已存在则顺带刷新 presence (不额外增加往返) */
-    snprintf(ensure_sql, sizeof(ensure_sql),
-        "INSERT INTO devices (product_key, device_id, device_name, status, online, last_online) "
-        "VALUES ('%s','%s','%s','active',TRUE,NOW()) "
-        "ON DUPLICATE KEY UPDATE online=TRUE, last_online=NOW()",
-        esc_pk, esc_id, esc_id);
-    if (db_pool_exec(db, ensure_sql) != 0) {
-        LOG_WARN("auto-register device failed: %s", task->device_id);
+    /* 物模型白名单（轻量）: 产品未定义任何属性 = 自由模式放行；
+     * 定义后，白名单外 identifier / bool 类型值不符 → 拒绝。 */
+    {
+        tm_check_t tm = thing_model_check(task->product_key, task->metric, task->value);
+        if (tm != TM_OK && tm != TM_FREE) {
+            LOG_WARN("publish dropped: metric '%s' %s (pk=%s dev=%s)",
+                     task->metric,
+                     tm == TM_UNKNOWN ? "not in product model (10411)" : "type mismatch",
+                     task->product_key, task->device_id);
+            db_pool_put(db);
+            free(task);
+            return;
+        }
     }
 
     /* 告警评估（复用当前连接，避免多连接死锁） */

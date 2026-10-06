@@ -35,6 +35,18 @@
 
 其余（订阅列表、OneJSON 组装、PUBRAW 上报、+MQTTSUBRECV 解析）全部保持不变。
 
+## 物模型白名单（轻量约束）
+
+产品可配置允许上报的属性（`POST /api/product`）：
+
+- `prop_list` / `prop_add` / `prop_del`，字段：`product_key` + `identifier` + `prop_type`(number/bool/string)
+- **产品未定义任何属性 = 自由模式**（全部放行，兼容既有演示设备）；
+- 定义后：白名单外 identifier 拒绝入库（对齐 OneNET 10411 语义），bool 类型值非 0/1 拒绝；
+- 校验在 publish_worker 单点收口，OneNET `params` 与原生 `datapoints` 两条链路同样生效；
+- **设备必须先注册**：未注册设备的上报直接拒绝（不再自动注册）。
+
+factory_sensor 已预置 7 个属性（temperature/humidity number，led1-3/buzzer/fan bool）。
+
 ## E2 侧暂不支持的 OneNET 特性
 
 - Token 安全鉴权（HMAC-SHA1）—— 用设备密钥替代
