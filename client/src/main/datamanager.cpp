@@ -10,6 +10,11 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     connect(&m_http, &HttpClient::loginSucceeded, this, &DataManager::onLoginSucceeded);
     connect(&m_http, &HttpClient::loginFailed, this, &DataManager::onLoginFailed);
     connect(&m_http, &HttpClient::devicesFetched, this, &DataManager::onDevicesFetched);
+    connect(&m_http, &HttpClient::deviceRegistered, this,
+        [this](const QString &deviceId, const QString &secret) {
+            refreshDevices();
+            emit deviceRegistered(deviceId, secret);
+        });
     connect(&m_http, &HttpClient::latestFetched, this, [this](const QJsonArray &dps) {
         m_deviceMetrics.clear();
         for (const auto &item : dps) {
@@ -500,4 +505,15 @@ QString DataManager::metricSummary(const QString &deviceId, int maxItems) const
                      .arg(metricUnit(m));
     }
     return parts.isEmpty() ? QStringLiteral("—") : parts.join(QStringLiteral(" · "));
+}
+
+void DataManager::registerDevice(const QString &deviceId, const QString &name,
+                                 const QString &productKey, const QString &deviceType,
+                                 const QString &deviceSecret, int groupId)
+{
+    if (!m_online) {
+        emit errorOccurred(QStringLiteral("未连接服务器"));
+        return;
+    }
+    m_http.registerDevice(deviceId, name, productKey, deviceType, deviceSecret, groupId);
 }

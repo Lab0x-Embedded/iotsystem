@@ -15,6 +15,7 @@
 #define E2_DEVICE_MANAGER_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include <time.h>
 #include <stdbool.h>
 
@@ -65,13 +66,17 @@ void device_manager_shutdown(void);
  *  @param name           显示名 (可为 NULL)
  *  @param product_key    产品 key
  *  @param device_type    设备类型 (可为 NULL, 默认 "")
- *  @param device_secret  认证密钥 (可为 NULL)
+ *  @param device_secret  认证密钥; 传 NULL 或空串时自动生成随机密钥
  *  @param group_id       分组 id
+ *  @param secret_out     [out] 实际生效的密钥(含自动生成的), 供接口返回给调用方;
+ *                        可为 NULL(不需要)
+ *  @param secret_out_len secret_out 缓冲长度(建议 >= 64)
  *  @return 0 成功, -1 失败
  */
 int  device_register(const char *device_id, const char *name,
                      const char *product_key, const char *device_type,
-                     const char *device_secret, int group_id);
+                     const char *device_secret, int group_id,
+                     char *secret_out, size_t secret_out_len);
 
 /**
  * 设备激活 (上线): 可选校验 device_secret, 命中则置 status='active' + online=TRUE.

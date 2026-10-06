@@ -142,21 +142,26 @@ void HttpClient::fetchLatest() {
 }
 
 void HttpClient::registerDevice(const QString &deviceId, const QString &name,
-                                 const QString &productKey, const QString &groupId) {
+                                 const QString &productKey,
+                                 const QString &deviceType,
+                                 const QString &deviceSecret,
+                                 int groupId) {
     QJsonObject body;
     body["action"] = "register";
     body["device_id"] = deviceId;
     body["name"] = name;
     body["product_key"] = productKey;
+    body["device_type"] = deviceType;
+    body["device_secret"] = deviceSecret;     // 留空 → 服务端自动生成
     body["group_id"] = groupId;
 
     auto *reply = m_mgr.post(makeRequest("/api/device"),
                              QJsonDocument(body).toJson());
-    
+
     handleReply(reply,
         [this, deviceId](const QJsonObject &obj) {
-            Q_UNUSED(obj);
-            emit deviceRegistered(deviceId);
+            // 服务端返回实际生效的密钥（自动生成时就是它；已存在设备返回原密钥）
+            emit deviceRegistered(deviceId, obj["device_secret"].toString());
         },
         [this](const QString &error) {
             emit deviceOperationError(error);

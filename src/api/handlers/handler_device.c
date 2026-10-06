@@ -4,6 +4,7 @@
 #include <mysql.h>
 #include "api/http_server.h"
 #include "business/device_manager.h"
+#include "mqtt/mqtt_types.h"
 #include "common/log.h"
 #include <cJSON.h>
 #include <stdlib.h>
@@ -51,15 +52,32 @@ void handler_device(struct evhttp_request *req, void *ctx) {
         const cJSON *dt = cJSON_GetObjectItem(root, "device_type");
         const cJSON *ds = cJSON_GetObjectItem(root, "device_secret");
         const cJSON *gid = cJSON_GetObjectItem(root, "group_id");
-        if (id && pk && device_register(id->valuestring,
-            name ? name->valuestring : "",
-            pk->valuestring,
-            dt ? dt->valuestring : "",
-            ds ? ds->valuestring : "",
-            gid ? gid->valueint : 0) == 0) {
-            http_reply_json(req, 200, "OK", "{\"status\":\"registered\"}");
+        if (id && pk) {
+            /* 未提供密钥时服务端自动生成；返回实际生效的密钥，
+             * 否则调用方拿不到密钥、无法配置设备接入。 */
+            char secret[MQTT_ID_MAX] = {0};
+            if (device_register(id->valuestring,
+                                name ? name->valuestring : "",
+                                pk->valuestring,
+                                dt ? dt->valuestring : "",
+                                ds ? ds->valuestring : "",
+                                gid ? gid->valueint : 0,
+                                secret, sizeof(secret)) == 0) {
+                cJSON *res = cJSON_CreateObject();
+                cJSON_AddStringToObject(res, "status", "registered");
+                cJSON_AddStringToObject(res, "device_id", id->valuestring);
+                cJSON_AddStringToObject(res, "product_key", pk->valuestring);
+                cJSON_AddStringToObject(res, "device_secret", secret);
+                char *txt = cJSON_PrintUnformatted(res);
+                http_reply_json(req, 200, "OK", txt);
+                free(txt); cJSON_Delete(res);
+            } else {
+                http_reply_json(req, 400, "Bad Request",
+                                "{\"error\":\"register failed\"}");
+            }
         } else {
-            http_reply_json(req, 400, "Bad Request", "{\"error\":\"register failed\"}");
+            http_reply_json(req, 400, "Bad Request",
+                            "{\"error\":\"missing device_id or product_key\"}");
         }
     } else if (action && strcmp(action->valuestring, "query") == 0) {
         const cJSON *id = cJSON_GetObjectItem(root, "device_id");

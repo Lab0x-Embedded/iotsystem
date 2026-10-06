@@ -3,6 +3,7 @@
 
 #include <QAbstractListModel>
 #include <QVector>
+#include <QVariantList>
 #include <QString>
 #include <QMap>
 
@@ -44,6 +45,9 @@ public:
     int totalCount() const { return m_groups.size(); }
     Q_INVOKABLE int deviceCountForGroup(int groupId) const;
     Q_INVOKABLE QString groupName(int groupId) const;
+
+    /** 分组选项列表 [{id, name}]，供下拉框使用 */
+    Q_INVOKABLE QVariantList options() const;
 
 signals:
     void countsChanged();

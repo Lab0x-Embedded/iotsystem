@@ -55,6 +55,11 @@ public:
     Q_INVOKABLE void updateDeviceName(const QString &deviceId, const QString &name);
     Q_INVOKABLE void removeDeviceFromGroup(const QString &deviceId);
 
+    /** 注册设备(deviceSecret 留空则服务端自动生成)；成功后发 registered 信号 */
+    Q_INVOKABLE void registerDevice(const QString &deviceId, const QString &name,
+                                    const QString &productKey, const QString &deviceType,
+                                    const QString &deviceSecret, int groupId);
+
     /* ---- 动态指标查询 (不再写死 temperature/humidity) ---- */
     /** 某设备当前已上报的指标名列表 (已排序) */
     Q_INVOKABLE QStringList metricNamesFor(const QString &deviceId) const;
@@ -73,6 +78,7 @@ signals:
     void countsChanged();
     void connectionStatusChanged(const QString &status);
     void deviceUpdated(const DeviceInfo &d);
+    void deviceRegistered(const QString &deviceId, const QString &secret);
     void newAlarm(const AlarmRecord &alarm);
     void dataPointArrived(const QString &deviceId, const QString &metric, double value, qint64 ts);
     void errorOccurred(const QString &error);

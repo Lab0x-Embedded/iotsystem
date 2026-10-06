@@ -32,8 +32,12 @@ public:
     // 设备管理
     Q_INVOKABLE void fetchDevices();
     Q_INVOKABLE void fetchLatest();
+    /** 注册设备。deviceSecret 留空则服务端自动生成并回传。 */
     Q_INVOKABLE void registerDevice(const QString &deviceId, const QString &name,
-                                     const QString &productKey, const QString &groupId);
+                                     const QString &productKey,
+                                     const QString &deviceType = QString(),
+                                     const QString &deviceSecret = QString(),
+                                     int groupId = 0);
     Q_INVOKABLE void queryDevice(const QString &deviceId);
 
     // 更新设备信息 (组/名称)
@@ -81,7 +85,7 @@ signals:
     // 设备
     void devicesFetched(const QJsonArray &devices);
     void latestFetched(const QJsonArray &datapoints);
-    void deviceRegistered(const QString &deviceId);
+    void deviceRegistered(const QString &deviceId, const QString &secret);
     void deviceQueryResult(const QJsonObject &device);
     void deviceUpdated(const QString &deviceId, int groupId);
     void deviceOperationError(const QString &error);

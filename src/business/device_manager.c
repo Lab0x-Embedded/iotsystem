@@ -341,8 +341,40 @@ void device_manager_shutdown(void) {
     LOG_INFO("device_manager shutdown");
 }
 
+/**
+ * 生成随机设备密钥: /dev/urandom 取 16 字节 → 32 位十六进制.
+ * (不引用 OpenSSL, macOS/Linux 都有 /dev/urandom)
+ *  @return 0 成功
+ */
+static int gen_device_secret(char *out, size_t cap) {
+    if (!out || cap < 33)
+        return -1;
+
+    unsigned char buf[16];
+    FILE *f = fopen("/dev/urandom", "rb");
+    if (!f) {
+        LOG_ERROR("gen_device_secret: open /dev/urandom failed");
+        return -1;
+    }
+    size_t n = fread(buf, 1, sizeof(buf), f);
+    fclose(f);
+    if (n != sizeof(buf)) {
+        LOG_ERROR("gen_device_secret: short read (%zu)", n);
+        return -1;
+    }
+
+    static const char hex[] = "0123456789abcdef";
+    for (size_t i = 0; i < sizeof(buf); ++i) {
+        out[i * 2]     = hex[(buf[i] >> 4) & 0x0F];
+        out[i * 2 + 1] = hex[buf[i] & 0x0F];
+    }
+    out[sizeof(buf) * 2] = '\0';
+    return 0;
+}
+
 int device_register(const char *device_id, const char *name, const char *product_key,
-                    const char *device_type, const char *device_secret, int group_id) {
+                    const char *device_type, const char *device_secret, int group_id,
+                    char *secret_out, size_t secret_out_len) {
     if (!device_id || !product_key)
         return -1;
     if (strlen(device_id) >= DEV_ID_LEN || strlen(product_key) >= DEV_PK_LEN) {
@@ -352,7 +384,17 @@ int device_register(const char *device_id, const char *name, const char *product
     }
 
     const char *dt = device_type ? device_type : "";
-    const char *ds = device_secret ? device_secret : "";
+
+    /* 密钥: 调用方没给就自动生成一个随机密钥，
+     * 否则设备注册完拿到空密钥，根本无法通过 MQTT 认证。 */
+    bool user_secret = (device_secret && device_secret[0] != '\0');
+    char gen_secret[33];
+    const char *ds = device_secret;
+    if (!user_secret) {
+        if (gen_device_secret(gen_secret, sizeof(gen_secret)) != 0)
+            return -1;
+        ds = gen_secret;
+    }
 
     db_conn_t *conn = db_pool_get();
     if (!conn)
@@ -382,20 +424,41 @@ int device_register(const char *device_id, const char *name, const char *product
     else
         snprintf(group_sql, sizeof(group_sql), "NULL");
 
+    /* 重复注册时的语义：
+     *   - 调用方显式给了密钥  → 覆盖(轮换)
+     *   - 没给(自动生成)      → 保留库里的旧密钥，避免把已烧录的设备弄失联
+     * 所以这里按情况选 ON DUPLICATE KEY UPDATE 的内容。 */
     snprintf(sql, sizeof(sql),
              "INSERT INTO devices "
              "(device_id, device_name, product_key, device_type, device_secret, group_id, status) "
              "VALUES ('%s', '%s', '%s', '%s', '%s', %s, 'registered') "
-             "ON DUPLICATE KEY UPDATE device_name='%s', device_type='%s'",
-             esc_id, esc_name, esc_pk, esc_dt, esc_ds, group_sql, esc_name, esc_dt);
+             "ON DUPLICATE KEY UPDATE device_name='%s', device_type='%s'%s",
+             esc_id, esc_name, esc_pk, esc_dt, esc_ds, group_sql, esc_name, esc_dt,
+             user_secret ? ", device_secret=VALUES(device_secret)" : "");
 
     int rc = db_pool_exec(conn, sql);
-    db_pool_put(conn);
 
     if (rc != 0) {
         LOG_ERROR("device_register: db insert failed for %s", device_id);
+        db_pool_put(conn);
         return -1;
     }
+
+    /* 读回“实际生效”的密钥：已有设备保留旧密钥时，返回的必须是库里那个，
+     * 否则调用方拿到的密钥连不上（自动生成的值被丢弃了）。 */
+    if (secret_out && secret_out_len > 0) {
+        char q[256];
+        snprintf(q, sizeof(q),
+                 "SELECT device_secret FROM devices WHERE device_id='%s' LIMIT 1", esc_id);
+        MYSQL_RES *res = db_pool_query(conn, q);
+        if (res) {
+            MYSQL_ROW row = mysql_fetch_row(res);
+            if (row && row[0])
+                snprintf(secret_out, secret_out_len, "%s", row[0]);
+            db_pool_free_result(res);
+        }
+    }
+    db_pool_put(conn);
 
     LOG_INFO("device registered: id=%s pk=%s group=%d", device_id, product_key, group_id);
     return 0;

@@ -97,3 +97,15 @@ int GroupModel::deviceCountForGroup(int groupId) const {
 QString GroupModel::groupName(int groupId) const {
     return m_groupNameCache.value(groupId);
 }
+
+QVariantList GroupModel::options() const
+{
+    QVariantList out;
+    for (int r = 0; r < m_groups.size(); ++r) {
+        QVariantMap m;
+        m["id"] = m_groups[r].groupId;
+        m["name"] = m_groups[r].name;
+        out.append(m);
+    }
+    return out;
+}
