@@ -12,6 +12,9 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
     /* serverUrl 属性 NOTIFY 转发：之前只声明未 emit，QML 绑定
      * dataManager.serverUrl 会在创建时求值一次后永远不更新 */
     connect(&m_http, &HttpClient::serverUrlChanged, this, &DataManager::serverUrlChanged);
+    /* 物模型白名单信号转发：HttpClient 发的，QML 只认 dataManager */
+    connect(&m_http, &HttpClient::propListFetched, this, &DataManager::propListFetched);
+    connect(&m_http, &HttpClient::propChanged, this, &DataManager::propChanged);
     connect(&m_http, &HttpClient::devicesFetched, this, &DataManager::onDevicesFetched);
     connect(&m_http, &HttpClient::deviceRegistered, this,
         [this](const QString &deviceId, const QString &secret) {
@@ -70,6 +73,7 @@ DataManager::DataManager(QObject *parent) : QObject(parent)
             m["product_name"]  = o["product_name"].toString();
             m["description"]   = o["description"].toString();
             m["device_count"]  = o["device_count"].toInt();
+            m["prop_count"]    = o["prop_count"].toInt();
             m_products.append(m);
         }
         emit productsChanged();

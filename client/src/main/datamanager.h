@@ -94,6 +94,9 @@ signals:
     void deviceRegistered(const QString &deviceId, const QString &secret);
     // 设备列表 HTTP 拉取完成（含条数）；界面据此做"刷新成功"提示
     void devicesRefreshed(int count);
+    // 物模型白名单（HttpClient 信号转发，QML 监听 dataManager）
+    void propListFetched(const QString &productKey, const QJsonArray &props);
+    void propChanged(const QString &productKey, bool ok);
 
     // 产品
     void productsChanged();

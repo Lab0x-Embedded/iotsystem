@@ -63,7 +63,8 @@ void handler_product(struct evhttp_request *req, void *ctx) {
     if (action && strcmp(action->valuestring, "query_all") == 0) {
         const char *sql =
             "SELECT p.id, p.product_id, p.product_key, p.product_name, p.description, "
-            "       (SELECT COUNT(*) FROM devices d WHERE d.product_key = p.product_key) AS device_count "
+            "       (SELECT COUNT(*) FROM devices d WHERE d.product_key = p.product_key) AS device_count, "
+            "       (SELECT COUNT(*) FROM product_properties pp WHERE pp.product_key = p.product_key) AS prop_count "
             "FROM products p ORDER BY p.id";
 
         MYSQL_RES *res = (MYSQL_RES *)db_pool_query(conn, sql);
@@ -86,6 +87,7 @@ void handler_product(struct evhttp_request *req, void *ctx) {
             cJSON_AddStringToObject(item, "product_name", row[3] ? row[3] : "");
             cJSON_AddStringToObject(item, "description", row[4] ? row[4] : "");
             cJSON_AddNumberToObject(item, "device_count", row[5] ? atoi(row[5]) : 0);
+            cJSON_AddNumberToObject(item, "prop_count", row[6] ? atoi(row[6]) : 0);
             cJSON_AddItemToArray(arr, item);
             ++total;
         }
