@@ -288,6 +288,7 @@ void DataManager::onDevicesFetched(const QJsonArray &devices)
     }
 
     m_devices.setDevices(deviceList);
+    emit devicesRefreshed(deviceList.size());
 }
 
 void DataManager::onGroupsFetched(const QJsonArray &groups)

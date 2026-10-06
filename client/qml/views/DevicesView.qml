@@ -34,6 +34,16 @@ Rectangle {
 
     color: theme.background
 
+    // 用户点击了"刷新"按钮：列表拉取完成后弹一次成功提示
+    // （登录/轮询触发的拉取不弹，避免无关打扰）
+    property bool refreshPending: false
+    property string toastText: ""
+
+    function showToast(msg) {
+        toastText = msg;
+        toastTimer.restart();
+    }
+
     // 列表数据（过滤后的副本；deviceModel 是 QAbstractListModel，不能直接在 QML 里过滤）
     ListModel { id: deviceRows }
 
@@ -52,7 +62,9 @@ Rectangle {
                 "deviceId": d.id,
                 "deviceName": d.name || "",
                 "group": d.group || "",
-                "lastSeen": d.lastSeen ? Qt.formatDateTime(d.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-"
+                "lastSeen": d.lastSeen ? Qt.formatDateTime(d.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-",
+                "statusText": d.statusText(),
+                "statusColor": d.statusColor().toString()
             });
         }
     }
@@ -124,6 +136,43 @@ Rectangle {
     Connections {
         target: dataManager
         function onProductsChanged() { root.refreshProductChoices(); }
+        function onDevicesRefreshed(count) {
+            // 分组下拉也顺带重取一次（refreshGroups 的结果通常已先/同时到达）
+            root.refreshGroupChoices();
+            if (root.refreshPending) {
+                root.refreshPending = false;
+                root.showToast("设备列表已刷新（" + count + " 台）");
+            }
+        }
+    }
+
+    // Toast（与 DeviceDetailView 同款）
+    Rectangle {
+        id: toastBar
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 20
+        anchors.horizontalCenter: parent.horizontalCenter
+        color: theme.primary
+        height: 36
+        width: toastLabel.implicitWidth + 32
+        radius: 8
+        opacity: root.toastText ? 1.0 : 0.0
+        visible: opacity > 0
+        z: 100
+
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+
+        ShadcnLabel {
+            id: toastLabel
+            anchors.centerIn: parent
+            text: root.toastText
+            color: theme.primaryForeground
+        }
+        Timer {
+            id: toastTimer
+            interval: 1800
+            onTriggered: root.toastText = ""
+        }
     }
 
     ColumnLayout {
@@ -201,6 +250,18 @@ Rectangle {
                             }
                         }
                         ShadcnButton {
+                            text: "刷新"
+                            iconName: "refresh-cw"
+                            size: ShadcnButton.Size.Small
+                            variant: ShadcnButton.Variant.Outline
+                            onClicked: {
+                                if (!dataManager) return;
+                                root.refreshPending = true;
+                                dataManager.refreshDevices();
+                                dataManager.refreshGroups();
+                            }
+                        }
+                        ShadcnButton {
                             text: "注册设备"
                             iconName: "plus"
                             size: ShadcnButton.Size.Small
@@ -223,7 +284,8 @@ Rectangle {
                         Layout.fillWidth: true
                         spacing: 10
 
-                        Item { Layout.preferredWidth: 8 }   // 与行的状态点对齐
+                        Item { Layout.preferredWidth: 8 }   // 与行的状态徽章对齐
+                        ShadcnLabel { Layout.preferredWidth: 72;  text: "状态";    size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                         ShadcnLabel { Layout.preferredWidth: 110; text: "设备 ID";  size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                         ShadcnLabel { Layout.fillWidth: true;    text: "名称";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
                         ShadcnLabel { Layout.preferredWidth: 210; text: "最新数据"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
@@ -248,11 +310,15 @@ Rectangle {
                         }
 
                         delegate: Rectangle {
+                            id: delegate
+
                             required property int index
                             required property string deviceId
                             required property string deviceName
                             required property string group
                             required property string lastSeen
+                            required property string statusText
+                            required property string statusColor
 
                             width: deviceList.width
                             height: 48
@@ -263,8 +329,7 @@ Rectangle {
                                 id: deviceHover
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.deviceSelected(deviceId)
+                                // 整行不响应点击：跳详情只走「详情」按钮，避免误触
                             }
 
                             RowLayout {
@@ -272,6 +337,23 @@ Rectangle {
                                 anchors.leftMargin: 8
                                 anchors.rightMargin: 8
                                 spacing: 10
+
+                                // 状态徽章：彩点 + 文字，一眼可辨在线/离线/告警/维护
+                                RowLayout {
+                                    Layout.preferredWidth: 72
+                                    spacing: 6
+
+                                    Rectangle {
+                                        Layout.alignment: Qt.AlignVCenter
+                                        width: 8; height: 8; radius: 4
+                                        color: delegate.statusColor
+                                    }
+                                    ShadcnLabel {
+                                        text: delegate.statusText
+                                        size: ShadcnLabel.Size.Small
+                                        color: delegate.statusColor
+                                    }
+                                }
 
                                 ShadcnLabel {
                                     Layout.preferredWidth: 110

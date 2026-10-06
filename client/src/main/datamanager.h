@@ -92,6 +92,8 @@ signals:
     void connectionStatusChanged(const QString &status);
     void deviceUpdated(const DeviceInfo &d);
     void deviceRegistered(const QString &deviceId, const QString &secret);
+    // 设备列表 HTTP 拉取完成（含条数）；界面据此做"刷新成功"提示
+    void devicesRefreshed(int count);
 
     // 产品
     void productsChanged();
