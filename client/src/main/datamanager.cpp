@@ -241,6 +241,7 @@ void DataManager::onDevicesFetched(const QJsonArray &devices)
         info.name = obj["name"].toString();
         info.productKey = obj["product_key"].toString();
         info.deviceType = obj["device_type"].toString();
+        info.deviceSecret = obj["device_secret"].toString();
 
         /* group_id 是整数, 转字符串给界面 */
         int gid = obj["group_id"].toInt();

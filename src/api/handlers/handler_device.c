@@ -147,6 +147,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
             cJSON_AddStringToObject(item, "name", devices[i].name);
             cJSON_AddStringToObject(item, "product_key", devices[i].product_key);
             cJSON_AddStringToObject(item, "device_type", devices[i].device_type);
+            cJSON_AddStringToObject(item, "device_secret", devices[i].device_secret);
             cJSON_AddNumberToObject(item, "group_id", devices[i].group_id);
             cJSON_AddNumberToObject(item, "state", (int)devices[i].state);
             cJSON_AddBoolToObject(item, "online", devices[i].online);
@@ -207,6 +208,7 @@ void handler_device(struct evhttp_request *req, void *ctx) {
                 cJSON_AddStringToObject(item, "name", devices[i].name);
                 cJSON_AddStringToObject(item, "product_key", devices[i].product_key);
                 cJSON_AddStringToObject(item, "device_type", devices[i].device_type);
+                cJSON_AddStringToObject(item, "device_secret", devices[i].device_secret);
                 cJSON_AddNumberToObject(item, "group_id", devices[i].group_id);
                 cJSON_AddNumberToObject(item, "state", (int)devices[i].state);
                 cJSON_AddBoolToObject(item, "online", devices[i].online);

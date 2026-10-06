@@ -60,6 +60,7 @@ Rectangle {
                           + " (" + currentDevice.productKey + ")\n"
             + "类型: "    + (currentDevice.deviceType || "-") + "\n"
             + "分组: "    + groupText + "\n"
+            + "密钥: "    + (currentDevice.deviceSecret || "-") + "\n"
             + "状态: "    + statusText + "\n"
             + "上报次数: " + currentDevice.reportCount + "\n"
             + "最后上报: "
@@ -204,87 +205,127 @@ Rectangle {
 
 
             // ===== 基本信息 =====
-            // 服务端 query_all 早就返回了 device_type（之前客户端 DeviceInfo 没接，白丢了）
+            // 设备 ID 与密钥为 CopyableText（可拖选 + 一键复制），其余字段纯展示
+            // Panel 无隐式高度（见 Panel.qml 注释），三行内容必须显式给高度
             Panel {
                 Layout.fillWidth: true
                 Layout.leftMargin: 20
                 Layout.rightMargin: 20
-                Layout.preferredHeight: 92
+                Layout.preferredHeight: 210
                 visible: root.currentDevice !== null
 
-                RowLayout {
+                ColumnLayout {
                     anchors.fill: parent
-                    spacing: 24
+                    spacing: 10
 
-                    ColumnLayout {
-                        Layout.preferredWidth: 150
-                        spacing: 4
-                        ShadcnLabel { text: "设备 ID"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        CopyableText {
-                            Layout.fillWidth: true
-                            text: root.currentDevice ? root.currentDevice.id : "-"
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 24
+
+                        ColumnLayout {
+                            Layout.preferredWidth: 220
+                            spacing: 4
+                            ShadcnLabel { text: "设备 ID"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            CopyableText {
+                                text: root.currentDevice ? root.currentDevice.id : "-"
+                            }
                         }
+                        ColumnLayout {
+                            Layout.preferredWidth: 150
+                            spacing: 4
+                            ShadcnLabel { text: "设备类型"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel {
+                                Layout.fillWidth: true
+                                text: root.currentDevice && root.currentDevice.deviceType
+                                      ? root.currentDevice.deviceType : "-"
+                                size: ShadcnLabel.Size.Small
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.preferredWidth: 130
+                            spacing: 4
+                            ShadcnLabel { text: "分组"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel {
+                                Layout.fillWidth: true
+                                text: {
+                                    if (!root.currentDevice) return "-";
+                                    var g = Number(root.currentDevice.group);
+                                    if (!g) return "未分组";
+                                    return groupModel ? groupModel.groupName(g) : String(g);
+                                }
+                                size: ShadcnLabel.Size.Small
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.preferredWidth: 80
+                            spacing: 4
+                            ShadcnLabel { text: "上报次数"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel {
+                                text: root.currentDevice ? root.currentDevice.reportCount : "-"
+                                size: ShadcnLabel.Size.Small
+                            }
+                        }
+                        ColumnLayout {
+                            Layout.preferredWidth: 210
+                            spacing: 4
+                            ShadcnLabel { text: "最后上报"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel {
+                                Layout.fillWidth: true
+                                text: root.currentDevice && root.currentDevice.lastSeen
+                                      ? Qt.formatDateTime(root.currentDevice.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-"
+                                size: ShadcnLabel.Size.Small
+                            }
+                        }
+                        Item { Layout.fillWidth: true }
                     }
-                    ColumnLayout {
-                        Layout.preferredWidth: 160
-                        spacing: 4
-                        ShadcnLabel { text: "产品"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        CopyableText {
+
+                    ShadcnSeparator { Layout.fillWidth: true }
+
+                    // 产品
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 24
+
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            text: root.currentDevice && dataManager
-                                  ? dataManager.productNameOf(root.currentDevice.productKey) : "-"
-                        }
-                        CopyableText {
-                            Layout.fillWidth: true
-                            text: root.currentDevice ? root.currentDevice.productKey : ""
-                            color: theme.mutedForeground
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.preferredWidth: 110
-                        spacing: 4
-                        ShadcnLabel { text: "设备类型"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        CopyableText {
-                            Layout.fillWidth: true
-                            text: root.currentDevice && root.currentDevice.deviceType
-                                  ? root.currentDevice.deviceType : "-"
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.preferredWidth: 130
-                        spacing: 4
-                        ShadcnLabel { text: "分组"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        CopyableText {
-                            Layout.fillWidth: true
-                            text: {
-                                if (!root.currentDevice) return "-";
-                                var g = Number(root.currentDevice.group);
-                                if (!g) return "未分组";
-                                return groupModel ? groupModel.groupName(g) : String(g);
+                            spacing: 4
+                            ShadcnLabel { text: "产品"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel {
+                                Layout.fillWidth: true
+                                text: root.currentDevice && dataManager
+                                      ? dataManager.productNameOf(root.currentDevice.productKey) : "-"
+                                size: ShadcnLabel.Size.Small
+                            }
+                            ShadcnLabel {
+                                Layout.fillWidth: true
+                                text: root.currentDevice ? root.currentDevice.productKey : ""
+                                size: ShadcnLabel.Size.Small
+                                variant: ShadcnLabel.Variant.Muted
                             }
                         }
                     }
-                    ColumnLayout {
-                        Layout.preferredWidth: 80
-                        spacing: 4
-                        ShadcnLabel { text: "上报次数"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        ShadcnLabel {
-                            text: root.currentDevice ? root.currentDevice.reportCount : "-"
-                            size: ShadcnLabel.Size.Small
-                        }
-                    }
-                    ColumnLayout {
-                        Layout.preferredWidth: 170
-                        spacing: 4
-                        ShadcnLabel { text: "最后上报"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        CopyableText {
-                            Layout.fillWidth: true
-                            text: root.currentDevice && root.currentDevice.lastSeen
-                                  ? Qt.formatDateTime(root.currentDevice.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-"
-                        }
-                    }
 
-                    Item { Layout.fillWidth: true }
+                    ShadcnSeparator { Layout.fillWidth: true }
+
+                    // 设备密钥：单独一行 + 一键复制
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+                            ShadcnLabel { text: "设备密钥（接入固件用，请妥善保管）"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            CopyableText {
+                                text: {
+                                    if (!root.currentDevice) return "-";
+                                    var s = root.currentDevice.deviceSecret;
+                                    return (s && s.length > 0) ? s : "（未设置）";
+                                }
+                                fontFamily: "Monaco"
+                            }
+                        }
+                    }
                 }
             }
 
