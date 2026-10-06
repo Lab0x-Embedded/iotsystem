@@ -391,7 +391,7 @@ Rectangle {
         property string pname: ""
 
         width: 720
-        height: 640
+        height: 620
         modal: true
 
         readonly property int  propCount:     propRows.count
@@ -403,7 +403,7 @@ Rectangle {
             dataManager.httpClient.propList(pkey);
         }
 
-        // ✅ 精确匹配 C++ 信号签名：
+        // 精确匹配 C++ 信号签名：
         //   DataManager::propListFetched(const QString &productKey, const QJsonArray &list)
         //   DataManager::propChanged(const QString &productKey, bool success)
         Connections {
@@ -431,8 +431,8 @@ Rectangle {
                     root.showToast("物模型操作失败", theme.destructive);
                     return;
                 }
-                modelDialog.refresh();                     // 重新拉属性列表
-                if (dataManager) dataManager.refreshProducts();   // 刷新"物模型"列计数
+                modelDialog.refresh();
+                if (dataManager) dataManager.refreshProducts();
             }
         }
 
@@ -440,9 +440,9 @@ Rectangle {
         onClosed: propRows.clear()
 
         ShadcnDialogContent {
+            // ⚠️ 关键修复：不再设置 height: parent.height
             ColumnLayout {
                 width: parent.width
-                height: parent.height
                 spacing: 14
 
                 // ---------- 标题区 ----------
@@ -490,10 +490,10 @@ Rectangle {
                     }
                 }
 
+                // ⚠️ 关键修复：用固定的 preferredHeight，不再用 fillHeight
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: 200
+                    Layout.preferredHeight: 260
                     radius: theme.radius
                     color: theme.muted
                     border.width: 1
@@ -643,7 +643,7 @@ Rectangle {
                 // ---------- 新增属性 ----------
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 156
+                    Layout.preferredHeight: 150
                     radius: theme.radius
                     color: Qt.alpha(theme.primary, 0.06)
                     border.width: 1
@@ -670,7 +670,7 @@ Rectangle {
                             }
                             Item { Layout.fillWidth: true }
                             ShadcnLabel {
-                                text: "保存后立即生效（服务端 30s 内全量生效）"
+                                text: "保存后立即生效"
                                 size: ShadcnLabel.Size.Small
                                 variant: ShadcnLabel.Variant.Muted
                             }
