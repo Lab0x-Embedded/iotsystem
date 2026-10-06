@@ -581,7 +581,7 @@ Rectangle {
 
                     ShadcnLabel {
                         Layout.fillWidth: true
-                        text: "client_id 规则 esp8266_<设备ID>，username = ProductKey，password = DeviceSecret。AT+MQTTCONN 末位参数 1 表示掉线自动重连；订阅成功后平台下发的指令会以 +MQTTSUBRECV 形式从串口输出。51/STM32 主控可直接复用 firmware/esp8266_at/ 下的可移植 C 驱动。"
+                        text: "client_id 规则 esp8266_<设备ID>，username = ProductKey，password = DeviceSecret。AT+MQTTCONN 末位参数 1 表示掉线自动重连；订阅成功后平台下发的指令会以 +MQTTSUBRECV 形式从串口输出。OneNET 风格接入的协议细节见 docs/E2_OneNET兼容接入.md。"
                         size: ShadcnLabel.Size.Small
                         variant: ShadcnLabel.Variant.Muted
                         wrapMode: Text.Wrap

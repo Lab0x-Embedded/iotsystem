@@ -196,10 +196,6 @@ make client
 
 用一块 ESP8266 + DHT11 接入平台：上报温湿度、接收指令控制继电器。
 
-**接线 / 烧录 / 排错** → [firmware/esp8266/README.md](firmware/esp8266/README.md)
-
-**固件示例** → [firmware/esp8266/esp8266_sensor_relay/esp8266_sensor_relay.ino](firmware/esp8266/esp8266_sensor_relay/esp8266_sensor_relay.ino)
-
 设备侧需要遵守的约定：
 
 | 项 | 值 |
