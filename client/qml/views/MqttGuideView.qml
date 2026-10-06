@@ -249,7 +249,7 @@ Rectangle {
                     font.bold: true
                 }
                 ShadcnLabel {
-                    text: "按以下四步将设备接入平台"
+                    text: "按以下步骤将设备接入平台"
                     size: ShadcnLabel.Size.Small
                     variant: ShadcnLabel.Variant.Muted
                 }
@@ -401,7 +401,7 @@ Rectangle {
                 StepCard {
                     step: 4
                     title: "快速验证"
-                    note: "mosquitto / 模拟脚本 / 真实硬件"
+                    note: "mosquitto / 端到端模拟脚本"
 
                     ShadcnLabel {
                         Layout.fillWidth: true
@@ -451,10 +451,63 @@ Rectangle {
                                 + " --secret " + (root.devSecret || "<secret>")
                               : "python3 deploy/scripts/esp8266_e2e_test.py"
                     }
+                }
+
+                // ── 5. ESP8266 AT 指令接入 ──
+                StepCard {
+                    step: 5
+                    title: "ESP8266 AT 指令接入"
+                    note: "ESP-AT v2.2+ · 挂 51/STM32 主控"
 
                     ShadcnLabel {
                         Layout.fillWidth: true
-                        text: "真实硬件：ESP8266 NodeMCU + DHT11 + 继电器的完整 Arduino 固件见 firmware/esp8266/（含接线图与烧录步骤）；ESP-01S 走 AT 指令接入（挂 51/STM32 主控）见 firmware/esp8266_at/（含刷 ESP-AT v2.2 固件步骤与可移植 C 驱动）。"
+                        text: "ESP-01S 等模组需刷 ESP-AT v2.x 固件（出厂旧版 v1.7 无 MQTT 指令），在串口逐条发送以下指令即可完成联网 + 鉴权 + 订阅："
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+
+                    CodeBlock {
+                        code: root.currentDevice
+                              ? "AT+CWMODE=1\n"
+                                + "AT+CWJAP=\"<WiFi名>\",\"<WiFi密码>\"\n"
+                                + "AT+MQTTUSERCFG=0,1,\"esp8266_" + root.devId + "\",\""
+                                + root.devPk + "\",\""
+                                + (root.devSecret || "<device_secret>") + "\",0,0,\"\"\n"
+                                + "AT+MQTTCONNCFG=0,120,1,\"\",\"\",0,0\n"
+                                + "AT+MQTTCONN=0,\"<平台IP>\",1883,1\n"
+                                + "AT+MQTTSUB=0,\"cmd/" + root.devId + "/exec\",1"
+                              : "AT+CWMODE=1\n"
+                                + "AT+CWJAP=\"<WiFi名>\",\"<WiFi密码>\"\n"
+                                + "AT+MQTTUSERCFG=0,1,\"esp8266_dev_001\",\"factory_sensor\",\"secret_001\",0,0,\"\"\n"
+                                + "AT+MQTTCONNCFG=0,120,1,\"\",\"\",0,0\n"
+                                + "AT+MQTTCONN=0,\"<平台IP>\",1883,1\n"
+                                + "AT+MQTTSUB=0,\"cmd/dev_001/exec\",1"
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "连接成功后，用 AT+MQTTPUB 上报一条温度数据："
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+
+                    CodeBlock {
+                        code: root.currentDevice
+                              ? "AT+MQTTPUB=0,\"devices/" + root.devId + "/data\","
+                                + "\"{\\\"device_id\\\":\\\"" + root.devId + "\\\","
+                                + "\\\"datapoints\\\":[{\\\"metric\\\":\\\"temperature\\\","
+                                + "\\\"value\\\":25.6,\\\"ts\\\":1759709400}]}\",1,0"
+                              : "AT+MQTTPUB=0,\"devices/dev_001/data\","
+                                + "\"{\\\"device_id\\\":\\\"dev_001\\\","
+                                + "\\\"datapoints\\\":[{\\\"metric\\\":\\\"temperature\\\","
+                                + "\\\"value\\\":25.6,\\\"ts\\\":1759709400}]}\",1,0"
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "client_id 规则 esp8266_<设备ID>，username = ProductKey，password = DeviceSecret。AT+MQTTCONN 末位参数 1 表示掉线自动重连；订阅成功后平台下发的指令会以 +MQTTSUBRECV 形式从串口输出。51/STM32 主控可直接复用 firmware/esp8266_at/ 下的可移植 C 驱动。"
                         size: ShadcnLabel.Size.Small
                         variant: ShadcnLabel.Variant.Muted
                         wrapMode: Text.Wrap
