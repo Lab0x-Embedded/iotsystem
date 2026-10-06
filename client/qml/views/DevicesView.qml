@@ -9,35 +9,26 @@ Rectangle {
     id: root
 
     property var deviceData: null
-    // 活跃告警记录模型（与底部状态栏同源），用于顶部"告警"卡片
     property var alarmData: null
 
-    // 搜索关键字（真正用于过滤列表，之前这个搜索框是摆设）
     property string searchText: ""
-    // 分组下拉：ShadcnSelect 的 delegate 只可靠支持「字符串数组」，
-    // 用对象数组会渲染成 [object Object]，所以拆成「名称数组 + 平行 id 数组」
+    // 状态筛选："all" / "online" / "offline" / "alarm"
+    property string statusFilter: "all"
+
     property var groupNames: []
     property var groupIds: []
 
-    // 产品下拉(同样用平行数组)
     property var productNames: []
     property var productKeys: []
     property string pendingProductKey: ""
 
-    // 去产品管理页新建产品
     signal navigateToProducts()
-
-    // 请求打开该设备的 MQTT 接入指南（参数自动填入）
     signal navigateToGuide(string deviceId)
-
     signal deviceSelected(string deviceId)
 
     QtShadcnTheme { id: theme }
-
     color: theme.background
 
-    // 用户点击了"刷新"按钮：列表拉取完成后弹一次成功提示
-    // （登录/轮询触发的拉取不弹，避免无关打扰）
     property bool refreshPending: false
     property string toastText: ""
 
@@ -46,27 +37,54 @@ Rectangle {
         toastTimer.restart();
     }
 
-    // 列表数据（过滤后的副本；deviceModel 是 QAbstractListModel，不能直接在 QML 里过滤）
+    // 相对时间
+    function relativeTime(dt) {
+        if (!dt) return "-";
+        var nowMs = new Date().getTime();
+        var thenMs = dt.getTime ? dt.getTime() : (new Date(dt)).getTime();
+        if (!thenMs) return "-";
+        var diff = (nowMs - thenMs) / 1000;
+        if (diff < 60)       return "刚刚";
+        if (diff < 3600)     return Math.floor(diff / 60) + " 分钟前";
+        if (diff < 86400)    return Math.floor(diff / 3600) + " 小时前";
+        if (diff < 86400*7)  return Math.floor(diff / 86400) + " 天前";
+        return Qt.formatDateTime(dt, "yyyy-MM-dd");
+    }
+
     ListModel { id: deviceRows }
 
     function refreshRows() {
         deviceRows.clear();
         if (!deviceData) return;
-        var q = searchText.toLowerCase();
+        var q  = searchText.toLowerCase();
+        var sf = statusFilter;
         for (var i = 0; i < deviceData.rowCount(); i++) {
             var d = deviceData.deviceAt(i);
             if (!d || !d.id) continue;
+
             if (q !== ""
-                && (d.id || "").toLowerCase().indexOf(q) < 0
+                && (d.id   || "").toLowerCase().indexOf(q) < 0
                 && (d.name || "").toLowerCase().indexOf(q) < 0)
                 continue;
+
+            var st = d.statusText();
+            var sc = d.statusColor().toString();
+            var isOffline = (st === "离线");
+
+            if (sf === "online"  && st !== "在线") continue;
+            if (sf === "offline" && st !== "离线") continue;
+            if (sf === "alarm"   && st !== "告警") continue;
+
             deviceRows.append({
-                "deviceId": d.id,
-                "deviceName": d.name || "",
-                "group": d.group || "",
-                "lastSeen": d.lastSeen ? Qt.formatDateTime(d.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-",
-                "statusText": d.statusText(),
-                "statusColor": d.statusColor().toString()
+                "deviceId":       d.id,
+                "deviceName":     d.name || "",
+                "group":          d.group || "",
+                "lastSeenText":   d.lastSeen ? root.relativeTime(d.lastSeen) : "-",
+                "lastSeenAbs":    d.lastSeen ? Qt.formatDateTime(d.lastSeen, "yyyy-MM-dd hh:mm:ss") : "-",
+                "statusText":     st,
+                "statusColor":    sc,
+                "isOffline":      isOffline,
+                "metricSummary":  dataManager ? dataManager.metricSummary(d.id, 2) : "—"
             });
         }
     }
@@ -86,9 +104,6 @@ Rectangle {
     }
 
     function refreshGroupChoices() {
-        // 分组选项以服务端列表为准：init SQL 预置了「未分组」(group_id=1)，
-        // 这里不再硬编码合成项，否则会出现两个"未分组"。
-        // 注册选「未分组」→ group_id=1；group_id<=0 服务端会写 NULL。
         var names = [];
         var ids   = [];
         if (groupModel) {
@@ -102,7 +117,6 @@ Rectangle {
         groupIds = ids;
     }
 
-    // 注册设备
     function submitRegister() {
         regError.text = "";
         var id = regDeviceId.text.trim();
@@ -142,7 +156,6 @@ Rectangle {
         target: dataManager
         function onProductsChanged() { root.refreshProductChoices(); }
         function onDevicesRefreshed(count) {
-            // 分组下拉也顺带重取一次（refreshGroups 的结果通常已先/同时到达）
             root.refreshGroupChoices();
             if (root.refreshPending) {
                 root.refreshPending = false;
@@ -151,7 +164,15 @@ Rectangle {
         }
     }
 
-    // Toast（与 DeviceDetailView 同款）
+    // 每分钟刷新一次相对时间
+    Timer {
+        interval: 60000
+        running: true
+        repeat: true
+        onTriggered: root.refreshRows()
+    }
+
+    // Toast
     Rectangle {
         id: toastBar
         anchors.bottom: parent.bottom
@@ -185,7 +206,7 @@ Rectangle {
         anchors.margins: 20
         spacing: 16
 
-        // ===== 统计卡 =====
+        // ===== 统计卡（纯展示，点击筛选由下方 chip 负责） =====
         RowLayout {
             Layout.fillWidth: true
             spacing: 12
@@ -206,7 +227,8 @@ Rectangle {
                 Layout.fillWidth: true
                 title: "离线"
                 value: root.deviceData
-                       ? (root.deviceData.totalCount - root.deviceData.onlineCount - root.deviceData.alarmCount)
+                       ? (root.deviceData.totalCount - root.deviceData.onlineCount
+                          - (root.alarmData ? root.alarmData.activeCount : 0))
                        : "0"
                 valueColor: theme.mutedForeground
                 dotStatus: ShadcnStatusDot.Status.Offline
@@ -214,8 +236,6 @@ Rectangle {
             StatCard {
                 Layout.fillWidth: true
                 title: "告警"
-                // 与底部状态栏/告警中心同源：活跃告警记录数。
-                // 服务端设备状态机没有"告警态"，deviceData.alarmCount 恒为 0，勿用。
                 value: root.alarmData ? root.alarmData.activeCount : "0"
                 valueColor: root.alarmData && root.alarmData.activeCount > 0
                             ? theme.destructive : theme.mutedForeground
@@ -230,7 +250,6 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 16
 
-            // ---- 设备列表 ----
             Panel {
                 Layout.fillHeight: true
                 Layout.fillWidth: true
@@ -239,7 +258,7 @@ Rectangle {
                     anchors.fill: parent
                     spacing: 12
 
-                    // 头部：标题 + 搜索
+                    // 头部：标题 + 搜索 + 操作
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 12
@@ -248,11 +267,9 @@ Rectangle {
                         Item { Layout.fillWidth: true }
                         ShadcnInputGroup {
                             id: searchInput
-
                             Layout.preferredWidth: 220
                             prefixIcon: "search"
                             placeholderText: "搜索设备 ID / 名称..."
-
                             onTextChanged: {
                                 root.searchText = text;
                                 root.refreshRows();
@@ -286,32 +303,79 @@ Rectangle {
                         }
                     }
 
-                    ShadcnSeparator { Layout.fillWidth: true }
-
-                    // 表头
+                    // ===== 筛选 chip 行 =====
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 10
+                        spacing: 6
 
-                        Item { Layout.preferredWidth: 8 }   // 与行的状态徽章对齐
-                        ShadcnLabel { Layout.preferredWidth: 72;  text: "状态";    size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        ShadcnLabel { Layout.preferredWidth: 110; text: "设备 ID";  size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        ShadcnLabel { Layout.fillWidth: true;    text: "名称";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        ShadcnLabel { Layout.preferredWidth: 210; text: "最新数据"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        ShadcnLabel { Layout.preferredWidth: 130; text: "最后上报"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
-                        ShadcnLabel { text: "操作"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        ShadcnButton {
+                            text: "全部 (" + (root.deviceData ? root.deviceData.totalCount : 0) + ")"
+                            size: ShadcnButton.Size.ExtraSmall
+                            variant: root.statusFilter === "all"
+                                     ? ShadcnButton.Variant.Default
+                                     : ShadcnButton.Variant.Outline
+                            onClicked: { root.statusFilter = "all"; root.refreshRows(); }
+                        }
+                        ShadcnButton {
+                            text: "在线 (" + (root.deviceData ? root.deviceData.onlineCount : 0) + ")"
+                            size: ShadcnButton.Size.ExtraSmall
+                            variant: root.statusFilter === "online"
+                                     ? ShadcnButton.Variant.Default
+                                     : ShadcnButton.Variant.Outline
+                            onClicked: { root.statusFilter = "online"; root.refreshRows(); }
+                        }
+                        ShadcnButton {
+                            text: "离线 (" + (root.deviceData
+                                ? (root.deviceData.totalCount - root.deviceData.onlineCount
+                                   - (root.alarmData ? root.alarmData.activeCount : 0))
+                                : 0) + ")"
+                            size: ShadcnButton.Size.ExtraSmall
+                            variant: root.statusFilter === "offline"
+                                     ? ShadcnButton.Variant.Default
+                                     : ShadcnButton.Variant.Outline
+                            onClicked: { root.statusFilter = "offline"; root.refreshRows(); }
+                        }
+                        ShadcnButton {
+                            text: "告警 (" + (root.alarmData ? root.alarmData.activeCount : 0) + ")"
+                            size: ShadcnButton.Size.ExtraSmall
+                            variant: root.statusFilter === "alarm"
+                                     ? ShadcnButton.Variant.Default
+                                     : ShadcnButton.Variant.Outline
+                            onClicked: { root.statusFilter = "alarm"; root.refreshRows(); }
+                        }
+                        Item { Layout.fillWidth: true }
                     }
-                    ShadcnSeparator { Layout.fillWidth: true }
+
+                    // 表头（浅色底）
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 36
+                        radius: theme.radius
+                        color: Qt.alpha(theme.muted, 0.5)
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 12
+                            anchors.rightMargin: 12
+                            spacing: 10
+
+                            ShadcnLabel { Layout.preferredWidth: 72;  text: "状态";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 110; text: "设备 ID";  size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.fillWidth: true;    text: "名称";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 200; text: "最新数据"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 110; text: "最后上报"; size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                            ShadcnLabel { Layout.preferredWidth: 72;  text: "操作";     size: ShadcnLabel.Size.Small; variant: ShadcnLabel.Variant.Muted }
+                        }
+                    }
 
                     // 列表
                     ListView {
                         id: deviceList
-
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
                         model: deviceRows
-                        spacing: 2
+                        spacing: 0
 
                         QQC.ScrollBar.vertical: QQC.ScrollBar {
                             active: true
@@ -325,29 +389,31 @@ Rectangle {
                             required property string deviceId
                             required property string deviceName
                             required property string group
-                            required property string lastSeen
+                            required property string lastSeenText
+                            required property string lastSeenAbs
                             required property string statusText
                             required property string statusColor
+                            required property bool isOffline
+                            required property string metricSummary
 
                             width: deviceList.width
-                            height: 48
-                            radius: theme.radius
+                            height: 44
+                            radius: 6
                             color: deviceHover.containsMouse ? theme.muted : "transparent"
 
                             MouseArea {
                                 id: deviceHover
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                // 整行不响应点击：跳详情只走「详情」按钮，避免误触
                             }
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 12
                                 spacing: 10
 
-                                // 状态徽章：彩点 + 文字，一眼可辨在线/离线/告警/维护
+                                // 状态：小圆点 + 文字
                                 RowLayout {
                                     Layout.preferredWidth: 72
                                     spacing: 6
@@ -364,42 +430,61 @@ Rectangle {
                                     }
                                 }
 
+                                // 设备 ID：等宽、弱化
                                 ShadcnLabel {
                                     Layout.preferredWidth: 110
                                     text: deviceId
                                     size: ShadcnLabel.Size.Small
+                                    variant: ShadcnLabel.Variant.Muted
+                                    font.family: "Menlo"
+                                    elide: Text.ElideRight
                                 }
+
+                                // 名称：主标题
                                 ShadcnLabel {
                                     Layout.fillWidth: true
-                                    text: deviceName || "-"
+                                    text: deviceName || "—"
                                     size: ShadcnLabel.Size.Small
+                                    font.bold: true
                                     elide: Text.ElideRight
                                 }
-                                // 该设备真实上报的指标摘要（不再是写死的温湿度）
+
+                                // 最新数据：离线时灰化
                                 ShadcnLabel {
-                                    Layout.preferredWidth: 210
-                                    text: dataManager ? dataManager.metricSummary(deviceId, 2) : "—"
+                                    Layout.preferredWidth: 200
+                                    text: delegate.metricSummary
                                     size: ShadcnLabel.Size.Small
-                                    variant: ShadcnLabel.Variant.Muted
+                                    opacity: delegate.isOffline ? 0.45 : 1.0
+                                    color: delegate.isOffline ? theme.mutedForeground
+                                                              : theme.foreground
                                     elide: Text.ElideRight
                                 }
+
+                                // 最后上报：相对时间
                                 ShadcnLabel {
-                                    Layout.preferredWidth: 130
-                                    text: lastSeen || ""
+                                    Layout.preferredWidth: 110
+                                    text: delegate.lastSeenText
                                     size: ShadcnLabel.Size.Small
                                     variant: ShadcnLabel.Variant.Muted
                                 }
-                                ShadcnButton {
-                                    text: "接入"
-                                    size: ShadcnButton.Size.ExtraSmall
-                                    variant: ShadcnButton.Variant.Ghost
-                                    onClicked: root.navigateToGuide(deviceId)
-                                }
-                                ShadcnButton {
-                                    text: "详情"
-                                    size: ShadcnButton.Size.ExtraSmall
-                                    variant: ShadcnButton.Variant.Ghost
-                                    onClicked: root.deviceSelected(deviceId)
+
+                                // 操作：图标按钮
+                                RowLayout {
+                                    Layout.preferredWidth: 72
+                                    spacing: 2
+
+                                    ShadcnButton {
+                                        iconName: "link"
+                                        size: ShadcnButton.Size.ExtraSmall
+                                        variant: ShadcnButton.Variant.Ghost
+                                        onClicked: root.navigateToGuide(deviceId)
+                                    }
+                                    ShadcnButton {
+                                        iconName: "chevron-right"
+                                        size: ShadcnButton.Size.ExtraSmall
+                                        variant: ShadcnButton.Variant.Ghost
+                                        onClicked: root.deviceSelected(deviceId)
+                                    }
                                 }
                             }
                         }
@@ -418,15 +503,15 @@ Rectangle {
                             }
                             ShadcnLabel {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: "暂无设备"
+                                text: root.statusFilter === "all"
+                                      ? (root.searchText ? "无匹配设备" : "暂无设备")
+                                      : "该状态下暂无设备"
                                 variant: ShadcnLabel.Variant.Muted
                             }
                         }
                     }
                 }
             }
-
-
         }
     }
 
@@ -591,7 +676,6 @@ Rectangle {
                     }
                 }
 
-                // 可直接复制到固件的配置片段（可选中的只读文本）
                 QQC.TextArea {
                     id: snippetArea
                     Layout.fillWidth: true
@@ -612,7 +696,6 @@ Rectangle {
                     }
                 }
 
-                // 用于“复制”的隐藏编辑器
                 TextEdit { id: clipboardHelper; visible: false }
             }
 
@@ -653,5 +736,4 @@ Rectangle {
             if (registerDialog.opened) regError.text = error;
         }
     }
-
 }
