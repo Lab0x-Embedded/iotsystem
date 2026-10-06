@@ -659,12 +659,42 @@ static void publish_worker(void *arg) {
 /* OneNET 物模型兼容 (路线A): $sys/{pid}/{did}/thing/property/post      */
 /* ------------------------------------------------------------------ */
 
+/* 单个参数值 → 数值。支持三种形态：
+ *   number / bool / "on"-"off"-"true"-"false" 字符串（扁平写法）
+ *   {"value": <以上任意>}（OneNET 嵌套写法，递归取 value 成员）
+ * 可转换返回 1 并写 *out；不可转换返回 0。 */
+static int onenet_param_value(const cJSON *item, double *out) {
+    if (cJSON_IsNumber(item)) {
+        *out = item->valuedouble;
+        return 1;
+    }
+    if (cJSON_IsBool(item)) {
+        *out = cJSON_IsTrue(item) ? 1.0 : 0.0;
+        return 1;
+    }
+    if (cJSON_IsString(item) && item->valuestring) {
+        if (strcmp(item->valuestring, "on") == 0 ||
+            strcmp(item->valuestring, "true") == 0) {
+            *out = 1.0;
+            return 1;
+        }
+        if (strcmp(item->valuestring, "off") == 0 ||
+            strcmp(item->valuestring, "false") == 0) {
+            *out = 0.0;
+            return 1;
+        }
+        return 0;
+    }
+    if (cJSON_IsObject(item)) {
+        const cJSON *v = cJSON_GetObjectItem(item, "value");
+        return v ? onenet_param_value(v, out) : 0;
+    }
+    return 0;
+}
+
 /* 解析 $sys/{pid}/{did}/thing/property/post 的 OneJSON
  * payload {"id":"..","params":{..}}，把 params 的每个键值转成 datapoint
- * 提交线程池入库（与 devices/{id}/data 同一条链路）：
- *   - number  直接取值
- *   - bool    → 1/0
- *   - string  仅识别 "on"/"off"/"true"/"false"（执行器状态），其余跳过
+ * 提交线程池入库（与 devices/{id}/data 同一条链路）。
  * device_id 取自 topic 第 3 段（OneNET 语义里与 client_id 一致），
  * product_key 用连接认证时的 username。 */
 static void onenet_property_ingest(mqtt_connection_t *conn,
@@ -695,25 +725,11 @@ static void onenet_property_ingest(mqtt_connection_t *conn,
     cJSON_ArrayForEach(item, params) {
         double val;
 
-        if (cJSON_IsNumber(item)) {
-            val = item->valuedouble;
-        } else if (cJSON_IsBool(item)) {
-            val = cJSON_IsTrue(item) ? 1.0 : 0.0;
-        } else if (cJSON_IsString(item) && item->valuestring) {
-            if (strcmp(item->valuestring, "on") == 0 ||
-                strcmp(item->valuestring, "true") == 0)
-                val = 1.0;
-            else if (strcmp(item->valuestring, "off") == 0 ||
-                     strcmp(item->valuestring, "false") == 0)
-                val = 0.0;
-            else {
-                LOG_DEBUG("ONENET param '%s' non-numeric, skip", item->string);
-                continue;
-            }
-        } else {
+        if (!item->string || !item->string[0]) continue;
+        if (!onenet_param_value(item, &val)) {
+            LOG_DEBUG("ONENET param '%s' non-numeric, skip", item->string);
             continue;
         }
-        if (!item->string || !item->string[0]) continue;
 
         if (g_thread_pool) {
             publish_task_t *task = (publish_task_t *)calloc(1, sizeof(publish_task_t));

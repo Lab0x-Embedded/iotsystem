@@ -21,6 +21,7 @@
 | number | 直接取值 |
 | bool | true→1 / false→0 |
 | string | `"on"`/`"true"`→1，`"off"`/`"false"`→0，其余跳过 |
+| object `{"value": X}` | 递归取 `value` 成员按上表转换（OneNET 嵌套写法，实测常见） |
 
 ## STM32 工程改法（以 app_onenet.c 工程为例，仅改 app_config.h）
 
