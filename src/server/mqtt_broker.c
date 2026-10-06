@@ -589,10 +589,11 @@ static void publish_worker(void *arg) {
 
     /* 自动注册 product */
     char ensure_sql[768];
+    /* product_id 是 NOT NULL UNIQUE，不能漏；用 product_key 兼作 product_id */
     snprintf(ensure_sql, sizeof(ensure_sql),
-        "INSERT IGNORE INTO products (product_key, product_name) "
-        "VALUES ('%s','MQTT Auto Registered')",
-        esc_pk);
+        "INSERT IGNORE INTO products (product_id, product_key, product_name) "
+        "VALUES ('%s','%s','MQTT Auto Registered')",
+        esc_pk, esc_pk);
     db_pool_exec(db, ensure_sql);
 
     /* 自动注册 device; 已存在则顺带刷新 presence (不额外增加往返) */

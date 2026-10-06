@@ -416,6 +416,20 @@ int device_register(const char *device_id, const char *name, const char *product
         return -1;
     }
 
+    /* devices.product_key 有外键指向 products.product_key：
+     * 用新的产品 key 注册设备时，必须先把产品建出来，否则 INSERT devices
+     * 会因外键约束失败（ERROR 1452），调用方只看到一句 register failed。
+     * product_id 是 NOT NULL UNIQUE，这里直接用 product_key 兼作 product_id。 */
+    {
+        char psql[512];
+        snprintf(psql, sizeof(psql),
+                 "INSERT IGNORE INTO products (product_id, product_key, product_name) "
+                 "VALUES ('%s', '%s', '%s')",
+                 esc_pk, esc_pk, esc_pk);
+        if (db_pool_exec(conn, psql) != 0)
+            LOG_WARN("device_register: ensure product failed for %s", product_key);
+    }
+
     char sql[2048];
     /* group_id <= 0 视为“未分组”: 写 NULL, 否则 0 会违反 device_groups 外键 */
     char group_sql[16];
