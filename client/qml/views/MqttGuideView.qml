@@ -454,7 +454,7 @@ Rectangle {
 
                     ShadcnLabel {
                         Layout.fillWidth: true
-                        text: "真实硬件：ESP8266 NodeMCU + DHT11 + 继电器的完整 Arduino 固件见 firmware/esp8266/（含接线图与烧录步骤）。"
+                        text: "真实硬件：ESP8266 NodeMCU + DHT11 + 继电器的完整 Arduino 固件见 firmware/esp8266/（含接线图与烧录步骤）；ESP-01S 走 AT 指令接入（挂 51/STM32 主控）见 firmware/esp8266_at/（含刷 ESP-AT v2.2 固件步骤与可移植 C 驱动）。"
                         size: ShadcnLabel.Size.Small
                         variant: ShadcnLabel.Variant.Muted
                         wrapMode: Text.Wrap
