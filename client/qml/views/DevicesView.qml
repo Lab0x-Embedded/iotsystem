@@ -312,16 +312,16 @@ Rectangle {
                             text: "全部 (" + (root.deviceData ? root.deviceData.totalCount : 0) + ")"
                             size: ShadcnButton.Size.ExtraSmall
                             variant: (root.statusFilter ?? "all") === "all"
-                                     ? ShadcnButton.Variant.Default
-                                     : ShadcnButton.Variant.Outline
+                                     ? 0 /* Default=0 */
+                                     : 1 /* Outline=1 */
                             onClicked: { root.statusFilter = "all"; root.refreshRows(); }
                         }
                         ShadcnButton {
                             text: "在线 (" + (root.deviceData ? root.deviceData.onlineCount : 0) + ")"
                             size: ShadcnButton.Size.ExtraSmall
                             variant: (root.statusFilter ?? "online") === "online"
-                                     ? ShadcnButton.Variant.Default
-                                     : ShadcnButton.Variant.Outline
+                                     ? 0 /* Default=0 */
+                                     : 1 /* Outline=1 */
                             onClicked: { root.statusFilter = "online"; root.refreshRows(); }
                         }
                         ShadcnButton {
@@ -331,16 +331,16 @@ Rectangle {
                                 : 0) + ")"
                             size: ShadcnButton.Size.ExtraSmall
                             variant: (root.statusFilter ?? "offline") === "offline"
-                                     ? ShadcnButton.Variant.Default
-                                     : ShadcnButton.Variant.Outline
+                                     ? 0 /* Default=0 */
+                                     : 1 /* Outline=1 */
                             onClicked: { root.statusFilter = "offline"; root.refreshRows(); }
                         }
                         ShadcnButton {
                             text: "告警 (" + (root.alarmData ? root.alarmData.activeCount : 0) + ")"
                             size: ShadcnButton.Size.ExtraSmall
                             variant: (root.statusFilter ?? "alarm") === "alarm"
-                                     ? ShadcnButton.Variant.Default
-                                     : ShadcnButton.Variant.Outline
+                                     ? 0 /* Default=0 */
+                                     : 1 /* Outline=1 */
                             onClicked: { root.statusFilter = "alarm"; root.refreshRows(); }
                         }
                         Item { Layout.fillWidth: true }

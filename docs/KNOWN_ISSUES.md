@@ -27,7 +27,7 @@
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|
-| L6 | QtShadcn 枚举首轮绑定噪音 | 第三方 qtshadcn 模块 | 启动日志有少量 `Unable to assign [undefined] to int/QString`（如 ShadcnButton.Variant 枚举在懒加载视图首轮绑定未就绪），一次性、二轮绑定正确、UI 无影响。修法在上游：枚举单例注册提前于 QML 加载 |
+| L6 | ~~ 动态绑定内引用 QtShadcn 枚举首轮 undefined ~~ | 各 View 的 `variant:` 三元绑定 | ✅ 已缓解(2026-10-07)：qmlcachegen 只编译期解析**静态**枚举赋值，`cond ? ShadcnButton.Variant.Default : ...` 这类**动态绑定里的枚举引用**首轮运行期求值为 undefined → 每次启动刷 4~6 条 `Unable to assign [undefined] to int`。已在 Devices/Products/Alarms 三处改用整数序数+注释（`? 0 /* Default=0 */`）。**规范：动态绑定内不要引用 QtShadcn 枚举**；上游正解是让 qmlcachegen 支持动态枚举解析 |
 
 | # | 问题 | 位置 | 说明 |
 |---|------|------|------|

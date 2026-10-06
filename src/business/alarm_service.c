@@ -224,7 +224,8 @@ int alarm_recent(alarm_record_t *out, int max_n) {
     snprintf(sql,sizeof(sql),
         "SELECT a.id,a.device_id,a.metric,a.current_value,a.threshold,a.severity,a.status,"
         "a.acknowledged_by,COALESCE(u1.display_name,''),a.acknowledged_at,"
-        "a.resolved_by,COALESCE(u2.display_name,''),a.resolved_at"
+        "a.resolved_by,COALESCE(u2.display_name,''),a.resolved_at,"
+        "a.created_at"
         " FROM alerts a"
         " LEFT JOIN users u1 ON a.acknowledged_by=u1.id"
         " LEFT JOIN users u2 ON a.resolved_by=u2.id"
@@ -248,7 +249,19 @@ int alarm_recent(alarm_record_t *out, int max_n) {
         a->resolved_by = row[10]?atoi(row[10]):0;
         strncpy(a->resolved_by_name, row[11]?row[11]:"", ALARM_NAME_LEN-1);
         strncpy(a->resolved_at, row[12]?row[12]:"", 31);
-        a->triggered_at = time(NULL);
+        /* 触发时间 = 告警产生时间 (alerts.created_at)。
+         * 此前这里写 time(NULL)：每次查询都把触发时间刷成"现在"，
+         * 无论多老的告警都显示"刚刚"。 */
+        {
+            struct tm tm_v;
+            memset(&tm_v, 0, sizeof(tm_v));
+            a->triggered_at = time(NULL);   /* 兜底: 行损坏时退化为当前时间 */
+            if (row[13] &&
+                strptime(row[13], "%Y-%m-%d %H:%M:%S", &tm_v) != NULL) {
+                tm_v.tm_isdst = -1;
+                a->triggered_at = mktime(&tm_v);
+            }
+        }
         n++;
     }
     db_pool_free_result(res); db_pool_put(conn);

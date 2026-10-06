@@ -158,8 +158,8 @@ Rectangle {
                             ShadcnBadge {
                                 Layout.preferredWidth: 90
                                 text: propCount > 0 ? (propCount + " 项属性") : "自由模式"
-                                variant: propCount > 0 ? ShadcnBadge.Variant.Secondary
-                                                       : ShadcnBadge.Variant.Outline
+                                variant: propCount > 0 ? 1 /* Badge.Secondary */
+                                                       : 3 /* Badge.Outline */
                             }
                             ShadcnLabel {
                                 Layout.preferredWidth: 200
@@ -454,8 +454,8 @@ Rectangle {
                               ? modelDialog.propCount + " 项属性"
                               : "自由模式"
                         variant: modelDialog.whitelistMode
-                                 ? ShadcnBadge.Variant.Secondary
-                                 : ShadcnBadge.Variant.Outline
+                                 ? 1 /* Badge.Secondary */
+                                 : 3 /* Badge.Outline */
                     }
                 }
 
@@ -582,8 +582,8 @@ Rectangle {
                                         Layout.preferredWidth: 80
                                         text: propType
                                         variant: propType === "bool"
-                                                 ? ShadcnBadge.Variant.Secondary
-                                                 : ShadcnBadge.Variant.Outline
+                                                 ? 1 /* Badge.Secondary */
+                                                 : 3 /* Badge.Outline */
                                     }
                                     ShadcnLabel {
                                         Layout.fillWidth: true
