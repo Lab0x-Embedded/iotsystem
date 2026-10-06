@@ -28,10 +28,30 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <net/if.h>
+#include <ifaddrs.h>
 
 static event_loop_t *g_loop;
 thread_pool_t *g_thread_pool = NULL;
 static void on_signal(int sig) { (void)sig; if (g_loop) event_loop_stop(g_loop); }
+
+/** 打印本机局域网 IPv4：设备(AT 指令)/客户端接入要连的就是这个地址 */
+static void log_lan_ips(void) {
+    struct ifaddrs *ifs = NULL;
+    if (getifaddrs(&ifs) != 0) {
+        LOG_WARN("getifaddrs: %s（无法列出局域网 IP）", strerror(errno));
+        return;
+    }
+    for (struct ifaddrs *ifa = ifs; ifa; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET) continue;
+        if (!(ifa->ifa_flags & IFF_UP) || (ifa->ifa_flags & IFF_LOOPBACK)) continue;
+        char ip[INET_ADDRSTRLEN] = {0};
+        inet_ntop(AF_INET, &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr,
+                  ip, sizeof(ip));
+        LOG_INFO("LAN: %s -> %s   <- 设备接入/客户端连接用这个 IP", ifa->ifa_name, ip);
+    }
+    freeifaddrs(ifs);
+}
 
 static int make_listener(int port, int backlog) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -133,6 +153,7 @@ int main(int argc, char **argv) {
     LOG_INFO("=== IoT broker (P1+P4/P5/P6) ===");
     LOG_INFO("mqtt_port=%d http_port=%d workers=%d backlog=%d",
              cfg.mqtt_port, cfg.http_port, cfg.workers, cfg.backlog);
+    log_lan_ips();
 
     /* -------- P6: 数据库初始化 -------- */
     LOG_INFO("database: %s@%s:%d/%s (pool=%d)",
