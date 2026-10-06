@@ -541,15 +541,42 @@ Rectangle {
                     }
 
                     CodeBlock {
+                        // ts 用当前 Unix 秒（写死的历史时间戳会让"最后上报"显示成旧时间）
                         code: root.currentDevice
                               ? "AT+MQTTPUB=0,\"devices/" + root.devId + "/data\","
                                 + "\"{\\\"device_id\\\":\\\"" + root.devId + "\\\","
                                 + "\\\"datapoints\\\":[{\\\"metric\\\":\\\"temperature\\\","
-                                + "\\\"value\\\":25.6,\\\"ts\\\":1759709400}]}\",1,0"
+                                + "\\\"value\\\":25.6,\\\"ts\\\":" + Math.floor(Date.now() / 1000) + "}]}\",1,0"
                               : "AT+MQTTPUB=0,\"devices/dev_001/data\","
                                 + "\"{\\\"device_id\\\":\\\"dev_001\\\","
                                 + "\\\"datapoints\\\":[{\\\"metric\\\":\\\"temperature\\\","
-                                + "\\\"value\\\":25.6,\\\"ts\\\":1759709400}]}\",1,0"
+                                + "\\\"value\\\":25.6,\\\"ts\\\":" + Math.floor(Date.now() / 1000) + "}]}\",1,0"
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "若 AT+MQTTPUB 返回 ERROR（data 里的转义引号在部分固件版本上解析失败），改用 MQTTPUBRAW —— 长度不受限、无需转义，等 > 提示符后原样发送 JSON 字节："
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+
+                    CodeBlock {
+                        // payload 用当前 Unix 秒，AT+MQTTPUBRAW 的长度声明必须是
+                        // payload 的真实字节数 —— 声明错了 JSON 会被截断，直接上报失败
+                        property string payload: root.currentDevice
+                            ? '{"device_id":"' + root.devId + '","datapoints":'
+                              + '[{"metric":"temperature","value":25.6,"ts":'
+                              + Math.floor(Date.now() / 1000) + '}]}'
+                            : '{"device_id":"dev_001","datapoints":'
+                              + '[{"metric":"temperature","value":25.6,"ts":'
+                              + Math.floor(Date.now() / 1000) + '}]}'
+
+                        code: "AT+MQTTPUBRAW=0,\"devices/"
+                              + (root.currentDevice ? root.devId : "dev_001") + "/data\","
+                              + payload.length + ",1,0"
+                              + "\n（等待 > 提示符后原样发送以下 " + payload.length + " 字节，不转义、不加换行）\n"
+                              + payload
                     }
 
                     ShadcnLabel {

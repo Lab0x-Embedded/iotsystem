@@ -77,17 +77,19 @@ AT 指令行有约 256 字节上限，且 JSON 里的 `"` 要转义成 `\"`，`A
 很容易写不下/转义错。**用 MQTTPUBRAW 发原始字节**：
 
 ```text
-AT+MQTTPUBRAW=0,"devices/dev_001/data",86,1,0
+AT+MQTTPUBRAW=0,"devices/dev_001/data",92,1,0
 ```
 
-模块回 `OK` 后出现 `>` 提示符，此时**原样发送** 86 字节 payload（不转义、不加回车）：
+模块回 `OK` 后出现 `>` 提示符，此时**原样发送** 92 字节 payload（不转义、不加回车）：
 
 ```json
 {"device_id":"dev_001","datapoints":[{"metric":"temperature","value":25.6,"ts":1759709400}]}
 ```
 
 发完等 `+MQTTPUB:OK`（QoS 1 时平台侧 broker 会回 PUBACK，客户端无需关心）。
-`86` 必须等于 payload 的真实字节数。
+
+> **`92` 必须等于 payload 的真实字节数**（本例恰好 92，改了设备 ID 长度或数值就要重算）。
+> 声明少了 JSON 会被截断（平台解析失败、静默丢弃），声明多了尾部字节会泄进命令解析器报错 —— 这是 MQTTPUBRAW 最常见的翻车点。ts 建议用当前 Unix 秒（`date +%s`）。
 
 ## 5. 接收平台指令
 
