@@ -12,5 +12,6 @@
         <file>views/GroupsView.qml</file>
         <file>views/ProductsView.qml</file>
         <file>views/DeviceDetailView.qml</file>
+        <file>views/MqttGuideView.qml</file>
     </qresource>
 </RCC>

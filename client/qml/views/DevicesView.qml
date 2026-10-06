@@ -25,6 +25,9 @@ Rectangle {
     // 去产品管理页新建产品
     signal navigateToProducts()
 
+    // 请求打开该设备的 MQTT 接入指南（参数自动填入）
+    signal navigateToGuide(string deviceId)
+
     signal deviceSelected(string deviceId)
 
     QtShadcnTheme { id: theme }
@@ -294,6 +297,12 @@ Rectangle {
                                     text: lastSeen || ""
                                     size: ShadcnLabel.Size.Small
                                     variant: ShadcnLabel.Variant.Muted
+                                }
+                                ShadcnButton {
+                                    text: "接入"
+                                    size: ShadcnButton.Size.ExtraSmall
+                                    variant: ShadcnButton.Variant.Ghost
+                                    onClicked: root.navigateToGuide(deviceId)
                                 }
                                 ShadcnButton {
                                     text: "详情"

@@ -1,0 +1,466 @@
+import QtQuick
+import QtQuick.Controls as QQC
+import QtQuick.Layouts
+import QtShadcn
+import "../components"
+
+// MQTT 接入指南
+Rectangle {
+    id: root
+
+    QtShadcnTheme { id: theme }
+    color: theme.background
+
+    // 当前查看接入参数的设备（DeviceInfo gadget），null = 通用占位
+    property var currentDevice: null
+    property string devId: currentDevice ? currentDevice.id : "{device_id}"
+    property string devPk: currentDevice ? (currentDevice.productKey || "{product_key}") : "{product_key}"
+    property string devSecret: currentDevice ? currentDevice.deviceSecret : ""
+
+    function showDevice(deviceId) {
+        currentDevice = null;
+        if (!deviceId || !deviceModel) return;
+        for (var i = 0; i < deviceModel.rowCount(); i++) {
+            var d = deviceModel.deviceAt(i);
+            if (d && d.id === deviceId) {
+                currentDevice = d;
+                return;
+            }
+        }
+    }
+
+    property string toastText: ""
+    function showToast(msg) { toastText = msg; toastTimer.restart(); }
+
+    readonly property color hairline: Qt.alpha(theme.foreground, 0.08)
+    readonly property color softFill: Qt.alpha(theme.primary, 0.10)
+
+    // ── 内联组件 ──────────────────────────────────────────────
+
+    // 步骤卡片：圆角 + 细描边 + 左上角主色徽章
+    component StepCard: Rectangle {
+        id: card
+
+        property int step: 1
+        property string title: ""
+        property string note: ""
+        default property alias body: bodyCol.data
+
+        Layout.fillWidth: true
+        implicitHeight: cardCol.implicitHeight + 40
+        radius: 14
+        color: theme.background
+        border.width: 1
+        border.color: root.hairline
+
+        ColumnLayout {
+            id: cardCol
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 20
+            spacing: 14
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                Rectangle {
+                    Layout.alignment: Qt.AlignVCenter
+                    width: 28; height: 28; radius: 9
+                    color: root.softFill
+                    ShadcnLabel {
+                        anchors.centerIn: parent
+                        text: card.step
+                        color: theme.primary
+                        font.bold: true
+                        size: ShadcnLabel.Size.Small
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 1
+                    ShadcnLabel {
+                        text: card.title
+                        size: ShadcnLabel.Size.Medium
+                        font.bold: true
+                    }
+                    ShadcnLabel {
+                        visible: card.note !== ""
+                        text: card.note
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                    }
+                }
+            }
+
+            ColumnLayout {
+                id: bodyCol
+                Layout.fillWidth: true
+                spacing: 12
+            }
+        }
+    }
+
+    // 参数行：名称（muted）+ 值（等宽，可复制）
+    component FieldRow: RowLayout {
+        id: fieldRow
+
+        property string name: ""
+        property string value: ""
+        property bool copyable: true
+
+        Layout.fillWidth: true
+        spacing: 12
+
+        ShadcnLabel {
+            Layout.preferredWidth: 92
+            Layout.alignment: Qt.AlignVCenter
+            text: fieldRow.name
+            size: ShadcnLabel.Size.Small
+            variant: ShadcnLabel.Variant.Muted
+        }
+        CopyableText {
+            Layout.fillWidth: true
+            text: fieldRow.value
+            showCopyIcon: fieldRow.copyable
+            fontFamily: "Monaco"
+        }
+    }
+
+    // 代码块：等宽，右上角常显复制按钮
+    component CodeBlock: Rectangle {
+        id: codeBlock
+
+        property string code: ""
+
+        Layout.fillWidth: true
+        implicitHeight: codeText.implicitHeight + 28
+        radius: 10
+        color: theme.muted
+        border.width: 1
+        border.color: root.hairline
+
+        TextEdit {
+            id: codeText
+            anchors.left: parent.left
+            anchors.right: copyBtn.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: 14
+            anchors.topMargin: 14
+            anchors.bottomMargin: 14
+            anchors.rightMargin: 8
+
+            text: codeBlock.code
+            readOnly: true
+            selectByMouse: true
+            selectByKeyboard: true
+            color: theme.foreground
+            font.family: "Monaco"
+            font.pixelSize: 12
+            wrapMode: TextEdit.Wrap
+            clip: true
+            verticalAlignment: TextEdit.AlignVCenter
+        }
+
+        Item {
+            id: copyBtn
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 8
+            width: 28; height: 28
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 7
+                color: copyHover.containsMouse
+                       ? Qt.alpha(theme.foreground, 0.10)
+                       : "transparent"
+            }
+            ShadcnIcon {
+                anchors.centerIn: parent
+                name: "copy"
+                size: 13
+                color: copyHover.containsMouse ? theme.foreground : theme.mutedForeground
+            }
+            MouseArea {
+                id: copyHover
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    codeText.selectAll();
+                    codeText.copy();
+                    codeText.deselect();
+                    root.showToast("已复制到剪贴板");
+                }
+            }
+        }
+    }
+
+    // ── Toast ─────────────────────────────────────────────────
+
+    Rectangle {
+        id: toastBar
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 24
+        anchors.horizontalCenter: parent.horizontalCenter
+        color: theme.foreground
+        height: 38
+        width: toastLabel.implicitWidth + 36
+        radius: 10
+        opacity: root.toastText ? 1.0 : 0.0
+        visible: opacity > 0
+
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+
+        ShadcnLabel {
+            id: toastLabel
+            anchors.centerIn: parent
+            text: root.toastText
+            color: theme.background
+        }
+        Timer {
+            id: toastTimer
+            interval: 1800
+            onTriggered: root.toastText = ""
+        }
+    }
+
+    // ── 页面 ──────────────────────────────────────────────────
+
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 24
+        spacing: 16
+
+        // ===== 头部 =====
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 12
+
+            ColumnLayout {
+                spacing: 2
+                ShadcnLabel {
+                    text: "MQTT 接入指南"
+                    size: ShadcnLabel.Size.Large
+                    font.bold: true
+                }
+                ShadcnLabel {
+                    text: "按以下四步将设备接入平台"
+                    size: ShadcnLabel.Size.Small
+                    variant: ShadcnLabel.Variant.Muted
+                }
+            }
+            Item { Layout.fillWidth: true }
+
+            Rectangle {
+                visible: root.currentDevice !== null
+                implicitWidth: devChip.implicitWidth + 24
+                implicitHeight: 30
+                radius: 15
+                color: root.softFill
+                ShadcnLabel {
+                    id: devChip
+                    anchors.centerIn: parent
+                    text: root.currentDevice
+                          ? root.currentDevice.id
+                            + (root.currentDevice.name ? " · " + root.currentDevice.name : "")
+                          : ""
+                    size: ShadcnLabel.Size.Small
+                    color: theme.primary
+                    font.bold: true
+                }
+            }
+        }
+
+        // ===== 正文（可滚动） =====
+        Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            contentWidth: width
+            contentHeight: contentCol.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+
+            QQC.ScrollBar.vertical: QQC.ScrollBar {}
+
+            ColumnLayout {
+                id: contentCol
+                width: parent.width
+                spacing: 16
+
+                // ── 1. 连接参数 ──
+                StepCard {
+                    step: 1
+                    title: "连接参数（CONNECT）"
+                    note: "MQTT 3.1 / 3.1.1 / 5.0 · Keepalive 30–120s"
+
+                    FieldRow {
+                        name: "Broker 地址"
+                        value: "tcp://<服务器IP>:1883"
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: credCol.implicitHeight + 24
+                        radius: 10
+                        color: theme.muted
+
+                        ColumnLayout {
+                            id: credCol
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 10
+
+                            FieldRow {
+                                name: "client_id"
+                                value: root.currentDevice
+                                       ? "esp8266_" + root.devId
+                                       : "自定义唯一值（≤128 字节）"
+                            }
+                            FieldRow {
+                                name: "username"
+                                value: root.currentDevice ? root.devPk : "product_key"
+                            }
+                            FieldRow {
+                                name: "password"
+                                value: root.currentDevice
+                                       ? (root.devSecret !== "" ? root.devSecret : "（未设置）")
+                                       : "device_secret"
+                            }
+                        }
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "username = 设备所属产品的 ProductKey，password = 设备密钥，服务端查库校验（状态需为 registered/active；数据库不可用时认证失败）。同 client_id 重复连接会自动踢掉旧连接；1.5 倍 Keepalive 超时未收到报文判定离线。设备密钥可在「设备详情」页查看。"
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+                }
+
+                // ── 2. 数据上报 ──
+                StepCard {
+                    step: 2
+                    title: "数据上报（PUBLISH）"
+                    note: "QoS 0 或 1"
+
+                    FieldRow {
+                        name: "topic"
+                        value: "devices/" + root.devId + "/data"
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "payload 为 JSON，一次可携带多个数据点（metric 名自定义，ts 为 Unix 秒）："
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+
+                    CodeBlock {
+                        code: JSON.stringify({
+                            device_id: root.devId,
+                            datapoints: [
+                                { metric: "temperature", value: 25.6, ts: 1759709400 },
+                                { metric: "humidity",    value: 61.2, ts: 1759709400 }
+                            ]
+                        }, null, 2)
+                    }
+                }
+
+                // ── 3. 指令接收 ──
+                StepCard {
+                    step: 3
+                    title: "指令接收（SUBSCRIBE）"
+                    note: "QoS 1"
+
+                    FieldRow {
+                        name: "订阅 topic"
+                        value: "cmd/" + root.devId + "/exec"
+                    }
+
+                    CodeBlock {
+                        code: '{ "cmd": "set_relay", "payload": { "relay": "on" } }'
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "平台下发的指令 payload 如上（设备端解析 cmd 与 payload 字段执行）。设备离线期间的指令进入离线队列，重新连接并订阅后自动重放。"
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+                }
+
+                // ── 4. 快速验证 ──
+                StepCard {
+                    step: 4
+                    title: "快速验证"
+                    note: "mosquitto / 模拟脚本 / 真实硬件"
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "用 mosquitto 客户端模拟该设备（需安装 mosquitto-clients），订阅指令："
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+
+                    CodeBlock {
+                        code: root.currentDevice
+                              ? "mosquitto_sub -h <服务器IP> -p 1883 -i esp8266_" + root.devId
+                                + " -u " + root.devPk + " -P " + (root.devSecret || "<secret>")
+                                + " -t 'cmd/" + root.devId + "/exec' -q 1"
+                              : "mosquitto_sub -h 127.0.0.1 -p 1883 -i dev_001 -u factory_sensor -P secret_001 -t 'cmd/dev_001/exec' -q 1"
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "上报一条温度数据："
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+
+                    CodeBlock {
+                        code: root.currentDevice
+                              ? "mosquitto_pub -h <服务器IP> -p 1883 -i esp8266_" + root.devId
+                                + " -u " + root.devPk + " -P " + (root.devSecret || "<secret>")
+                                + " -t 'devices/" + root.devId + "/data' -q 1"
+                                + " -m '{\"device_id\":\"" + root.devId + "\",\"datapoints\":[{\"metric\":\"temperature\",\"value\":25.6,\"ts\":1759709400}]}'"
+                              : "mosquitto_pub -h 127.0.0.1 -p 1883 -i dev_001 -u factory_sensor -P secret_001 -t 'devices/dev_001/data' -q 1 -m '{\"device_id\":\"dev_001\",\"datapoints\":[{\"metric\":\"temperature\",\"value\":25.6,\"ts\":1759709400}]}'"
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "或直接用仓库自带的端到端模拟脚本（无需安装任何客户端）："
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+
+                    CodeBlock {
+                        code: root.currentDevice
+                              ? "python3 deploy/scripts/esp8266_e2e_test.py -d " + root.devId
+                                + " --pk " + root.devPk
+                                + " --secret " + (root.devSecret || "<secret>")
+                              : "python3 deploy/scripts/esp8266_e2e_test.py"
+                    }
+
+                    ShadcnLabel {
+                        Layout.fillWidth: true
+                        text: "真实硬件：ESP8266 NodeMCU + DHT11 + 继电器的完整 Arduino 固件见 firmware/esp8266/（含接线图与烧录步骤）。"
+                        size: ShadcnLabel.Size.Small
+                        variant: ShadcnLabel.Variant.Muted
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
+        }
+    }
+}

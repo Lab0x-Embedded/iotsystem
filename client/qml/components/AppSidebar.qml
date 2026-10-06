@@ -16,11 +16,12 @@ Rectangle {
     border.width: 1
 
     // 导航项定义
+    // viewIndex: 对应 main.qml StackLayout 的视图下标（4 = 设备详情，不在导航中）
     property var navItems: [
-        { icon: "monitor",  name: "设备" },
-        { icon: "bell",     name: "告警" },
-        { icon: "folder",   name: "分组" },
-        { icon: "tag",      name: "产品" }
+        { icon: "monitor",  name: "设备", viewIndex: 0 },
+        { icon: "bell",     name: "告警", viewIndex: 1 },
+        { icon: "folder",   name: "分组", viewIndex: 2 },
+        { icon: "tag",      name: "产品", viewIndex: 3 }
     ]
 
     ColumnLayout {
@@ -100,7 +101,7 @@ Rectangle {
                     Rectangle {
                         anchors.fill: parent
                         radius: theme.radius
-                        color: root.currentIndex === navDelegate.index
+                        color: root.currentIndex === navDelegate.modelData.viewIndex
                                ? theme.primary
                                : navMouse.containsMouse ? theme.muted : "transparent"
 
@@ -113,7 +114,7 @@ Rectangle {
                             ShadcnIcon {
                                 name: navDelegate.modelData.icon
                                 size: 18
-                                color: root.currentIndex === navDelegate.index
+                                color: root.currentIndex === navDelegate.modelData.viewIndex
                                        ? theme.primaryForeground
                                        : theme.mutedForeground
                             }
@@ -121,7 +122,7 @@ Rectangle {
                                 Layout.fillWidth: true
                                 text: navDelegate.modelData.name
                                 size: ShadcnLabel.Size.Medium
-                                color: root.currentIndex === navDelegate.index
+                                color: root.currentIndex === navDelegate.modelData.viewIndex
                                        ? theme.primaryForeground
                                        : theme.foreground
                             }
@@ -134,8 +135,8 @@ Rectangle {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            root.currentIndex = navDelegate.index;
-                            root.pageSelected(navDelegate.index);
+                            root.currentIndex = navDelegate.modelData.viewIndex;
+                            root.pageSelected(navDelegate.modelData.viewIndex);
                         }
                     }
                 }

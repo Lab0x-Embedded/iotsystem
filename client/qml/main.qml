@@ -19,7 +19,7 @@ QQC.ApplicationWindow {
     color: theme.background
 
     // ===== 视图切换 =====
-    // 0: 设备总览  1: 告警中心  2: 分组管理  3: 产品管理  4: 设备详情
+    // 0: 设备总览  1: 告警中心  2: 分组管理  3: 产品管理  4: 设备详情  5: MQTT 接入指南
     property int currentView: 0
 
     Component.onCompleted: {
@@ -76,6 +76,7 @@ QQC.ApplicationWindow {
         AppSidebar {
             Layout.fillHeight: true
             Layout.preferredWidth: 200
+            // 设备详情(4) 时高亮"设备"；其余视图下标与侧边栏 viewIndex 一致
             currentIndex: root.currentView === 4 ? 0 : root.currentView
             onPageSelected: function(index) { root.currentView = index; }
         }
@@ -93,6 +94,10 @@ QQC.ApplicationWindow {
                     root.currentView = 4;
                 }
                 onNavigateToProducts: root.currentView = 3
+                onNavigateToGuide: function(deviceId) {
+                    guideView.showDevice(deviceId);
+                    root.currentView = 5;
+                }
             }
 
             // 1: 告警中心
@@ -117,6 +122,11 @@ QQC.ApplicationWindow {
             DeviceDetailView {
                 id: detailView
                 onBackRequested: root.currentView = 0
+            }
+
+            // 5: MQTT 接入指南（由设备表格"接入"按钮进入，参数按设备填充）
+            MqttGuideView {
+                id: guideView
             }
         }
     }
